@@ -1,5 +1,3 @@
 fastapi
 uvicorn
-stripe
-openai
-python-dotenv
+python-multipart
