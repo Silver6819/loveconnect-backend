@@ -4,50 +4,59 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
 app = FastAPI()
-tareas = []
+
+# "Base de datos" temporal para usuarios
+usuarios = {}
 
 @app.get("/", response_class=HTMLResponse)
 async def inicio():
     return """
     <html>
         <head>
-            <title>LoveConnect - Panel</title>
+            <title>LoveConnect - Dating App</title>
             <style>
-                body { font-family: sans-serif; text-align: center; background: #eef2f3; padding: 40px; }
-                .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 450px; margin: auto; }
-                .btn { display: block; width: 100%; padding: 12px; margin: 15px 0; background: #3498db; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; }
-                .btn-green { background: #27ae60; }
+                body { font-family: sans-serif; text-align: center; background: #fff0f3; padding: 40px; }
+                .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(255,75,110,0.2); max-width: 450px; margin: auto; }
+                h1 { color: #ff4b6e; }
+                .btn { display: block; width: 100%; padding: 12px; margin: 10px 0; background: #ff4b6e; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; }
+                .user-box { border: 1px solid #eee; padding: 10px; margin-top: 10px; border-radius: 8px; text-align: left; }
             </style>
         </head>
         <body>
             <div class="card">
-                <h1>🚀 LoveConnect</h1>
-                <p>Servidor de Silver Breaker Activo</p>
-                <hr style="border:0; height:1px; background:#eee; margin:20px 0;">
-                <a href="/api/health" class="btn">📡 Revisar Estado</a>
-                <a href="/api/sumar/10/5" class="btn">🧮 Calculadora (10+5)</a>
-                <a href="/api/tareas/ver" class="btn btn-green">📝 Ver Mis Tareas</a>
+                <h1>💖 LoveConnect</h1>
+                <p>Encuentra personas cerca de ti</p>
+                <hr>
+                <a href="/api/usuarios/ver" class="btn">👥 Ver Personas Registradas</a>
+                <p style="font-size: 0.8em;">Usa las rutas para registrarte y chatear</p>
             </div>
         </body>
     </html>
     """
 
-@app.get("/api/health")
-async def health():
-    return {"status": "ok", "message": "Servidor Activo"}
+# --- REGISTRO Y UBICACIÓN ---
+@app.get("/api/registrar/{nombre}/{edad}/{ubicacion}")
+async def registrar(nombre: str, edad: int, ubicacion: str):
+    usuarios[nombre] = {
+        "edad": edad,
+        "ubicacion": ubicacion,
+        "chats": []
+    }
+    return {"mensaje": f"Bienvenido/a {nombre}", "perfil": usuarios[nombre]}
 
-@app.get("/api/sumar/{num1}/{num2}")
-async def sumar(num1: int, num2: int):
-    return {"resultado": num1 + num2}
+# --- VER TODOS LOS PERFILES ---
+@app.get("/api/usuarios/ver")
+async def ver_usuarios():
+    return {"comunidad": usuarios}
 
-@app.get("/api/tareas/agregar/{texto}")
-async def agregar_tarea(texto: str):
-    tareas.append(texto)
-    return {"mensaje": "Guardada", "lista": tareas}
-
-@app.get("/api/tareas/ver")
-async def ver_tareas():
-    return {"tus_tareas": tareas}
+# --- CHATS DE CONVERSACIÓN ---
+@app.get("/api/chatear/{emisor}/{receptor}/{mensaje}")
+async def enviar_mensaje(emisor: str, receptor: str, mensaje: str):
+    if receptor in usuarios:
+        registro_mensaje = f"{emisor} dice: {mensaje}"
+        usuarios[receptor]["chats"].append(registro_mensaje)
+        return {"estado": "Mensaje enviado", "conversacion": usuarios[receptor]["chats"]}
+    return {"error": "El usuario receptor no existe"}
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
