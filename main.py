@@ -1,12 +1,11 @@
 import os
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
 app = FastAPI()
 usuarios = {}
 
-# Estilos enfocados 100% en una App de Citas
 ESTILOS = """
 <style>
     body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #fdf2f4; color: #444; margin: 0; padding: 20px; }
@@ -16,12 +15,11 @@ ESTILOS = """
     h2 { color: #333; margin-top: 0; }
     .info { font-size: 0.9em; color: #777; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
     .chat-box { background: #fff9fa; padding: 15px; border-radius: 12px; border: 1px solid #ffeef1; }
-    .mensaje { background: white; padding: 10px; margin: 8px 0; border-radius: 10px; font-size: 0.9em; border: 1px solid #ffd1dc; color: #555; box-shadow: 2px 2px 5px rgba(0,0,0,0.02); }
-    .btn { display: inline-block; width: 100%; padding: 14px; background: #ff4b6e; color: white; text-decoration: none; border-radius: 10px; font-weight: bold; text-align: center; border: none; cursor: pointer; font-size: 16px; transition: 0.3s; }
-    .btn:hover { background: #e6395b; }
+    .mensaje { background: white; padding: 10px; margin: 8px 0; border-radius: 10px; font-size: 0.9em; border: 1px solid #ffd1dc; color: #555; }
+    .btn { display: inline-block; width: 100%; padding: 14px; background: #ff4b6e; color: white; text-decoration: none; border-radius: 10px; font-weight: bold; text-align: center; border: none; cursor: pointer; font-size: 16px; }
     .btn-secondary { background: #6c757d; margin-top: 10px; }
-    input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 15px; }
-    label { font-weight: bold; font-size: 0.85em; color: #ff4b6e; text-transform: uppercase; }
+    input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
+    label { font-weight: bold; font-size: 0.85em; color: #ff4b6e; }
 </style>
 """
 
@@ -29,88 +27,77 @@ ESTILOS = """
 async def inicio():
     return f"""
     <html>
-        <head><title>LoveConnect | Encuentra tu Conexión</title>{ESTILOS}</head>
+        <head><title>LoveConnect</title>{ESTILOS}</head>
         <body>
             <div class="container">
                 <h1>💖 LoveConnect</h1>
                 <div class="card">
                     <h2>Crear Perfil</h2>
                     <label>Nombre Completo</label>
-                    <input type="text" id="n" placeholder="Ej: Juan Pérez">
+                    <input type="text" id="n" placeholder="Tu nombre">
                     <label>Edad</label>
-                    <input type="number" id="e" placeholder="Ej: 28">
-                    <label>Ciudad / Ubicación</label>
-                    <input type="text" id="u" placeholder="Ej: San Salvador">
+                    <input type="number" id="e" placeholder="Tu edad">
+                    <label>Ciudad</label>
+                    <input type="text" id="u" placeholder="Tu ciudad">
                     <button class="btn" onclick="reg()">Registrarse Ahora</button>
                 </div>
                 <div class="card">
-                    <h2>Enviar un Mensaje</h2>
-                    <label>Tu Nombre</label>
-                    <input type="text" id="em" placeholder="¿Quién envía?">
-                    <label>Destinatario</label>
-                    <input type="text" id="re" placeholder="¿Para quién es?">
-                    <label>Mensaje</label>
-                    <input type="text" id="me" placeholder="Escribe tu mensaje aquí...">
-                    <button class="btn" style="background:#ff8da1;" onclick="env()">Enviar Mensaje</button>
+                    <h2>Enviar Mensaje</h2>
+                    <input type="text" id="em" placeholder="De:">
+                    <input type="text" id="re" placeholder="Para:">
+                    <input type="text" id="me" placeholder="Mensaje...">
+                    <button class="btn" style="background:#ff8da1;" onclick="env()">Enviar</button>
                 </div>
-                <a href="/api/usuarios/ver" class="btn btn-secondary">👥 Ver Directorio de Usuarios</a>
+                <a href="/api/usuarios/ver" class="btn btn-secondary">👥 Ver Directorio</a>
             </div>
             <script>
-                function reg() {{ 
-                    const n=document.getElementById('n').value, e=document.getElementById('e').value, u=document.getElementById('u').value;
-                    if(n && e && u) window.location.href = `/api/registrar/${{n}}/${{e}}/${{u}}`;
+                function reg() {{
+                    const n = document.getElementById('n').value;
+                    const e = document.getElementById('e').value;
+                    const u = document.getElementById('u').value;
+                    if(n && e && u) {{
+                        // Usamos encodeURIComponent para que acepte espacios en los nombres
+                        window.location.href = `/api/registrar?nombre=${{encodeURIComponent(n)}}&edad=${{e}}&ubicacion=${{encodeURIComponent(u)}}`;
+                    } else {{ alert('Completa todos los campos'); }}
                 }}
                 function env() {{
-                    const em=document.getElementById('em').value, re=document.getElementById('re').value, me=document.getElementById('me').value;
-                    if(em && re && me) window.location.href = `/api/chatear/${{em}}/${{re}}/${{me}}`;
+                    const em = document.getElementById('em').value;
+                    const re = document.getElementById('re').value;
+                    const me = document.getElementById('me').value;
+                    if(em && re && me) {{
+                        window.location.href = `/api/chatear?emisor=${{encodeURIComponent(em)}}&receptor=${{encodeURIComponent(re)}}&mensaje=${{encodeURIComponent(me)}}`;
+                    }} else {{ alert('Completa el chat'); }}
                 }}
             </script>
         </body>
     </html>
     """
 
-@app.get("/api/registrar/{{nombre}}/{{edad}}/{{ubicacion}}")
+# Cambiamos la forma de recibir datos a "Query Parameters" para evitar el error de "Not Found"
+@app.get("/api/registrar")
 async def registrar(nombre: str, edad: int, ubicacion: str):
-    usuarios[nombre] = {{"edad": edad, "ubicacion": ubicacion, "chats": []}}
-    return HTMLResponse(f"<html><head>{ESTILOS}</head><body style='text-align:center;'><div class='container'><div class='card'><h1>✅ Registro Completo</h1><p>Bienvenido a la red, <strong>{nombre}</strong>.</p><a href='/' class='btn'>Volver al Inicio</a></div></div></body></html>")
+    usuarios[nombre] = {"edad": edad, "ubicacion": ubicacion, "chats": []}
+    return HTMLResponse(f"<html><head>{ESTILOS}</head><body style='text-align:center;'><div class='container'><div class='card'><h1>✅ Registrado</h1><p>Bienvenido, {nombre}.</p><a href='/' class='btn'>Volver</a></div></div></body></html>")
 
-@app.get("/api/chatear/{{emisor}}/{{receptor}}/{{mensaje}}")
+@app.get("/api/chatear")
 async def chatear(emisor: str, receptor: str, mensaje: str):
     if receptor in usuarios:
         usuarios[receptor]["chats"].append(f"De {emisor}: {mensaje}")
-        return HTMLResponse(f"<html><head>{ESTILOS}</head><body style='text-align:center;'><div class='container'><div class='card'><h1>✉️ Mensaje Enviado</h1><p>Tu mensaje para <strong>{receptor}</strong> ha sido entregado.</p><a href='/' class='btn'>Volver al Inicio</a></div></div></body></html>")
-    return "Usuario no encontrado."
+        return HTMLResponse(f"<html><head>{ESTILOS}</head><body style='text-align:center;'><div class='container'><div class='card'><h1>✉️ Enviado</h1><a href='/' class='btn'>Volver</a></div></div></body></html>")
+    return HTMLResponse(f"<html><head>{ESTILOS}</head><body style='text-align:center;'><div class='container'><div class='card'><h1>❌ Error</h1><p>El usuario {receptor} no existe.</p><a href='/' class='btn'>Volver</a></div></div></body></html>")
 
 @app.get("/api/usuarios/ver", response_class=HTMLResponse)
 async def ver_usuarios():
     cartas = ""
     for nombre, datos in usuarios.items():
         mensajes = "".join([f"<div class='mensaje'>{m}</div>" for m in datos['chats']])
-        if not mensajes: mensajes = "<p style='color:#bbb; font-style:italic;'>Sin mensajes nuevos.</p>"
-        
         cartas += f"""
         <div class="card">
             <h2>👤 {nombre}</h2>
             <div class="info">📍 {datos['ubicacion']} | 🎂 {datos['edad']} años</div>
-            <div class="chat-box">
-                <strong>Bandeja de Entrada:</strong>
-                {mensajes}
-            </div>
-        </div>
-        """
-    
-    return f"""
-    <html>
-        <head><title>Directorio LoveConnect</title>{ESTILOS}</head>
-        <body>
-            <div class="container">
-                <h1>👥 Usuarios Registrados</h1>
-                {cartas if cartas else "<p style='text-align:center;'>No hay perfiles activos.</p>"}
-                <center><a href="/" class="btn btn-secondary">⬅️ Volver al Panel</a></center>
-            </div>
-        </body>
-    </html>
-    """
+            <div class="chat-box"><strong>Bandeja:</strong>{mensajes if datos['chats'] else '<p>Vacío</p>'}</div>
+        </div>"""
+    return f"<html><head>{ESTILOS}</head><body><div class='container'><h1>👥 Directorio</h1>{cartas}<center><a href='/' class='btn btn-secondary'>Volver</a></center></div></body></html>"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
