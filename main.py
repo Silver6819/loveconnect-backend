@@ -6,87 +6,111 @@ from fastapi.responses import HTMLResponse
 app = FastAPI()
 usuarios = {}
 
+# Estilos enfocados 100% en una App de Citas
+ESTILOS = """
+<style>
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #fdf2f4; color: #444; margin: 0; padding: 20px; }
+    .container { max-width: 500px; margin: auto; }
+    .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 8px 20px rgba(255,75,110,0.15); margin-bottom: 20px; }
+    h1 { color: #ff4b6e; text-align: center; font-weight: bold; }
+    h2 { color: #333; margin-top: 0; }
+    .info { font-size: 0.9em; color: #777; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    .chat-box { background: #fff9fa; padding: 15px; border-radius: 12px; border: 1px solid #ffeef1; }
+    .mensaje { background: white; padding: 10px; margin: 8px 0; border-radius: 10px; font-size: 0.9em; border: 1px solid #ffd1dc; color: #555; box-shadow: 2px 2px 5px rgba(0,0,0,0.02); }
+    .btn { display: inline-block; width: 100%; padding: 14px; background: #ff4b6e; color: white; text-decoration: none; border-radius: 10px; font-weight: bold; text-align: center; border: none; cursor: pointer; font-size: 16px; transition: 0.3s; }
+    .btn:hover { background: #e6395b; }
+    .btn-secondary { background: #6c757d; margin-top: 10px; }
+    input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 15px; }
+    label { font-weight: bold; font-size: 0.85em; color: #ff4b6e; text-transform: uppercase; }
+</style>
+"""
+
 @app.get("/", response_class=HTMLResponse)
 async def inicio():
-    return """
+    return f"""
     <html>
-        <head>
-            <title>LoveConnect - Home</title>
-            <style>
-                body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #fff0f3; padding: 20px; color: #333; }
-                .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 25px rgba(255,75,110,0.2); max-width: 450px; margin: 15px auto; }
-                h1 { color: #ff4b6e; margin-bottom: 5px; }
-                input, select { width: 90%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
-                .btn { display: block; width: 100%; padding: 12px; margin: 10px 0; background: #ff4b6e; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; font-size: 16px; }
-                .btn-chat { background: #4b7bff; }
-                .btn-view { background: #5d5d5d; }
-                label { display: block; text-align: left; margin-left: 5%; font-weight: bold; color: #555; }
-                hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
-            </style>
-        </head>
+        <head><title>LoveConnect | Encuentra tu Conexión</title>{ESTILOS}</head>
         <body>
-            <div class="card">
+            <div class="container">
                 <h1>💖 LoveConnect</h1>
-                <p>Crea tu perfil y busca pareja</p>
-                <hr>
-                <label>Tu Nombre:</label>
-                <input type="text" id="n_reg" placeholder="Ej: Silver">
-                <label>Tu Edad:</label>
-                <input type="number" id="e_reg" placeholder="Ej: 25">
-                <label>Tu Ubicación:</label>
-                <input type="text" id="u_reg" placeholder="Ej: Ahuachapan">
-                <button class="btn" onclick="registrar()">🚀 Registrarme Ahora</button>
+                <div class="card">
+                    <h2>Crear Perfil</h2>
+                    <label>Nombre Completo</label>
+                    <input type="text" id="n" placeholder="Ej: Juan Pérez">
+                    <label>Edad</label>
+                    <input type="number" id="e" placeholder="Ej: 28">
+                    <label>Ciudad / Ubicación</label>
+                    <input type="text" id="u" placeholder="Ej: San Salvador">
+                    <button class="btn" onclick="reg()">Registrarse Ahora</button>
+                </div>
+                <div class="card">
+                    <h2>Enviar un Mensaje</h2>
+                    <label>Tu Nombre</label>
+                    <input type="text" id="em" placeholder="¿Quién envía?">
+                    <label>Destinatario</label>
+                    <input type="text" id="re" placeholder="¿Para quién es?">
+                    <label>Mensaje</label>
+                    <input type="text" id="me" placeholder="Escribe tu mensaje aquí...">
+                    <button class="btn" style="background:#ff8da1;" onclick="env()">Enviar Mensaje</button>
+                </div>
+                <a href="/api/usuarios/ver" class="btn btn-secondary">👥 Ver Directorio de Usuarios</a>
             </div>
-
-            <div class="card">
-                <h3>💬 Enviar Mensaje</h3>
-                <label>De (Tu nombre):</label>
-                <input type="text" id="emisor" placeholder="Tu nombre">
-                <label>Para (Nombre del destino):</label>
-                <input type="text" id="receptor" placeholder="Nombre de la persona">
-                <label>Mensaje:</label>
-                <input type="text" id="mensaje" placeholder="Escribe algo lindo...">
-                <button class="btn btn-chat" onclick="enviar()">✉️ Enviar Mensaje</button>
-                <hr>
-                <a href="/api/usuarios/ver" class="btn btn-view">👥 Ver Comunidad y Chats</a>
-            </div>
-
             <script>
-                function registrar() {
-                    const n = document.getElementById('n_reg').value;
-                    const e = document.getElementById('e_reg').value;
-                    const u = document.getElementById('u_reg').value;
-                    if(n && e && u) window.location.href = `/api/registrar/${n}/${e}/${u}`;
-                    else alert('Llena los datos de registro');
-                }
-
-                function enviar() {
-                    const em = document.getElementById('emisor').value;
-                    const re = document.getElementById('receptor').value;
-                    const me = document.getElementById('mensaje').value;
-                    if(em && re && me) window.location.href = `/api/chatear/${em}/${re}/${me}`;
-                    else alert('Completa los campos del chat');
-                }
+                function reg() {{ 
+                    const n=document.getElementById('n').value, e=document.getElementById('e').value, u=document.getElementById('u').value;
+                    if(n && e && u) window.location.href = `/api/registrar/${{n}}/${{e}}/${{u}}`;
+                }}
+                function env() {{
+                    const em=document.getElementById('em').value, re=document.getElementById('re').value, me=document.getElementById('me').value;
+                    if(em && re && me) window.location.href = `/api/chatear/${{em}}/${{re}}/${{me}}`;
+                }}
             </script>
         </body>
     </html>
     """
 
-@app.get("/api/registrar/{nombre}/{edad}/{ubicacion}")
+@app.get("/api/registrar/{{nombre}}/{{edad}}/{{ubicacion}}")
 async def registrar(nombre: str, edad: int, ubicacion: str):
-    usuarios[nombre] = {"edad": edad, "ubicacion": ubicacion, "chats": []}
-    return HTMLResponse(f"<html><body style='text-align:center;font-family:sans-serif;padding:50px;'><h1>✅ Perfil Creado</h1><p>Bienvenido {nombre}.</p><a href='/'>Volver al Inicio</a></body></html>")
+    usuarios[nombre] = {{"edad": edad, "ubicacion": ubicacion, "chats": []}}
+    return HTMLResponse(f"<html><head>{ESTILOS}</head><body style='text-align:center;'><div class='container'><div class='card'><h1>✅ Registro Completo</h1><p>Bienvenido a la red, <strong>{nombre}</strong>.</p><a href='/' class='btn'>Volver al Inicio</a></div></div></body></html>")
 
-@app.get("/api/chatear/{emisor}/{receptor}/{mensaje}")
+@app.get("/api/chatear/{{emisor}}/{{receptor}}/{{mensaje}}")
 async def chatear(emisor: str, receptor: str, mensaje: str):
     if receptor in usuarios:
-        usuarios[receptor]["chats"].append(f"{emisor}: {mensaje}")
-        return HTMLResponse(f"<html><body style='text-align:center;font-family:sans-serif;padding:50px;'><h1>✉️ Mensaje Enviado</h1><p>Enviaste: '{mensaje}' a {receptor}.</p><a href='/'>Volver al Inicio</a></body></html>")
-    return HTMLResponse("<html><body style='text-align:center;padding:50px;'><h1>❌ Error</h1><p>Esa persona no existe.</p><a href='/'>Volver</a></body></html>")
+        usuarios[receptor]["chats"].append(f"De {emisor}: {mensaje}")
+        return HTMLResponse(f"<html><head>{ESTILOS}</head><body style='text-align:center;'><div class='container'><div class='card'><h1>✉️ Mensaje Enviado</h1><p>Tu mensaje para <strong>{receptor}</strong> ha sido entregado.</p><a href='/' class='btn'>Volver al Inicio</a></div></div></body></html>")
+    return "Usuario no encontrado."
 
-@app.get("/api/usuarios/ver")
+@app.get("/api/usuarios/ver", response_class=HTMLResponse)
 async def ver_usuarios():
-    return {"comunidad": usuarios}
+    cartas = ""
+    for nombre, datos in usuarios.items():
+        mensajes = "".join([f"<div class='mensaje'>{m}</div>" for m in datos['chats']])
+        if not mensajes: mensajes = "<p style='color:#bbb; font-style:italic;'>Sin mensajes nuevos.</p>"
+        
+        cartas += f"""
+        <div class="card">
+            <h2>👤 {nombre}</h2>
+            <div class="info">📍 {datos['ubicacion']} | 🎂 {datos['edad']} años</div>
+            <div class="chat-box">
+                <strong>Bandeja de Entrada:</strong>
+                {mensajes}
+            </div>
+        </div>
+        """
+    
+    return f"""
+    <html>
+        <head><title>Directorio LoveConnect</title>{ESTILOS}</head>
+        <body>
+            <div class="container">
+                <h1>👥 Usuarios Registrados</h1>
+                {cartas if cartas else "<p style='text-align:center;'>No hay perfiles activos.</p>"}
+                <center><a href="/" class="btn btn-secondary">⬅️ Volver al Panel</a></center>
+            </div>
+        </body>
+    </html>
+    """
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
