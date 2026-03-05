@@ -16,7 +16,7 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
 
-# TABLA UNIFICADA (Asegurando coincidencia con tu DB)
+# TABLA CORREGIDA: Usando "foto_url" para que coincida con tu base de datos
 usuarios_db = sqlalchemy.Table(
     "usuarios_loveconnect",
     metadata,
@@ -40,11 +40,11 @@ app = FastAPI()
 ESTILOS = """
 <style>
     body { font-family: 'Segoe UI', sans-serif; background: #fff5f7; margin: 0; padding: 15px; text-align: center; color: #333; }
-    .card { background: white; border-radius: 25px; padding: 20px; box-shadow: 0 8px 25px rgba(0,0,0,0.08); margin-bottom: 20px; border: 1px solid #ffeef2; position: relative; }
-    .btn { background: #ff4b6e; color: white; border: none; padding: 14px; border-radius: 12px; width: 100%; font-weight: bold; font-size: 1.1em; cursor: pointer; margin-top: 10px; text-decoration: none; display: block; box-sizing: border-box; }
-    .btn-delete { background: #ff4444; padding: 5px 10px; font-size: 0.8em; width: auto; position: absolute; top: 15px; right: 15px; border-radius: 8px; }
-    .preview { width: 140px; height: 140px; border-radius: 50%; object-fit: cover; border: 4px solid #ff4b6e; display: none; margin: 15px auto; }
-    input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 12px; box-sizing: border-box; font-size: 16px; }
+    .card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; position: relative; border: 1px solid #ffeef2; }
+    .btn { background: #ff4b6e; color: white; border: none; padding: 12px; border-radius: 10px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; text-decoration: none; display: block; box-sizing: border-box; }
+    .btn-delete { background: #ff4444; width: auto; padding: 5px 10px; position: absolute; top: 10px; right: 10px; font-size: 0.8em; border-radius: 5px; }
+    .preview { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #ff4b6e; display: none; margin: 10px auto; }
+    input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
 </style>
 """
 
@@ -55,26 +55,24 @@ class UserData(BaseModel):
 async def startup():
     if not database.is_connected: await database.connect()
 
-# --- RUTAS ---
-
 @app.get("/", response_class=HTMLResponse)
 async def inicio():
     return f"""
     <html>
         <head><meta name="viewport" content="width=device-width, initial-scale=1">{ESTILOS}</head>
         <body>
-            <h1>💖 LoveConnect Scan</h1>
+            <h1>💖 LoveConnect</h1>
             <div class="card">
-                <h3>Registro de Miembro</h3>
+                <h3>Crear Perfil</h3>
                 <input type="text" id="n" placeholder="Nombre completo">
                 <input type="number" id="e" placeholder="Edad">
-                <input type="text" id="u" placeholder="Ubicación/Región">
+                <input type="text" id="u" placeholder="Ubicación">
                 <img id="img_prev" class="preview">
-                <button class="btn" style="background:#4b7bff;" onclick="document.getElementById('f').click()">📷 Tomar/Subir Foto</button>
+                <button class="btn" style="background:#4b7bff;" onclick="document.getElementById('f').click()">📷 Subir Foto</button>
                 <input type="file" id="f" accept="image/*" style="display:none" onchange="processImage()">
-                <button class="btn" id="btn_reg" onclick="enviarDatos()">Crear Mi Perfil</button>
+                <button class="btn" id="btn_reg" onclick="enviarDatos()">Registrarme</button>
             </div>
-            <a href="/api/usuarios/ver" style="color:#888; text-decoration:none;">Explorar Comunidad</a>
+            <a href="/api/usuarios/ver" style="color:#ff4b6e;">Ver Comunidad</a>
             <script>
                 let b64 = "";
                 function processImage() {{
@@ -98,15 +96,15 @@ async def inicio():
                     const n = document.getElementById('n').value;
                     const e = document.getElementById('e').value;
                     const u = document.getElementById('u').value;
-                    if(!n || !b64) return alert("Por favor completa los campos");
-                    document.getElementById('btn_reg').innerHTML = "Registrando...";
+                    if(!n || !b64) return alert("Faltan datos o foto");
+                    document.getElementById('btn_reg').innerHTML = "Guardando...";
                     const res = await fetch('/api/registrar', {{
                         method: 'POST',
                         headers: {{ 'Content-Type': 'application/json' }},
                         body: JSON.stringify({{ nombre:n, edad:parseInt(e), ubicacion:u, foto:b64 }})
                     }});
                     if(res.ok) location.href = '/api/usuarios/ver';
-                    else {{ alert("Error: El nombre ya existe"); document.getElementById('btn_reg').innerHTML = "Crear Mi Perfil"; }}
+                    else alert("Error: El nombre ya existe");
                 }}
             </script>
         </body>
@@ -121,14 +119,13 @@ async def registrar(data: UserData):
         foto_url=data.foto, ultima_conexion=hora
     )
     await database.execute(query)
-    return {"status": "ok"}
+    return {{"status": "ok"}}
 
-# NUEVA RUTA PARA ELIMINAR
 @app.delete("/api/usuarios/borrar/{{usuario_id}}")
 async def borrar_usuario(usuario_id: int):
     query = usuarios_db.delete().where(usuarios_db.c.id == usuario_id)
     await database.execute(query)
-    return {"status": "borrado"}
+    return {{"status": "borrado"}}
 
 @app.get("/api/usuarios/ver", response_class=HTMLResponse)
 async def ver():
@@ -136,29 +133,30 @@ async def ver():
         rows = await database.fetch_all(usuarios_db.select())
         cartas = ""
         for r in rows:
-            cartas += f"""
+            # Leemos foto_url para mostrar la imagen
+            cartas += f'''
             <div class="card" style="display:flex; align-items:center; gap:15px; text-align:left;">
-                <button class="btn btn-delete" onclick="borrarPerfil({{r.id}})">🗑️</button>
-                <img src="{{r.foto_url}}" style="width:70px; height:70px; border-radius:50%; object-fit:cover; border:2px solid #ff4b6e;">
+                <button class="btn btn-delete" onclick="borrarPerfil({r.id})">🗑️</button>
+                <img src="{r.foto_url}" style="width:60px; height:60px; border-radius:50%; object-fit:cover;">
                 <div>
-                    <strong style="color:#ff4b6e;">{{r.nombre}}</strong><br>
-                    <small>{{r.ubicacion}} | {{r.edad}} años</small>
+                    <strong>{r.nombre}</strong><br>
+                    <small>{r.ubicacion} | {r.edad} años</small>
                 </div>
-            </div>"""
-        if not cartas: cartas = "<p>Aún no hay registros.</p>"
+            </div>'''
+        if not cartas: cartas = "<p>No hay usuarios registrados.</p>"
     except Exception as e:
-        cartas = f"<p style='color:red;'>Error de datos: {{e}}</p>"
+        cartas = f"<p style='color:red;'>Error: {{e}}</p>"
 
     return f"""
     <html>
         <head><meta name="viewport" content="width=device-width, initial-scale=1">{ESTILOS}</head>
         <body>
-            <h1>💖 Comunidad</h1>
+            <h1>👥 Comunidad</h1>
             {cartas}
             <br><a href="/" class="btn" style="background:#bbb;">Volver</a>
             <script>
                 async function borrarPerfil(id) {{
-                    if(confirm("¿Seguro que quieres borrar este perfil?")) {{
+                    if(confirm("¿Eliminar este perfil?")) {{
                         const res = await fetch(`/api/usuarios/borrar/${{id}}`, {{ method: 'DELETE' }});
                         if(res.ok) location.reload();
                     }}
