@@ -1,13 +1,9 @@
-import os
-import uvicorn
-import databases
-import sqlalchemy
-import json
+import os, uvicorn, databases, sqlalchemy, json, base64
 from datetime import datetime
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 
-# 1. Configuración de Base de Datos
+# 1. Base de Datos
 DATABASE_URL = os.environ.get("DATABASE_URL")
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
@@ -19,36 +15,29 @@ usuarios_db = sqlalchemy.Table(
     sqlalchemy.Column("nombre", sqlalchemy.String, unique=True),
     sqlalchemy.Column("edad", sqlalchemy.Integer),
     sqlalchemy.Column("ubicacion", sqlalchemy.String),
-    sqlalchemy.Column("foto_url", sqlalchemy.String, default="https://via.placeholder.com/150"),
+    sqlalchemy.Column("foto_b64", sqlalchemy.Text), # CAMBIO: Guardamos la imagen real aquí
     sqlalchemy.Column("ultima_conexion", sqlalchemy.String),
-    sqlalchemy.Column("es_premium", sqlalchemy.Boolean, default=False),
-    sqlalchemy.Column("chats_json", sqlalchemy.Text, default="[]")
+    sqlalchemy.Column("es_premium", sqlalchemy.Boolean, default=False)
 )
 
 engine = sqlalchemy.create_engine(DATABASE_URL)
 metadata.create_all(engine)
-
 app = FastAPI()
-sesion_activa = False
 
 ESTILOS = """
 <style>
-    body { font-family: 'Roboto', sans-serif; background: #fdf2f4; color: #444; margin: 0; padding: 10px; }
-    .container { max-width: 500px; margin: auto; }
-    .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid #fce4ec; }
-    .avatar-real { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #ff4b6e; }
-    .btn { display: block; width: 100%; padding: 12px; background: #ff4b6e; color: white; border-radius: 12px; font-weight: bold; text-align: center; border: none; cursor: pointer; text-decoration: none; margin-top: 10px; }
-    .btn-premium { background: linear-gradient(45deg, #ffd700, #ffa500); color: #000; }
-    input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #eee; border-radius: 10px; box-sizing: border-box; }
-    .badge { background: gold; font-size: 0.7em; padding: 2px 5px; border-radius: 5px; font-weight: bold; }
+    body { font-family: 'Segoe UI', sans-serif; background: #fff5f7; margin: 0; padding: 15px; text-align: center; }
+    .card { background: white; border-radius: 25px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .btn { background: #ff4b6e; color: white; border: none; padding: 15px; border-radius: 15px; width: 100%; font-weight: bold; font-size: 1.1em; cursor: pointer; margin-top: 10px; }
+    .btn-camera { background: #4b7bff; margin-bottom: 10px; }
+    .preview { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #ff4b6e; display: none; margin: 10px auto; }
+    input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 12px; }
+    .badge-premium { background: gold; color: black; padding: 3px 8px; border-radius: 5px; font-size: 0.8em; }
 </style>
 """
 
 @app.on_event("startup")
 async def startup(): await database.connect()
-
-@app.on_event("shutdown")
-async def shutdown(): await database.disconnect()
 
 @app.get("/", response_class=HTMLResponse)
 async def inicio():
@@ -56,62 +45,78 @@ async def inicio():
     <html>
         <head><meta name="viewport" content="width=device-width, initial-scale=1">{ESTILOS}</head>
         <body>
-            <div class="container">
-                <h1>💖 LoveConnect Pro</h1>
-                <div class="card">
-                    <h3>Registro con Foto</h3>
-                    <input type="text" id="n" placeholder="Nombre completo">
-                    <input type="number" id="e" placeholder="Edad">
-                    <input type="text" id="u" placeholder="Ciudad">
-                    <input type="text" id="f" placeholder="Link de tu foto real (URL)">
-                    <button class="btn" onclick="reg()">Crear Perfil Verificado</button>
-                </div>
-                <button class="btn" style="background:#bbb;" onclick="location.href='/api/usuarios/ver'">👥 Ver Comunidad</button>
+            <h1>📸 LoveConnect Scan</h1>
+            <div class="card">
+                <h3>Verificación de Rostro</h3>
+                <input type="text" id="n" placeholder="Nombre">
+                <input type="number" id="e" placeholder="Edad">
+                <input type="text" id="u" placeholder="Región">
+                
+                <img id="img_prev" class="preview">
+                <button class="btn btn-camera" onclick="document.getElementById('f').click()">📷 Tomar/Subir Foto</button>
+                <input type="file" id="f" accept="image/*" style="display:none" onchange="previewFile()">
+                
+                <button class="btn" onclick="enviar()">Verificar y Registrar</button>
             </div>
+            <a href="/api/usuarios/ver" style="text-decoration:none; color:#777;">Ver Comunidad</a>
+
             <script>
-                function reg() {{
-                    const n=document.getElementById('n').value, e=document.getElementById('e').value, 
-                          u=document.getElementById('u').value, f=document.getElementById('f').value;
-                    if(n && e && u) location.href=`/api/registrar?nombre=${{encodeURIComponent(n)}}&edad=${{e}}&ubicacion=${{encodeURIComponent(u)}}&foto=${{encodeURIComponent(f)}}`;
+                let base64String = "";
+                function previewFile() {{
+                    const file = document.getElementById('f').files[0];
+                    const reader = new FileReader();
+                    reader.onloadend = function() {{
+                        document.getElementById('img_prev').src = reader.result;
+                        document.getElementById('img_prev').style.display = "block";
+                        base64String = reader.result;
+                    }}
+                    if (file) reader.readAsDataURL(file);
+                }}
+
+                async def enviar() {{
+                    const n = document.getElementById('n').value;
+                    const e = document.getElementById('e').value;
+                    const u = document.getElementById('u').value;
+                    if(!n || !base64String) return alert("Falta nombre o foto");
+                    
+                    const res = await fetch('/api/registrar', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{ nombre:n, edad:e, ubicacion:u, foto:base64String }})
+                    }});
+                    if(res.ok) location.href = '/api/usuarios/ver';
                 }}
             </script>
         </body>
     </html>
     """
 
-@app.get("/api/registrar")
-async def registrar(nombre: str, edad: int, ubicacion: str, foto: str = None):
-    global sesion_activa
+# Necesitaremos un pequeño cambio en el registro para procesar el JSON del POST
+from pydantic import BaseModel
+class UserData(BaseModel):
+    nombre: str; edad: int; ubicacion: str; foto: str
+
+@app.post("/api/registrar")
+async def registrar(data: UserData):
     hora = datetime.now().strftime("%H:%M")
-    foto_final = foto if (foto and foto.strip() != "") else f"https://ui-avatars.com/api/?name={nombre}&background=ff4b6e&color=fff"
-    query = usuarios_db.insert().values(nombre=nombre, edad=edad, ubicacion=ubicacion, foto_url=foto_final, ultima_conexion=hora)
-    try:
-        await database.execute(query)
-        sesion_activa = True
-        return HTMLResponse(f"<html><head>{ESTILOS}</head><body style='text-align:center;'><div class='card'><h2>✅ Perfil Creado</h2><a href='/' class='btn'>Ir al Inicio</a></div></body></html>")
-    except: return "Error: El usuario ya existe."
+    query = usuarios_db.insert().values(
+        nombre=data.nombre, edad=data.edad, ubicacion=data.ubicacion, 
+        foto_b64=data.foto, ultima_conexion=hora
+    )
+    await database.execute(query)
+    return {{"status": "ok"}}
 
 @app.get("/api/usuarios/ver", response_class=HTMLResponse)
-async def ver_usuarios():
-    query = usuarios_db.select()
-    rows = await database.fetch_all(query)
+async def ver():
+    rows = await database.fetch_all(usuarios_db.select())
     cartas = ""
-    for row in rows:
-        premium_tag = "<span class='badge'>PREMIUM ⭐</span>" if row['es_premium'] else ""
+    for r in rows:
         cartas += f"""
-        <div class="card">
-            <div style="display:flex; align-items:center; gap:15px;">
-                <img src="{row['foto_url']}" class="avatar-real">
-                <div>
-                    <h2>{row['nombre']} {premium_tag}</h2>
-                    <small>📍 {row['ubicacion']} | 🎂 {row['edad']} años</small><br>
-                    <small style="color:green;">● Activo: {row['ultima_conexion']}</small>
-                </div>
+        <div class="card" style="display:flex; align-items:center; gap:15px; text-align:left;">
+            <img src="{r['foto_b64']}" style="width:70px; height:70px; border-radius:50%; object-fit:cover;">
+            <div>
+                <strong>{r['nombre']}</strong> <br>
+                <small>📍 {r['ubicacion']} | {r['edad']} años</small>
             </div>
-            <button class="btn btn-premium" onclick="alert('Redirigiendo a Pago seguro...')">💎 Hacerse Premium</button>
         </div>"""
-    return f"<html><head><meta name='viewport' content='width=device-width, initial-scale=1'>{ESTILOS}</head><body><div class='container'><h1>Comunidad</h1>{cartas}<a href='/' class='btn' style='background:#bbb;'>Volver</a></div></body></html>"
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    return f"<html><head><meta name='viewport' content='width=device-width, initial-scale=1'>{ESTILOS}</head><body>{cartas}<a href='/' class='btn'>Volver</a></body></html>"
