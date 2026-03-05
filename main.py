@@ -2,6 +2,7 @@ import os, uvicorn, databases, sqlalchemy, json, base64
 from datetime import datetime
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
 # 1. Base de Datos
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -15,7 +16,7 @@ usuarios_db = sqlalchemy.Table(
     sqlalchemy.Column("nombre", sqlalchemy.String, unique=True),
     sqlalchemy.Column("edad", sqlalchemy.Integer),
     sqlalchemy.Column("ubicacion", sqlalchemy.String),
-    sqlalchemy.Column("foto_b64", sqlalchemy.Text), # CAMBIO: Guardamos la imagen real aquí
+    sqlalchemy.Column("foto_b64", sqlalchemy.Text),
     sqlalchemy.Column("ultima_conexion", sqlalchemy.String),
     sqlalchemy.Column("es_premium", sqlalchemy.Boolean, default=False)
 )
@@ -30,11 +31,13 @@ ESTILOS = """
     .card { background: white; border-radius: 25px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-bottom: 20px; }
     .btn { background: #ff4b6e; color: white; border: none; padding: 15px; border-radius: 15px; width: 100%; font-weight: bold; font-size: 1.1em; cursor: pointer; margin-top: 10px; }
     .btn-camera { background: #4b7bff; margin-bottom: 10px; }
-    .preview { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #ff4b6e; display: none; margin: 10px auto; }
-    input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 12px; }
-    .badge-premium { background: gold; color: black; padding: 3px 8px; border-radius: 5px; font-size: 0.8em; }
+    .preview { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid #ff4b6e; display: none; margin: 15px auto; }
+    input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 12px; font-size: 16px; }
 </style>
 """
+
+class UserData(BaseModel):
+    nombre: str; edad: int; ubicacion: str; foto: str
 
 @app.on_event("startup")
 async def startup(): await database.connect()
@@ -48,15 +51,15 @@ async def inicio():
             <h1>📸 LoveConnect Scan</h1>
             <div class="card">
                 <h3>Verificación de Rostro</h3>
-                <input type="text" id="n" placeholder="Nombre">
+                <input type="text" id="n" placeholder="Nombre completo">
                 <input type="number" id="e" placeholder="Edad">
-                <input type="text" id="u" placeholder="Región">
+                <input type="text" id="u" placeholder="Región/Ciudad">
                 
                 <img id="img_prev" class="preview">
                 <button class="btn btn-camera" onclick="document.getElementById('f').click()">📷 Tomar/Subir Foto</button>
                 <input type="file" id="f" accept="image/*" style="display:none" onchange="previewFile()">
                 
-                <button class="btn" onclick="enviar()">Verificar y Registrar</button>
+                <button class="btn" id="btn_reg" onclick="enviarDatos()">Verificar y Registrar</button>
             </div>
             <a href="/api/usuarios/ver" style="text-decoration:none; color:#777;">Ver Comunidad</a>
 
@@ -73,28 +76,31 @@ async def inicio():
                     if (file) reader.readAsDataURL(file);
                 }}
 
-                async def enviar() {{
+                async function enviarDatos() {{
                     const n = document.getElementById('n').value;
                     const e = document.getElementById('e').value;
                     const u = document.getElementById('u').value;
-                    if(!n || !base64String) return alert("Falta nombre o foto");
+                    const btn = document.getElementById('btn_reg');
+
+                    if(!n || !base64String) {{ alert("Por favor, completa tu nombre y tómate una foto."); return; }}
                     
-                    const res = await fetch('/api/registrar', {{
-                        method: 'POST',
-                        headers: {{ 'Content-Type': 'application/json' }},
-                        body: JSON.stringify({{ nombre:n, edad:e, ubicacion:u, foto:base64String }})
-                    }});
-                    if(res.ok) location.href = '/api/usuarios/ver';
+                    btn.innerHTML = "Procesando...";
+                    btn.disabled = true;
+
+                    try {{
+                        const res = await fetch('/api/registrar', {{
+                            method: 'POST',
+                            headers: {{ 'Content-Type': 'application/json' }},
+                            body: JSON.stringify({{ nombre:n, edad:parseInt(e), ubicacion:u, foto:base64String }})
+                        }});
+                        if(res.ok) {{ location.href = '/api/usuarios/ver'; }}
+                        else {{ alert("Error al registrar. Quizás el nombre ya existe."); btn.disabled = false; btn.innerHTML = "Verificar y Registrar"; }}
+                    }} catch(err) {{ alert("Error de conexión"); btn.disabled = false; }}
                 }}
             </script>
         </body>
     </html>
     """
-
-# Necesitaremos un pequeño cambio en el registro para procesar el JSON del POST
-from pydantic import BaseModel
-class UserData(BaseModel):
-    nombre: str; edad: int; ubicacion: str; foto: str
 
 @app.post("/api/registrar")
 async def registrar(data: UserData):
@@ -104,7 +110,7 @@ async def registrar(data: UserData):
         foto_b64=data.foto, ultima_conexion=hora
     )
     await database.execute(query)
-    return {{"status": "ok"}}
+    return {"status": "ok"}
 
 @app.get("/api/usuarios/ver", response_class=HTMLResponse)
 async def ver():
@@ -113,10 +119,11 @@ async def ver():
     for r in rows:
         cartas += f"""
         <div class="card" style="display:flex; align-items:center; gap:15px; text-align:left;">
-            <img src="{r['foto_b64']}" style="width:70px; height:70px; border-radius:50%; object-fit:cover;">
+            <img src="{r['foto_b64']}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; border: 2px solid #ff4b6e;">
             <div>
-                <strong>{r['nombre']}</strong> <br>
-                <small>📍 {r['ubicacion']} | {r['edad']} años</small>
+                <strong style="font-size:1.2em;">{r['nombre']}</strong> <br>
+                <small>📍 {r['ubicacion']} | {r['edad']} años</small><br>
+                <small style="color:green;">● Activo hoy</small>
             </div>
         </div>"""
-    return f"<html><head><meta name='viewport' content='width=device-width, initial-scale=1'>{ESTILOS}</head><body>{cartas}<a href='/' class='btn'>Volver</a></body></html>"
+    return f"<html><head><meta name='viewport' content='width=device-width, initial-scale=1'>{ESTILOS}</head><body><div style='max-width:500px; margin:auto;'><h1>Comunidad</h1>{cartas}<a href='/' class='btn' style='background:#bbb;'>Volver</a></div></body></html>"
