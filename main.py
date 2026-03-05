@@ -16,7 +16,7 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
 
-# Tablas actualizadas
+# Definición de la tabla
 usuarios_db = sqlalchemy.Table(
     "usuarios_loveconnect",
     metadata,
@@ -24,34 +24,36 @@ usuarios_db = sqlalchemy.Table(
     sqlalchemy.Column("nombre", sqlalchemy.String),
     sqlalchemy.Column("edad", sqlalchemy.Integer),
     sqlalchemy.Column("ubicacion", sqlalchemy.String),
-    sqlalchemy.Column("quien_soy", sqlalchemy.Text), # NUEVO: Biografía
-    sqlalchemy.Column("corazones", sqlalchemy.Integer, default=0), # NUEVO: Likes
+    sqlalchemy.Column("quien_soy", sqlalchemy.Text),
+    sqlalchemy.Column("corazones", sqlalchemy.Integer, default=0),
     sqlalchemy.Column("foto_url", sqlalchemy.Text),
     sqlalchemy.Column("ultima_conexion", sqlalchemy.String)
 )
 
-mensajes_db = sqlalchemy.Table(
-    "mensajes_loveconnect",
-    metadata,
-    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
-    sqlalchemy.Column("usuario_id", sqlalchemy.Integer),
-    sqlalchemy.Column("texto", sqlalchemy.Text),
-    sqlalchemy.Column("fecha", sqlalchemy.String)
-)
-
-try:
-    engine = sqlalchemy.create_engine(DATABASE_URL)
-    metadata.create_all(engine)
-except Exception: pass
-
 app = FastAPI()
+
+# --- FUNCIÓN AUTOCORREGIBLE (Arregla el error de columnas) ---
+@app.on_event("startup")
+async def startup():
+    if not database.is_connected:
+        await database.connect()
+    
+    # Este bloque de código crea las columnas si no existen automáticamente
+    try:
+        query1 = "ALTER TABLE usuarios_loveconnect ADD COLUMN IF NOT EXISTS quien_soy TEXT;"
+        query2 = "ALTER TABLE usuarios_loveconnect ADD COLUMN IF NOT EXISTS corazones INTEGER DEFAULT 0;"
+        await database.execute(query1)
+        await database.execute(query2)
+        print("✅ Base de datos actualizada correctamente.")
+    except Exception as e:
+        print(f"Nota: Las columnas ya existen o se están creando: {e}")
 
 ESTILOS = """
 <style>
     body { font-family: 'Segoe UI', sans-serif; background: #fff5f7; margin: 0; padding: 10px; text-align: center; color: #333; }
     .card { background: white; border-radius: 15px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; position: relative; border: 1px solid #ffeef2; }
     .btn { background: #ff4b6e; color: white; border: none; padding: 10px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 5px; text-decoration: none; display: block; box-sizing: border-box; }
-    .btn-like { background: none; border: 1px solid #ff4b6e; color: #ff4b6e; width: auto; padding: 5px 10px; border-radius: 20px; cursor: pointer; font-size: 0.9em; display: inline-flex; align-items: center; gap: 5px; }
+    .btn-like { background: #fff; border: 1px solid #ff4b6e; color: #ff4b6e; padding: 5px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; }
     .preview { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #ff4b6e; display: none; margin: 10px auto; }
     input, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
     .filtro { background: white; padding: 10px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #ff4b6e; }
@@ -61,10 +63,6 @@ ESTILOS = """
 class UserData(BaseModel):
     id: Optional[int] = None
     nombre: str; edad: int; ubicacion: str; quien_soy: str; foto: str
-
-@app.on_event("startup")
-async def startup():
-    if not database.is_connected: await database.connect()
 
 @app.get("/", response_class=HTMLResponse)
 async def inicio(edit: Optional[bool] = None, id: Optional[int] = None, n: str = "", e: int = 0, u: str = "", q: str = ""):
@@ -116,14 +114,12 @@ async def inicio(edit: Optional[bool] = None, id: Optional[int] = None, n: str =
                         quien_soy: document.getElementById('q').value,
                         foto: b64
                     }};
-                    if(!data.nombre || !b64) return alert("Falta nombre o foto");
-                    await fetch('/api/registrar', {{
+                    const res = await fetch('/api/registrar', {{
                         method: id ? 'PUT' : 'POST',
                         headers: {{ 'Content-Type': 'application/json' }},
                         body: JSON.stringify(data)
                     }});
-                    localStorage.removeItem('temp_foto');
-                    location.href = '/api/usuarios/ver';
+                    if(res.ok) {{ localStorage.removeItem('temp_foto'); location.href = '/api/usuarios/ver'; }}
                 }}
             </script>
         </body>
@@ -147,9 +143,9 @@ async def ver(ciudad: Optional[str] = None):
                     <small>📍 {u.ubicacion}</small><br>
                     <button class="btn-like" onclick="darLike({u.id})">❤️ <span id="like-{u.id}">{u.corazones}</span></button>
                 </div>
-                <button onclick="prepararEdicion({{id:{u.id}, n:'{u.nombre}', e:{u.edad}, u:'{u.ubicacion}', q:'{u.quien_soy}', f:'{u.foto_url}'}})" style="border:none; background:none; cursor:pointer;">✏️</button>
+                <button onclick="prepararEdicion({{id:{u.id}, n:'{u.nombre}', e:{u.edad}, u:'{u.ubicacion}', q:'{u.quien_soy}', f:'{u.foto_url}'}})" style="border:none; background:none; cursor:pointer; font-size:1.2em;">✏️</button>
             </div>
-            <p style="text-align:left; font-size:0.9em; background:#fffafa; padding:10px; border-radius:8px; margin-top:10px;">
+            <p style="text-align:left; font-size:0.9em; background:#fdfdfd; padding:10px; border-radius:8px; border:1px solid #eee; margin-top:10px;">
                 <strong>Sobre mí:</strong> {u.quien_soy or "¡Hola! Soy nuevo aquí."}
             </p>
         </div>'''
@@ -160,11 +156,11 @@ async def ver(ciudad: Optional[str] = None):
         <body>
             <h1>👥 Comunidad</h1>
             <div class="filtro">
-                <input type="text" id="busc" placeholder="🔍 Buscar por ciudad (Zacatecoluca...)" onkeyup="if(event.key==='Enter') filtrar()">
-                <button class="btn" style="background:#ff4b6e; margin-top:5px;" onclick="filtrar()">Filtrar Zona</button>
+                <input type="text" id="busc" placeholder="🔍 Ciudad (Zacatecoluca...)">
+                <button class="btn" style="background:#ff4b6e;" onclick="filtrar()">Filtrar</button>
             </div>
-            {cartas or "<p>No se encontraron personas en esta zona.</p>"}
-            <br><a href="/" class="btn" style="background:#bbb;">Volver al Inicio</a>
+            {cartas or "<p>No hay perfiles en esta zona.</p>"}
+            <br><a href="/" class="btn" style="background:#bbb;">Volver</a>
             <script>
                 function filtrar() {{
                     const c = document.getElementById('busc').value;
@@ -197,8 +193,7 @@ async def actualizar(data: UserData):
 
 @app.post("/api/usuarios/like/{{u_id}}")
 async def like_user(u_id: int):
-    query = f"UPDATE usuarios_loveconnect SET corazones = corazones + 1 WHERE id = {u_id}"
-    await database.execute(query)
+    await database.execute(f"UPDATE usuarios_loveconnect SET corazones = corazones + 1 WHERE id = {u_id}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
