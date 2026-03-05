@@ -2,11 +2,10 @@ import os
 import uvicorn
 import databases
 import sqlalchemy
-from datetime import datetime
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
-# --- CONFIGURACIÓN DE BASE DE DATOS ---
+# --- CONEXIÓN A BASE DE DATOS ---
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -19,13 +18,9 @@ usuarios_db = sqlalchemy.Table(
     metadata,
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
     sqlalchemy.Column("nombre", sqlalchemy.String),
-    sqlalchemy.Column("edad", sqlalchemy.Integer),
     sqlalchemy.Column("ubicacion", sqlalchemy.String),
     sqlalchemy.Column("quien_soy", sqlalchemy.Text),
-    sqlalchemy.Column("corazones", sqlalchemy.Integer, default=0),
-    sqlalchemy.Column("super_likes", sqlalchemy.Integer, default=0),
-    sqlalchemy.Column("es_premium", sqlalchemy.Boolean, default=False),
-    sqlalchemy.Column("video_url", sqlalchemy.Text)
+    sqlalchemy.Column("es_premium", sqlalchemy.Boolean, default=False)
 )
 
 app = FastAPI()
@@ -34,64 +29,47 @@ app = FastAPI()
 async def startup():
     if not database.is_connected: await database.connect()
 
-# --- TRADUCCIÓN RÁPIDA ---
-def traducir(request: Request):
-    # Detecta el idioma del navegador
-    lang = request.headers.get("accept-language", "es")
-    if "en" in lang.lower():
-        return {
-            "titulo": "Community",
-            "ver_mas": "View Full Profile",
-            "volver": "Back",
-            "vacio": "No profiles yet."
-        }
-    else:
-        return {
-            "titulo": "Comunidad Real",
-            "ver_mas": "Ver perfil completo",
-            "volver": "Volver al inicio",
-            "vacio": "Aún no hay perfiles."
-        }
-
 ESTILOS = """
 <style>
     body { font-family: 'Segoe UI', sans-serif; background: #fff5f7; margin: 0; padding: 10px; text-align: center; }
-    .card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); margin-bottom: 20px; border: 1px solid #ffeef2; position: relative; }
-    .btn-detalles { 
-        display: inline-block; 
-        margin-top: 10px; 
-        color: #ff4b6e; 
-        font-weight: bold; 
-        text-decoration: none; 
-        border: 2px solid #ff4b6e; 
-        padding: 8px 15px; 
-        border-radius: 20px; 
-        transition: 0.3s;
-    }
-    .btn-detalles:hover { background: #ff4b6e; color: white; }
-    .info-user { text-align: left; margin-bottom: 10px; }
+    .card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); margin-bottom: 20px; border: 1px solid #ffeef2; }
+    .btn-main { background: #ff4b6e; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: bold; cursor: pointer; }
+    .btn-paypal { background: #0070ba; color: white; padding: 15px; border-radius: 12px; display: block; text-decoration: none; margin-bottom: 10px; font-weight: bold; }
+    .btn-ver { color: #ff4b6e; font-weight: bold; text-decoration: none; border: 2px solid #ff4b6e; padding: 8px 15px; border-radius: 20px; display: inline-block; margin-top: 10px; }
+    .modal { display: none; position: fixed; top: 15%; left: 5%; width: 90%; background: white; border-radius: 25px; padding: 25px; box-shadow: 0 10px 50px rgba(0,0,0,0.4); z-index: 100; border: 2px solid gold; box-sizing: border-box; }
 </style>
 """
 
 @app.get("/", response_class=HTMLResponse)
 async def inicio():
-    # Mantenemos tu formulario de registro igual para que no falle
     return f"""
     <html>
         <head><meta name="viewport" content="width=device-width, initial-scale=1">{ESTILOS}</head>
         <body>
+            <div style="text-align:right;"><button onclick="document.getElementById('m').style.display='block'" style="background:gold; border:none; padding:10px; border-radius:50%; font-size:1.2em; cursor:pointer;">👑</button></div>
             <h1 style="color:#ff4b6e;">💖 LoveConnect</h1>
+            
+            <div id="m" class="modal">
+                <h2 style="margin-top:0;">👑 Hazte Premium</h2>
+                <p>Apoya la app y destaca tu perfil en Zacatecoluca.</p>
+                <a href="https://www.paypal.com/paypalme/silver676" target="_blank" class="btn-paypal">Pagar con PayPal</a>
+                <button onclick="document.getElementById('m').style.display='none'" style="background:#eee; border:none; padding:10px; width:100%; border-radius:10px;">Cerrar</button>
+            </div>
+
             <div class="card">
                 <h3>Crear tu Perfil</h3>
-                <input type="text" id="n" placeholder="Tu Nombre" style="width:100%; padding:10px; margin:5px 0;">
-                <input type="text" id="u" placeholder="Zacatecoluca" style="width:100%; padding:10px; margin:5px 0;">
-                <textarea id="q" placeholder="Sobre mí..." style="width:100%; padding:10px; margin:5px 0;"></textarea>
-                <button onclick="enviar()" style="background:#ff4b6e; color:white; border:none; padding:15px; border-radius:10px; width:100%; font-weight:bold;">Publicar</button>
+                <input type="text" id="n" placeholder="Nombre completo" style="width:100%; padding:12px; margin:5px 0; border-radius:10px; border:1px solid #ddd;">
+                <input type="text" id="u" placeholder="Ubicación (Zacatecoluca)" style="width:100%; padding:12px; margin:5px 0; border-radius:10px; border:1px solid #ddd;">
+                <textarea id="q" placeholder="Cuéntanos sobre ti..." style="width:100%; padding:12px; margin:5px 0; border-radius:10px; border:1px solid #ddd;"></textarea>
+                <button class="btn-main" onclick="enviar()">🚀 Publicar en la Comunidad</button>
             </div>
-            <a href="/api/usuarios/ver" style="color:#ff4b6e; font-weight:bold;">Explorar Comunidad 🌍</a>
+            
+            <a href="/api/usuarios/ver" style="color:#ff4b6e; font-weight:bold; text-decoration:none; font-size:1.1em;">Ver Comunidad Real 🌍</a>
+
             <script>
                 async function enviar() {{
                     const data = {{ nombre: document.getElementById('n').value, ubicacion: document.getElementById('u').value, quien_soy: document.getElementById('q').value }};
+                    if(!data.nombre) return alert("Por favor escribe tu nombre");
                     await fetch('/api/registrar', {{ method: 'POST', headers: {{ 'Content-Type': 'application/json' }}, body: JSON.stringify(data) }});
                     location.href = '/api/usuarios/ver';
                 }}
@@ -101,30 +79,25 @@ async def inicio():
     """
 
 @app.get("/api/usuarios/ver", response_class=HTMLResponse)
-async def ver(request: Request):
-    t = traducir(request)
+async def ver():
     users = await database.fetch_all(usuarios_db.select())
     cartas = ""
     for u in users:
-        # Aquí cambiamos el "See More" por la variable traducida
         cartas += f'''
-        <div class="card">
-            <div class="info-user">
-                <strong style="font-size:1.2em; color:#333;">{u.nombre}</strong><br>
-                <small style="color:#ff4b6e; font-weight:bold;">📍 {u.ubicacion}</small>
-                <p style="color:#666; font-size:0.95em; margin-top:8px;">{u.quien_soy}</p>
-            </div>
-            <a href="#" class="btn-detalles">{t['ver_mas']}</a>
+        <div class="card" style="text-align:left;">
+            <strong style="font-size:1.2em; color:#333;">{u.nombre}</strong><br>
+            <small style="color:#ff4b6e;">📍 {u.ubicacion}</small>
+            <p style="color:#666; margin-top:10px; border-left: 3px solid #ff4b6e; padding-left: 10px;">{u.quien_soy}</p>
+            <a href="#" class="btn-ver">Ver perfil completo</a>
         </div>'''
     
     return f"""
     <html>
         <head><meta name="viewport" content="width=device-width, initial-scale=1">{ESTILOS}</head>
         <body>
-            <h1 style="color:#ff4b6e;">👥 {t['titulo']}</h1>
-            {cartas or f'<p style="color:#999;">{t["vacio"]}</p>'}
-            <br>
-            <a href="/" style="color:#ff4b6e; font-weight:bold; text-decoration:none;">⬅️ {t['volver']}</a>
+            <h1 style="color:#ff4b6e;">👥 Comunidad Real</h1>
+            {cartas or '<p style="color:#999;">Aún no hay perfiles. ¡Sé el primero!</p>'}
+            <br><a href="/" style="color:#ff4b6e; font-weight:bold; text-decoration:none;">⬅️ Volver al Registro</a>
         </body>
     </html>
     """
@@ -132,8 +105,7 @@ async def ver(request: Request):
 @app.post("/api/registrar")
 async def registrar(data: dict):
     await database.execute(usuarios_db.insert().values(
-        nombre=data['nombre'], edad=25, ubicacion=data['ubicacion'], 
-        quien_soy=data['quien_soy']
+        nombre=data['nombre'], ubicacion=data['ubicacion'], quien_soy=data['quien_soy']
     ))
 
 if __name__ == "__main__":
