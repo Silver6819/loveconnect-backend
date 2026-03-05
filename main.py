@@ -3,7 +3,7 @@ import uvicorn
 import databases
 import sqlalchemy
 from datetime import datetime
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -16,7 +16,7 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
 
-# Tablas
+# Tablas actualizadas
 usuarios_db = sqlalchemy.Table(
     "usuarios_loveconnect",
     metadata,
@@ -24,6 +24,8 @@ usuarios_db = sqlalchemy.Table(
     sqlalchemy.Column("nombre", sqlalchemy.String),
     sqlalchemy.Column("edad", sqlalchemy.Integer),
     sqlalchemy.Column("ubicacion", sqlalchemy.String),
+    sqlalchemy.Column("quien_soy", sqlalchemy.Text), # NUEVO: Biografía
+    sqlalchemy.Column("corazones", sqlalchemy.Integer, default=0), # NUEVO: Likes
     sqlalchemy.Column("foto_url", sqlalchemy.Text),
     sqlalchemy.Column("ultima_conexion", sqlalchemy.String)
 )
@@ -32,7 +34,7 @@ mensajes_db = sqlalchemy.Table(
     "mensajes_loveconnect",
     metadata,
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
-    sqlalchemy.Column("usuario_id", sqlalchemy.Integer), # A quién va el mensaje
+    sqlalchemy.Column("usuario_id", sqlalchemy.Integer),
     sqlalchemy.Column("texto", sqlalchemy.Text),
     sqlalchemy.Column("fecha", sqlalchemy.String)
 )
@@ -40,8 +42,7 @@ mensajes_db = sqlalchemy.Table(
 try:
     engine = sqlalchemy.create_engine(DATABASE_URL)
     metadata.create_all(engine)
-except Exception as e:
-    print(f"Aviso DB: {e}")
+except Exception: pass
 
 app = FastAPI()
 
@@ -49,61 +50,46 @@ ESTILOS = """
 <style>
     body { font-family: 'Segoe UI', sans-serif; background: #fff5f7; margin: 0; padding: 10px; text-align: center; color: #333; }
     .card { background: white; border-radius: 15px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; position: relative; border: 1px solid #ffeef2; }
-    .btn { background: #ff4b6e; color: white; border: none; padding: 10px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 5px; text-decoration: none; display: block; box-sizing: border-box; font-size: 0.9em; }
-    .btn-edit { background: #4b7bff; width: 35px; height: 35px; position: absolute; top: 10px; right: 50px; border-radius: 5px; color: white; border:none; cursor:pointer; }
-    .btn-delete { background: #ff4444; width: 35px; height: 35px; position: absolute; top: 10px; right: 10px; border-radius: 5px; color: white; border:none; cursor:pointer; }
-    .msg-box { background: #f9f9f9; border-radius: 10px; padding: 10px; margin-top: 10px; text-align: left; font-size: 0.85em; border-left: 4px solid #ff4b6e; position: relative; }
+    .btn { background: #ff4b6e; color: white; border: none; padding: 10px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 5px; text-decoration: none; display: block; box-sizing: border-box; }
+    .btn-like { background: none; border: 1px solid #ff4b6e; color: #ff4b6e; width: auto; padding: 5px 10px; border-radius: 20px; cursor: pointer; font-size: 0.9em; display: inline-flex; align-items: center; gap: 5px; }
     .preview { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #ff4b6e; display: none; margin: 10px auto; }
-    input, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
+    input, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+    .filtro { background: white; padding: 10px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #ff4b6e; }
 </style>
 """
 
 class UserData(BaseModel):
     id: Optional[int] = None
-    nombre: str; edad: int; ubicacion: str; foto: str
-
-class MsgData(BaseModel):
-    id: Optional[int] = None
-    usuario_id: int; texto: str
+    nombre: str; edad: int; ubicacion: str; quien_soy: str; foto: str
 
 @app.on_event("startup")
 async def startup():
     if not database.is_connected: await database.connect()
 
 @app.get("/", response_class=HTMLResponse)
-async def inicio(request: Request):
+async def inicio(edit: Optional[bool] = None, id: Optional[int] = None, n: str = "", e: int = 0, u: str = "", q: str = ""):
     return f"""
     <html>
         <head><meta name="viewport" content="width=device-width, initial-scale=1">{ESTILOS}</head>
         <body>
             <h1>💖 LoveConnect</h1>
             <div class="card">
-                <h3 id="form_title">Crear Perfil</h3>
-                <input type="hidden" id="user_id">
-                <input type="text" id="n" placeholder="Nombre completo">
-                <input type="number" id="e" placeholder="Edad">
-                <input type="text" id="u" placeholder="Ubicación">
+                <h3>{ "Editar Perfil" if edit else "Crear Perfil" }</h3>
+                <input type="hidden" id="user_id" value="{id or ''}">
+                <input type="text" id="n" placeholder="Nombre completo" value="{n}">
+                <input type="number" id="e" placeholder="Edad" value="{e or ''}">
+                <input type="text" id="u" placeholder="Ubicación (Ej: Zacatecoluca)" value="{u}">
+                <textarea id="q" placeholder="¿Quién soy? Cuéntanos de ti...">{q}</textarea>
                 <img id="img_prev" class="preview">
                 <button class="btn" style="background:#4b7bff;" onclick="document.getElementById('f').click()">📷 Foto</button>
                 <input type="file" id="f" accept="image/*" style="display:none" onchange="processImage()">
-                <button class="btn" id="btn_reg" onclick="enviarDatos()">Registrarme</button>
-                <button id="btn_cancel" class="btn" style="background:#bbb; display:none;" onclick="location.href='/'">Cancelar</button>
+                <button class="btn" id="btn_reg" onclick="enviarDatos()">{ "Actualizar" if edit else "Registrarme" }</button>
             </div>
-            <a href="/api/usuarios/ver" style="color:#ff4b6e; font-weight:bold;">Ir a la Comunidad</a>
+            <a href="/api/usuarios/ver" style="color:#ff4b6e; font-weight:bold;">Ver Comunidad</a>
             <script>
-                let b64 = "";
-                const params = new URLSearchParams(window.location.search);
-                if(params.has('edit')) {{
-                    document.getElementById('form_title').innerText = "Editar Perfil";
-                    document.getElementById('btn_reg').innerText = "Actualizar Datos";
-                    document.getElementById('btn_cancel').style.display = "block";
-                    document.getElementById('user_id').value = params.get('id');
-                    document.getElementById('n').value = params.get('n');
-                    document.getElementById('e').value = params.get('e');
-                    document.getElementById('u').value = params.get('u');
-                    b64 = localStorage.getItem('temp_foto');
-                    if(b64) {{ document.getElementById('img_prev').src = b64; document.getElementById('img_prev').style.display = "block"; }}
-                }}
+                let b64 = localStorage.getItem('temp_foto') || "";
+                if(b64) {{ document.getElementById('img_prev').src = b64; document.getElementById('img_prev').style.display = "block"; }}
+                
                 function processImage() {{
                     const file = document.getElementById('f').files[0];
                     const reader = new FileReader();
@@ -122,16 +108,22 @@ async def inicio(request: Request):
                 }}
                 async function enviarDatos() {{
                     const id = document.getElementById('user_id').value;
-                    const n = document.getElementById('n').value;
-                    const e = document.getElementById('e').value;
-                    const u = document.getElementById('u').value;
-                    if(!n || !b64) return alert("Faltan datos");
-                    const res = await fetch('/api/registrar', {{
+                    const data = {{
+                        id: id ? parseInt(id) : null,
+                        nombre: document.getElementById('n').value,
+                        edad: parseInt(document.getElementById('e').value),
+                        ubicacion: document.getElementById('u').value,
+                        quien_soy: document.getElementById('q').value,
+                        foto: b64
+                    }};
+                    if(!data.nombre || !b64) return alert("Falta nombre o foto");
+                    await fetch('/api/registrar', {{
                         method: id ? 'PUT' : 'POST',
                         headers: {{ 'Content-Type': 'application/json' }},
-                        body: JSON.stringify({{ id: id ? parseInt(id) : null, nombre:n, edad:parseInt(e), ubicacion:u, foto:b64 }})
+                        body: JSON.stringify(data)
                     }});
-                    if(res.ok) location.href = '/api/usuarios/ver';
+                    localStorage.removeItem('temp_foto');
+                    location.href = '/api/usuarios/ver';
                 }}
             </script>
         </body>
@@ -139,78 +131,55 @@ async def inicio(request: Request):
     """
 
 @app.get("/api/usuarios/ver", response_class=HTMLResponse)
-async def ver():
-    users = await database.fetch_all(usuarios_db.select())
+async def ver(ciudad: Optional[str] = None):
+    query = usuarios_db.select()
+    if ciudad: query = query.where(usuarios_db.c.ubicacion.ilike(f"%{ciudad}%"))
+    users = await database.fetch_all(query)
+    
     cartas = ""
     for u in users:
-        # Cargar mensajes de este usuario
-        msgs = await database.fetch_all(mensajes_db.select().where(mensajes_db.c.usuario_id == u.id))
-        html_msgs = ""
-        for m in msgs:
-            html_msgs += f'''
-            <div class="msg-box">
-                {m.texto} <br><small style="color:#999;">{m.fecha}</small>
-                <button onclick="editarMsg({m.id}, '{m.texto}')" style="border:none; background:none; cursor:pointer; float:right;">✏️</button>
-                <button onclick="borrarMsg({m.id})" style="border:none; background:none; cursor:pointer; float:right;">🗑️</button>
-            </div>'''
-        
         cartas += f'''
         <div class="card">
-            <button class="btn-edit" onclick="prepararEdicion({{id:{u.id}, n:'{u.nombre}', e:{u.edad}, u:'{u.ubicacion}', f:'{u.foto_url}'}})">✏️</button>
-            <button class="btn-delete" onclick="borrarPerfil({u.id})">🗑️</button>
-            <div style="display:flex; align-items:center; gap:15px; text-align:left; margin-bottom:10px;">
-                <img src="{u.foto_url}" style="width:60px; height:60px; border-radius:50%; object-fit:cover;">
-                <div><strong>{u.nombre}</strong><br><small>{u.ubicacion} | {u.edad} años</small></div>
+            <div style="display:flex; align-items:center; gap:15px; text-align:left;">
+                <img src="{u.foto_url}" style="width:70px; height:70px; border-radius:50%; object-fit:cover;">
+                <div style="flex:1">
+                    <strong>{u.nombre}</strong> ({u.edad})<br>
+                    <small>📍 {u.ubicacion}</small><br>
+                    <button class="btn-like" onclick="darLike({u.id})">❤️ <span id="like-{u.id}">{u.corazones}</span></button>
+                </div>
+                <button onclick="prepararEdicion({{id:{u.id}, n:'{u.nombre}', e:{u.edad}, u:'{u.ubicacion}', q:'{u.quien_soy}', f:'{u.foto_url}'}})" style="border:none; background:none; cursor:pointer;">✏️</button>
             </div>
-            <div id="muro-{u.id}">{html_msgs}</div>
-            <textarea id="input-msg-{u.id}" placeholder="Escribe un mensaje..."></textarea>
-            <button class="btn" style="background:#4b7bff;" onclick="enviarMsg({u.id})">Enviar Mensaje</button>
+            <p style="text-align:left; font-size:0.9em; background:#fffafa; padding:10px; border-radius:8px; margin-top:10px;">
+                <strong>Sobre mí:</strong> {u.quien_soy or "¡Hola! Soy nuevo aquí."}
+            </p>
         </div>'''
-    
+
     return f"""
     <html>
         <head><meta name="viewport" content="width=device-width, initial-scale=1">{ESTILOS}</head>
         <body>
             <h1>👥 Comunidad</h1>
-            {cartas or "<p>No hay perfiles.</p>"}
+            <div class="filtro">
+                <input type="text" id="busc" placeholder="🔍 Buscar por ciudad (Zacatecoluca...)" onkeyup="if(event.key==='Enter') filtrar()">
+                <button class="btn" style="background:#ff4b6e; margin-top:5px;" onclick="filtrar()">Filtrar Zona</button>
+            </div>
+            {cartas or "<p>No se encontraron personas en esta zona.</p>"}
             <br><a href="/" class="btn" style="background:#bbb;">Volver al Inicio</a>
             <script>
-                async function enviarMsg(u_id) {{
-                    const txt = document.getElementById('input-msg-'+u_id).value;
-                    if(!txt) return;
-                    await fetch('/api/mensajes', {{
-                        method: 'POST',
-                        headers: {{ 'Content-Type': 'application/json' }},
-                        body: JSON.stringify({{ usuario_id: u_id, texto: txt }})
-                    }});
-                    location.reload();
+                function filtrar() {{
+                    const c = document.getElementById('busc').value;
+                    location.href = '/api/usuarios/ver' + (c ? '?ciudad='+c : '');
                 }}
-                async function editarMsg(m_id, viejoTxt) {{
-                    const nuevo = prompt("Corregir mensaje:", viejoTxt);
-                    if(nuevo && nuevo !== viejoTxt) {{
-                        await fetch('/api/mensajes', {{
-                            method: 'PUT',
-                            headers: {{ 'Content-Type': 'application/json' }},
-                            body: JSON.stringify({{ id: m_id, usuario_id:0, texto: nuevo }})
-                        }});
-                        location.reload();
-                    }}
-                }}
-                async function borrarMsg(m_id) {{
-                    if(confirm("¿Borrar mensaje?")) {{
-                        await fetch(`/api/mensajes/${{m_id}}`, {{ method: 'DELETE' }});
-                        location.reload();
-                    }}
-                }}
-                async function borrarPerfil(id) {{
-                    if(confirm("¿Eliminar perfil?")) {{
-                        await fetch(`/api/usuarios/borrar/${{id}}`, {{ method: 'DELETE' }});
-                        location.reload();
+                async function darLike(id) {{
+                    const res = await fetch(`/api/usuarios/like/${{id}}`, {{ method: 'POST' }});
+                    if(res.ok) {{ 
+                        const span = document.getElementById('like-'+id);
+                        span.innerText = parseInt(span.innerText) + 1;
                     }}
                 }}
                 function prepararEdicion(user) {{
                     localStorage.setItem('temp_foto', user.f);
-                    location.href = `/?edit=true&id=${{user.id}}&n=${{encodeURIComponent(user.n)}}&e=${{user.e}}&u=${{encodeURIComponent(user.u)}}`;
+                    location.href = `/?edit=true&id=${{user.id}}&n=${{encodeURIComponent(user.n)}}&e=${{user.e}}&u=${{encodeURIComponent(user.u)}}&q=${{encodeURIComponent(user.q)}}`;
                 }}
             </script>
         </body>
@@ -220,35 +189,16 @@ async def ver():
 @app.post("/api/registrar")
 async def registrar(data: UserData):
     hora = datetime.now().strftime("%H:%M")
-    await database.execute(usuarios_db.insert().values(nombre=data.nombre, edad=data.edad, ubicacion=data.ubicacion, foto_url=data.foto, ultima_conexion=hora))
-    return {{"status": "ok"}}
+    await database.execute(usuarios_db.insert().values(nombre=data.nombre, edad=data.edad, ubicacion=data.ubicacion, quien_soy=data.quien_soy, foto_url=data.foto, ultima_conexion=hora))
 
 @app.put("/api/registrar")
 async def actualizar(data: UserData):
-    await database.execute(usuarios_db.update().where(usuarios_db.c.id == data.id).values(nombre=data.nombre, edad=data.edad, ubicacion=data.ubicacion, foto_url=data.foto))
-    return {{"status": "ok"}}
+    await database.execute(usuarios_db.update().where(usuarios_db.c.id == data.id).values(nombre=data.nombre, edad=data.edad, ubicacion=data.ubicacion, quien_soy=data.quien_soy, foto_url=data.foto))
 
-@app.delete("/api/usuarios/borrar/{{usuario_id}}")
-async def borrar_usuario(usuario_id: int):
-    await database.execute(usuarios_db.delete().where(usuarios_db.c.id == usuario_id))
-    await database.execute(mensajes_db.delete().where(mensajes_db.c.usuario_id == usuario_id))
-    return {{"status": "ok"}}
-
-@app.post("/api/mensajes")
-async def msg_post(data: MsgData):
-    fecha = datetime.now().strftime("%d/%m %H:%M")
-    await database.execute(mensajes_db.insert().values(usuario_id=data.usuario_id, texto=data.texto, fecha=fecha))
-    return {{"status": "ok"}}
-
-@app.put("/api/mensajes")
-async def msg_put(data: MsgData):
-    await database.execute(mensajes_db.update().where(mensajes_db.c.id == data.id).values(texto=data.texto))
-    return {{"status": "ok"}}
-
-@app.delete("/api/mensajes/{{m_id}}")
-async def msg_del(m_id: int):
-    await database.execute(mensajes_db.delete().where(mensajes_db.c.id == m_id))
-    return {{"status": "ok"}}
+@app.post("/api/usuarios/like/{{u_id}}")
+async def like_user(u_id: int):
+    query = f"UPDATE usuarios_loveconnect SET corazones = corazones + 1 WHERE id = {u_id}"
+    await database.execute(query)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
