@@ -15,7 +15,7 @@ database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
 CLAVE_ADMIN = "admin123" 
 
-# --- TABLAS ---
+# --- TABLAS (Usuarios, Encuestas y Sugerencias) ---
 usuarios = sqlalchemy.Table("usuarios_comunidad", metadata,
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
     sqlalchemy.Column("nombre", sqlalchemy.String),
@@ -61,6 +61,7 @@ ESTILOS = """
     .card { background: white; border-radius: 25px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin: 20px auto; max-width: 450px; }
     .input-field { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
     .btn-pink { background: #ff4b6e; color: white; padding: 15px; width: 100%; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; text-decoration:none; display:block; margin: 10px auto; }
+    .btn-grey { background: #666; color: white; padding: 12px; border-radius: 12px; text-decoration: none; font-weight: bold; display: block; margin-top: 10px; }
     .btn-admin-nav { background: #444; color: white; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 0.9em; display: inline-block; margin-bottom: 20px; }
     .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
     .modal-terminos { background: white; padding: 25px; border-radius: 20px; max-width: 500px; text-align: left; }
@@ -70,7 +71,7 @@ ESTILOS = """
 </style>
 """
 
-# --- VISTA PRINCIPAL (REGISTRO) ---
+# --- INICIO / REGISTRO ---
 @app.get("/", response_class=HTMLResponse)
 async def home():
     return f"""
@@ -79,8 +80,8 @@ async def home():
         <div id='capa-terminos' class='overlay'>
             <div class='modal-terminos'>
                 <h2 style='color:#ff4b6e; text-align:center;'>📜 Reglas LoveConnect</h2>
-                <p>Bienvenido a la comunidad de Zacatecoluca. Acepta para continuar:</p>
-                <ul><li>Solo para mayores de 18 años.</li><li>Respeto total (Sala de Castigo activa).</li><li>Privacidad responsable con tus datos.</li></ul>
+                <p>Bienvenido. Acepta para continuar:</p>
+                <ul><li>Solo para mayores de 18 años.</li><li>Respeto total (Sala de Castigo activa).</li><li>Privacidad responsable.</li></ul>
                 <button class='btn-pink' onclick='aceptar()'>Aceptar y Entrar</button>
             </div>
         </div>
@@ -98,29 +99,27 @@ async def home():
             function aceptar() {{ document.getElementById('capa-terminos').style.display = 'none'; }}
             async function enviar() {{ 
                 const d = {{ nombre: document.getElementById('n').value, edad: parseInt(document.getElementById('e').value), ubicacion: document.getElementById('u').value, quien_soy: document.getElementById('q').value }};
-                if(!d.nombre || !d.edad) return alert("Por favor, llena los campos.");
-                if(d.edad < 18) return alert("Solo para mayores de edad.");
+                if(!d.nombre || !d.edad) return alert("Llena los campos.");
                 const res = await fetch('/api/reg', {{ method:'POST', headers:{{'Content-Type':'application/json'}}, body:JSON.stringify(d) }});
                 const r = await res.json();
-                if(r.status == 'castigado') alert('⚠️ Lenguaje no permitido detectado.');
                 location.href = r.url;
             }}
         </script>
     </body></html>
     """
 
-# --- VISTA COMUNIDAD ---
+# --- COMUNIDAD ---
 @app.get("/comunidad", response_class=HTMLResponse)
 async def comunidad():
     users = await database.fetch_all(usuarios.select().where(usuarios.c.estado == "activo"))
-    lista = "".join([f"<div class='card' style='text-align:left;'><strong>{u.nombre} {'<span class=\"check-azul\">✅</span>' if u.verificado else ''}</strong> ({u.edad}) - {u.ubicacion}<p style='color:#666;'>{u.quien_soy}</p></div>" for u in users])
+    lista = "".join([f"<div class='card' style='text-align:left;'><strong>{u.nombre} {'<span class=\"check-azul\">✅</span>' if u.verificado else ''}</strong> ({u.edad})<p>{u.quien_soy}</p></div>" for u in users])
     return f"<html><head><meta name='viewport' content='width=device-width, initial-scale=1'>{ESTILOS}</head><body><h1>🌍 Comunidad</h1>{lista or 'No hay perfiles.'}<br><a href='/encuesta' style='color:#ff4b6e; font-weight:bold;'>🗳️ Votar por mejoras</a><br><br><a href='/' style='text-decoration:none; color:#666;'>⬅️ Volver al Inicio</a></body></html>"
 
-# --- VISTA ENCUESTAS Y SUGERENCIAS ---
+# --- ENCUESTAS (CON BOTÓN GRIS DE REGRESO) ---
 @app.get("/encuesta", response_class=HTMLResponse)
 async def encuesta():
     opts = await database.fetch_all(encuestas.select())
-    html_votos = "".join([f"<div class='card'>{o.opcion}<br><a href='/api/votar/{o.id}' style='color:#ff4b6e; font-weight:bold;'>Votar este</a></div>" for o in opts])
+    html_votos = "".join([f"<div class='card'>{o.opcion}<br><a href='/api/votar/{o.id}' style='color:#ff4b6e; font-weight:bold;'>Votar</a></div>" for o in opts])
     return f"""
     <html><head><meta name='viewport' content='width=device-width, initial-scale=1'>{ESTILOS}</head>
     <body>
@@ -128,45 +127,46 @@ async def encuesta():
         {html_votos}
         <div class='card' style='border:2px dashed #ff4b6e;'>
             <h3>💡 Sugiere algo</h3>
-            <input type='text' id='idea' class='input-field' placeholder='Tu propuesta...'>
-            <button class='btn-pink' style='background:#4b89ff;' onclick='enviarIdea()'>Enviar</button>
-            <br>
-            <a href='/comunidad' style='text-decoration:none; color:#666; font-size:0.9em; display:block; margin-top:15px;'>⬅️ Volver a la Comunidad</a>
+            <input type='text' id='idea' class='input-field' placeholder='Tu idea...'>
+            <button class='btn-pink' style='background:#4b89ff;' onclick='enviarIdea()'>Enviar Sugerencia</button>
+            
+            <a href='/comunidad' class='btn-grey'>⬅️ Volver a la Comunidad</a>
         </div>
+        <br><a href='/' style='color:#666; text-decoration:none;'>🏠 Ir al Inicio</a>
         <script>
             async function enviarIdea() {{ 
                 const t = document.getElementById('idea').value; 
                 if(!t) return alert("Escribe tu idea.");
                 await fetch('/api/sugerir', {{ method:'POST', headers:{{'Content-Type':'application/json'}}, body:JSON.stringify({{ idea: t }}) }}); 
-                alert('Sugerencia enviada'); location.reload(); 
+                alert('Enviada'); location.reload(); 
             }}
         </script>
     </body></html>
     """
 
-# --- PANEL ADMIN (PARA TI, SILVER BREAKER) ---
+# --- PANEL ADMIN (SILVER BREAKER) ---
 @app.get("/admin", response_class=HTMLResponse)
 async def admin(key: str = ""):
     if key != CLAVE_ADMIN: return "<h1>Acceso Denegado</h1>"
     users = await database.fetch_all(usuarios.select())
     ideas = await database.fetch_all(sugerencias.select().order_by(sugerencias.c.id.desc()))
     filas = "".join([f"<tr><td>{u.nombre}</td><td>{u.estado}</td><td><a href='/api/adm/v/{u.id}?key={key}'>✅</a> | <a href='/api/adm/c/{u.id}?key={key}'>⛓️</a></td></tr>" for u in users])
-    lista_ideas = "".join([f"<li>{i.idea} <small>({i.fecha.strftime('%d/%m')})</small></li>" for i in ideas])
+    lista_ideas = "".join([f"<li>{i.idea}</li>" for i in ideas])
     return f"""
     <html><head>{ESTILOS}</head>
     <body style='max-width:800px; margin:auto; padding:20px; text-align:left;'>
         <a href='/' class='btn-admin-nav'>⬅️ Ir a Vista Pública</a>
         <h1 style='color:#ff4b6e;'>👑 Panel Silver Breaker</h1>
-        <div class='card' style='max-width:100%;'><h3>💡 Sugerencias de Usuarios:</h3><ul>{lista_ideas or 'Sin sugerencias.'}</ul></div>
-        <div class='card' style='max-width:100%;'><h3>👥 Gestión de Usuarios:</h3><table><tr><th>Nombre</th><th>Estado</th><th>Acciones</th></tr>{filas}</table></div>
+        <div class='card' style='max-width:100%;'><h3>💡 Sugerencias:</h3><ul>{lista_ideas or 'Sin sugerencias.'}</ul></div>
+        <div class='card' style='max-width:100%;'><h3>👥 Usuarios:</h3><table><tr><th>Nombre</th><th>Estado</th><th>Acciones</th></tr>{filas}</table></div>
     </body></html>
     """
 
 @app.get("/sala-castigo", response_class=HTMLResponse)
 async def sala_castigo():
-    return f"<html><head><meta name='viewport' content='width=device-width, initial-scale=1'>{ESTILOS}</head><body><div class='card' style='background:#333; color:white;'><h1>⛓️ Sala de Castigo</h1><p>Has sido aislado por lenguaje inapropiado.</p></div><a href='/'>Volver al Inicio</a></body></html>"
+    return f"<html><body><h1>⛓️ Sala de Castigo</h1><p>Has sido aislado.</p><a href='/'>Volver</a></body></html>"
 
-# --- API ---
+# --- API LOGIC ---
 @app.post("/api/reg")
 async def api_reg(data: dict):
     est = "castigado" if filtro_seguridad(data['nombre']) or filtro_seguridad(data['quien_soy']) else "activo"
