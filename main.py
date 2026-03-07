@@ -36,7 +36,7 @@ class ConnectionManager:
 
     async def broadcast(self, message: str, sender: str):
         display_msg = f"⭐ [ADMIN] {message}" if sender == ADMIN_NAME else message
-        for connection in self.active_connections.values():
+        for connection in list(self.active_connections.values()):
             try:
                 await connection.send_text(display_msg)
             except:
@@ -107,15 +107,15 @@ async def get():
             <div id="chat-room" style="display:flex; flex:1; flex-direction:column;">
                 <div id="messages"></div>
                 <div style="padding:15px; background:white; display:flex; gap:10px;">
-                    <input type="text" id="chatInput" placeholder="Mensaje..." onkeypress="if(event.key==='Enter') send()">
+                    <input type="text" id="chatInput" placeholder="Escribe aquí..." onkeypress="if(event.key==='Enter') send()">
                     <button onclick="send()" style="background:none; border:none; font-size:24px;">🚀</button>
                 </div>
             </div>
             <div id="vote-panel">
                 <div class="suggest-box">
                     <h3>💡 Sugiere algo</h3>
-                    <input type="text" placeholder="Tu propuesta...">
-                    <button class="btn-pink" style="margin-top:10px; background:#4A90E2;">Enviar</button>
+                    <input type="text" id="sugInput" placeholder="Tu propuesta...">
+                    <button class="btn-pink" style="margin-top:10px; background:#4A90E2;" onclick="alert('Propuesta recibida')">Enviar</button>
                 </div>
             </div>
         </div>
@@ -133,9 +133,9 @@ async def get():
                 user = document.getElementById('regName').value.trim();
                 if(!user) return alert("Ingresa tu nombre");
 
-                // FIX PARA RAILWAY: Detectar si es https para usar wss
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${protocol}//${window.location.host}/ws/${encodeURIComponent(user)}`;
+                const host = window.location.host;
+                const wsUrl = `${protocol}//${host}/ws/${encodeURIComponent(user)}`;
                 
                 ws = new WebSocket(wsUrl);
 
@@ -148,12 +148,17 @@ async def get():
                     let d = document.createElement('div');
                     d.className = 'msg';
                     d.innerText = e.data;
-                    document.getElementById('messages').appendChild(d);
-                    document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+                    const msgBox = document.getElementById('messages');
+                    msgBox.appendChild(d);
+                    msgBox.scrollTop = msgBox.scrollHeight;
                 };
 
                 ws.onerror = (err) => {
-                    alert("Error al conectar. Verifica que el servidor en Railway esté activo.");
+                    alert("⚠️ Error de red. Asegúrate de que Railway haya terminado de cargar.");
+                };
+                
+                ws.onclose = () => {
+                   console.log("Conexión cerrada");
                 };
             }
 
@@ -173,23 +178,3 @@ async def get():
     </body>
     </html>
     """
-
-@app.websocket("/ws/{user}")
-async def websocket_endpoint(websocket: WebSocket, user: str):
-    await manager.connect(user, websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            if any(w in data.lower() for w in PALABRAS_PROHIBIDAS):
-                await websocket.send_text("⚠️ Bloqueado por Sala de Castigo.")
-            elif data.startswith("/@"):
-                try:
-                    parts = data.split(" ", 1)
-                    target = parts[0][2:]
-                    await manager.send_private(parts[1], target, user)
-                except:
-                    await websocket.send_text("❌ Usa: /@nombre mensaje")
-            else:
-                await manager.broadcast(f"{user}: {data}", user)
-    except WebSocketDisconnect:
-        manager.disconnect(user)
