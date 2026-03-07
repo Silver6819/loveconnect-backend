@@ -22,7 +22,13 @@ app = FastAPI()
 # --- ADMIN Y SEGURIDAD ---
 ADMIN_NAME = "Silver Breaker"
 PALABRAS_PROHIBIDAS = ["insulto1", "ofensa2", "spam"] 
+import os
 
+# Al final de tu archivo de FastAPI
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))  # Usa el puerto de Railway o 8080 por defecto
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=port)
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
