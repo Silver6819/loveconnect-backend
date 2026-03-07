@@ -3,8 +3,9 @@ from typing import List, Dict
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 import sqlalchemy
+import uvicorn
 
-# --- CONFIGURACIÓN DE BASE DE DATOS ---
+# --- BASE DE DATOS ---
 DB_URL = "sqlite:///./love.db"
 engine = sqlalchemy.create_engine(DB_URL, connect_args={"check_same_thread": False})
 metadata = sqlalchemy.MetaData()
@@ -95,7 +96,7 @@ async def get():
             <input type="number" id="regAge" placeholder="Edad">
             <input type="text" id="regLoc" placeholder="Ubicación">
             <textarea id="regBio" placeholder="¿Quién soy?" rows="3"></textarea>
-            <button class="btn-pink" onclick="startApp()">Publicar y Entrar</button>
+            <button class="btn-pink" id="btnJoin" onclick="startApp()">Publicar y Entrar</button>
         </div>
 
         <div id="main-app">
@@ -114,8 +115,8 @@ async def get():
             <div id="vote-panel">
                 <div class="suggest-box">
                     <h3>💡 Sugiere algo</h3>
-                    <input type="text" id="sugInput" placeholder="Tu propuesta...">
-                    <button class="btn-pink" style="margin-top:10px; background:#4A90E2;" onclick="alert('Propuesta recibida')">Enviar</button>
+                    <input type="text" placeholder="Tu propuesta...">
+                    <button class="btn-pink" style="margin-top:10px; background:#4A90E2;">Enviar</button>
                 </div>
             </div>
         </div>
@@ -132,34 +133,37 @@ async def get():
             function startApp() {
                 user = document.getElementById('regName').value.trim();
                 if(!user) return alert("Ingresa tu nombre");
+                
+                document.getElementById('btnJoin').innerText = "Conectando...";
 
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const host = window.location.host;
                 const wsUrl = `${protocol}//${host}/ws/${encodeURIComponent(user)}`;
                 
-                ws = new WebSocket(wsUrl);
+                try {
+                    ws = new WebSocket(wsUrl);
 
-                ws.onopen = () => {
-                    document.getElementById('profile-reg').style.display = 'none';
-                    document.getElementById('main-app').style.display = 'flex';
-                };
+                    ws.onopen = () => {
+                        document.getElementById('profile-reg').style.display = 'none';
+                        document.getElementById('main-app').style.display = 'flex';
+                    };
 
-                ws.onmessage = (e) => {
-                    let d = document.createElement('div');
-                    d.className = 'msg';
-                    d.innerText = e.data;
-                    const msgBox = document.getElementById('messages');
-                    msgBox.appendChild(d);
-                    msgBox.scrollTop = msgBox.scrollHeight;
-                };
+                    ws.onmessage = (e) => {
+                        let d = document.createElement('div');
+                        d.className = 'msg';
+                        d.innerText = e.data;
+                        const msgBox = document.getElementById('messages');
+                        msgBox.appendChild(d);
+                        msgBox.scrollTop = msgBox.scrollHeight;
+                    };
 
-                ws.onerror = (err) => {
-                    alert("⚠️ Error de red. Asegúrate de que Railway haya terminado de cargar.");
-                };
-                
-                ws.onclose = () => {
-                   console.log("Conexión cerrada");
-                };
+                    ws.onerror = (err) => {
+                        document.getElementById('btnJoin').innerText = "Publicar y Entrar";
+                        alert("⚠️ Error de conexión. El servidor de Railway está despertando, intenta en 10 segundos.");
+                    };
+                } catch (e) {
+                    alert("Error crítico de WebSocket");
+                }
             }
 
             function toggleView(v) {
@@ -178,3 +182,27 @@ async def get():
     </body>
     </html>
     """
+
+@app.websocket("/ws/{user}")
+async def websocket_endpoint(websocket: WebSocket, user: str):
+    await manager.connect(user, websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if any(w in data.lower() for w in PALABRAS_PROHIBIDAS):
+                await websocket.send_text("⚠️ Bloqueado por Sala de Castigo.")
+            elif data.startswith("/@"):
+                try:
+                    parts = data.split(" ", 1)
+                    target = parts[0][2:]
+                    await manager.send_private(parts[1], target, user)
+                except:
+                    await websocket.send_text("❌ Usa: /@nombre mensaje")
+            else:
+                await manager.broadcast(f"{user}: {data}", user)
+    except WebSocketDisconnect:
+        manager.disconnect(user)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
