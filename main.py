@@ -4,28 +4,26 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 import sqlalchemy
 
-# --- CONFIGURACIÓN DE BASE DE DATOS LIGERA ---
+# --- BASE DE DATOS ---
 DB_URL = "sqlite:///./love.db"
 engine = sqlalchemy.create_engine(DB_URL, connect_args={"check_same_thread": False})
 metadata = sqlalchemy.MetaData()
-
 msg_t = sqlalchemy.Table(
     "m", metadata,
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
-    sqlalchemy.Column("u", sqlalchemy.String(50)), # Usuario
-    sqlalchemy.Column("t", sqlalchemy.String(500)) # Texto
+    sqlalchemy.Column("u", sqlalchemy.String(50)),
+    sqlalchemy.Column("t", sqlalchemy.String(500))
 )
 metadata.create_all(engine)
 
 app = FastAPI()
 
-# --- LÓGICA DE ADMINISTRADOR Y SEGURIDAD ---
+# --- ADMIN Y SEGURIDAD ---
 ADMIN_NAME = "Silver Breaker"
-PALABRAS_PROHIBIDAS = ["insulto1", "ofensa2", "spam", "toxicidad"]
+PALABRAS_PROHIBIDAS = ["insulto1", "ofensa2", "spam"] 
 
 class ConnectionManager:
     def __init__(self):
-        # Diccionario para rastrear usuarios por nombre y enviar privados
         self.active_connections: Dict[str, WebSocket] = {}
 
     async def connect(self, user: str, websocket: WebSocket):
@@ -37,22 +35,23 @@ class ConnectionManager:
             del self.active_connections[user]
 
     async def broadcast(self, message: str, sender: str):
-        # Si el emisor eres tú, se añade el rango visual
         display_msg = f"⭐ [ADMIN] {message}" if sender == ADMIN_NAME else message
-        for user_id, connection in self.active_connections.items():
-            await connection.send_text(display_msg)
+        for user, connection in self.active_connections.items():
+            try:
+                await connection.send_text(display_msg)
+            except:
+                pass
 
     async def send_private(self, message: str, target_user: str, sender: str):
         if target_user in self.active_connections:
-            private_msg = f"🔒 [PRIVADO de {sender}]: {message}"
-            await self.active_connections[target_user].send_text(private_msg)
-            await self.active_connections[sender].send_text(private_msg)
+            msg = f"🔒 [PRIVADO de {sender}]: {message}"
+            await self.active_connections[target_user].send_text(msg)
+            await self.active_connections[sender].send_text(msg)
         else:
-            await self.active_connections[sender].send_text(f"❌ El usuario '{target_user}' no está en línea.")
+            await self.active_connections[sender].send_text(f"❌ {target_user} no está en línea.")
 
 manager = ConnectionManager()
 
-# --- INTERFAZ DE USUARIO (HTML/CSS/JS) ---
 @app.get("/", response_class=HTMLResponse)
 async def get():
     return """
@@ -63,106 +62,104 @@ async def get():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>LoveConnect</title>
         <style>
-            body { font-family: 'Segoe UI', sans-serif; background: #fff5f7; margin: 0; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
-            
-            /* MODAL REGLAS (EFECTO BLUR) */
-            .modal-overlay {
-                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                background: rgba(255, 255, 255, 0.3); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-                display: flex; justify-content: center; align-items: center; z-index: 3000;
-            }
-            .modal-box {
-                background: white; padding: 30px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 85%; max-width: 380px; text-align: center;
-            }
-            
-            /* REGISTRO DE PERFIL */
-            #profile-registration { 
-                display: none; background: white; padding: 30px; border-radius: 30px; width: 90%; max-width: 400px; 
-                flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); z-index: 1000;
-            }
-            
-            /* APP PRINCIPAL */
+            body { font-family: 'Segoe UI', sans-serif; background: #fff5f7; margin: 0; height: 100vh; display: flex; justify-content: center; align-items: center; }
+            .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); display: flex; justify-content: center; align-items: center; z-index: 3000; }
+            .modal-box { background: white; padding: 30px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 85%; max-width: 380px; text-align: center; }
+            #profile-reg { display: none; background: white; padding: 30px; border-radius: 30px; width: 90%; max-width: 400px; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+            .btn-pink { background: #FF4081; color: white; border: none; padding: 15px; border-radius: 15px; font-weight: bold; cursor: pointer; width: 100%; font-size: 18px; }
             #main-app { display: none; width: 100%; height: 100vh; flex-direction: column; background: #f0f2f5; }
-            .header { background: white; padding: 15px; text-align: center; font-weight: bold; color: #FF4081; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-            
-            /* CHAT */
+            .header { background: white; padding: 15px; text-align: center; font-weight: bold; color: #FF4081; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; }
             #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-            .msg { background: white; padding: 10px 15px; border-radius: 15px; align-self: flex-start; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 15px; }
-            
-            /* BOTONES Y INPUTS */
-            .btn-pink { background: #FF4081; color: white; border: none; padding: 15px; border-radius: 15px; font-weight: bold; cursor: pointer; font-size: 16px; }
-            input, textarea { padding: 12px; border: 1px solid #ddd; border-radius: 15px; outline: none; }
+            .msg { background: white; padding: 10px 15px; border-radius: 15px; max-width: 80%; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+            input, textarea { padding: 12px 20px; border: 1px solid #ddd; border-radius: 15px; outline: none; width: 100%; box-sizing: border-box; }
+            #vote-panel { display: none; padding: 20px; flex: 1; overflow-y: auto; }
+            .suggest-box { border: 2px dashed #FF4081; padding: 20px; border-radius: 25px; background: white; text-align: center; margin-top: 20px; }
         </style>
     </head>
     <body>
         <div id="rulesModal" class="modal-overlay">
             <div class="modal-box">
-                <h1 style="color: #FF4081; margin-top:0;">📜 Reglas LoveConnect</h1>
-                <ul style="text-align: left; line-height: 1.8; color: #444;">
+                <h2 style="color:#FF4081;">📜 Reglas LoveConnect</h2>
+                <ul style="text-align:left; font-size:14px;">
                     <li>✅ Solo mayores de 18 años.</li>
-                    <li>✅ Respeto total (Sala de Castigo activa).</li>
+                    <li>✅ Respeto total (Sala de Castigo).</li>
                     <li>✅ Privados: escribe /@nombre mensaje</li>
                 </ul>
-                <button class="btn-pink" style="width: 100%;" onclick="showRegister()">Aceptar y Entrar</button>
+                <button class="btn-pink" onclick="showRegister()">Aceptar y Entrar</button>
             </div>
         </div>
 
-        <div id="profile-registration">
-            <h2 style="color: #FF4081; text-align: center; margin-top:0;">💖 Registro de Perfil</h2>
-            <input type="text" id="regName" placeholder="Nombre completo">
-            <input type="number" id="regAge" placeholder="Edad">
-            <input type="text" id="regLoc" placeholder="Ubicación (Ej: Zacatecoluca)">
+        <div id="profile-reg">
+            <h2 style="color:#FF4081; text-align:center;">💖 Registro de Perfil</h2>
+            <input type="text" id="regName" placeholder="Silver Breaker">
+            <input type="number" id="regAge" placeholder="29">
+            <input type="text" id="regLoc" placeholder="Zacatecoluca">
             <textarea id="regBio" placeholder="¿Quién soy?" rows="3"></textarea>
-            <button class="btn-pink" onclick="startChat()">Publicar y Entrar</button>
+            <button class="btn-pink" onclick="startApp()">Publicar y Entrar</button>
         </div>
 
         <div id="main-app">
             <div class="header">
-                <span>💬 Comunidad</span>
+                <span onclick="toggleView('chat')" style="cursor:pointer">💬 Chat</span>
                 <span>LoveConnect</span>
-                <span onclick="location.reload()" style="cursor:pointer; font-size:12px;">Cerrar Sesión</span>
+                <span onclick="toggleView('vote')" style="cursor:pointer">💡 Votar</span>
             </div>
-            <div id="messages"></div>
-            <div style="padding: 15px; background: white; display: flex; gap: 10px; border-top: 1px solid #eee;">
-                <input type="text" id="chatInput" style="flex: 1;" placeholder="Mensaje o /@nombre..." onkeypress="if(event.key==='Enter') send()">
-                <button onclick="send()" style="background: none; border: none; font-size: 24px; cursor: pointer;">🚀</button>
+            <div id="chat-room" style="display:flex; flex:1; flex-direction:column;">
+                <div id="messages"></div>
+                <div style="padding:15px; background:white; display:flex; gap:10px;">
+                    <input type="text" id="chatInput" placeholder="Mensaje..." onkeypress="if(event.key==='Enter') send()">
+                    <button onclick="send()" style="background:none; border:none; font-size:24px;">🚀</button>
+                </div>
+            </div>
+            <div id="vote-panel">
+                <div class="suggest-box">
+                    <h3>💡 Sugiere algo</h3>
+                    <input type="text" placeholder="Tu propuesta...">
+                    <button class="btn-pink" style="margin-top:10px; background:#4A90E2;">Enviar</button>
+                </div>
             </div>
         </div>
 
         <script>
             let ws;
-            let myUserName = "";
+            let user = "";
 
             function showRegister() {
                 document.getElementById('rulesModal').style.display = 'none';
-                document.getElementById('profile-registration').style.display = 'flex';
+                document.getElementById('profile-reg').style.display = 'flex';
             }
 
-            function startChat() {
-                myUserName = document.getElementById('regName').value.trim();
-                if(!myUserName) return alert("Por favor, ingresa tu nombre.");
-                
-                // Conectar al WebSocket con el nombre de usuario
-                ws = new WebSocket(`ws://${window.location.host}/ws/${myUserName}`);
-                
-                document.getElementById('profile-registration').style.display = 'none';
-                document.getElementById('main-app').style.display = 'flex';
+            function startApp() {
+                user = document.getElementById('regName').value.trim();
+                if(!user) return alert("Ingresa tu nombre");
 
-                ws.onmessage = (event) => {
-                    let log = document.getElementById('messages');
-                    let div = document.createElement('div');
-                    div.className = 'msg';
-                    div.innerText = event.data;
-                    log.appendChild(div);
-                    log.scrollTop = log.scrollHeight;
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                ws = new WebSocket(`${protocol}//${window.location.host}/ws/${user}`);
+
+                ws.onopen = () => {
+                    document.getElementById('profile-reg').style.display = 'none';
+                    document.getElementById('main-app').style.display = 'flex';
+                };
+
+                ws.onmessage = (e) => {
+                    let d = document.createElement('div');
+                    d.className = 'msg';
+                    d.innerText = e.data;
+                    document.getElementById('messages').appendChild(d);
+                    document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
                 };
             }
 
+            function toggleView(v) {
+                document.getElementById('chat-room').style.display = v === 'chat' ? 'flex' : 'none';
+                document.getElementById('vote-panel').style.display = v === 'vote' ? 'block' : 'none';
+            }
+
             function send() {
-                let input = document.getElementById('chatInput');
-                if(input.value.trim()) {
-                    ws.send(input.value);
-                    input.value = "";
+                let i = document.getElementById('chatInput');
+                if(i.value.trim() && ws.readyState === WebSocket.OPEN) {
+                    ws.send(i.value);
+                    i.value = "";
                 }
             }
         </script>
@@ -176,24 +173,15 @@ async def websocket_endpoint(websocket: WebSocket, user: str):
     try:
         while True:
             data = await websocket.receive_text()
-            
-            # 1. Filtro Sala de Castigo
-            if any(word in data.lower() for word in PALABRAS_PROHIBIDAS):
-                await websocket.send_text("⚠️ SALA DE CASTIGO: Tu mensaje contiene palabras no permitidas.")
-            
-            # 2. Lógica de Mensaje Privado (/@nombre mensaje)
+            if any(w in data.lower() for w in PALABRAS_PROHIBIDAS):
+                await websocket.send_text("⚠️ Bloqueado por Sala de Castigo.")
             elif data.startswith("/@"):
                 try:
-                    parts = data.split(" ", 1)
-                    target = parts[0][2:] # Extrae el nombre después de /@
-                    private_msg = parts[1]
-                    await manager.send_private(private_msg, target, user)
+                    target, msg = data.split(" ", 1)
+                    await manager.send_private(msg, target[2:], user)
                 except:
-                    await websocket.send_text("❌ Error en formato privado. Usa: /@nombre mensaje")
-            
-            # 3. Mensaje Público
+                    await websocket.send_text("❌ Usa: /@nombre mensaje")
             else:
                 await manager.broadcast(f"{user}: {data}", user)
-                
     except WebSocketDisconnect:
         manager.disconnect(user)
