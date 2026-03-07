@@ -36,7 +36,7 @@ class ConnectionManager:
 
     async def broadcast(self, message: str, sender: str):
         display_msg = f"⭐ [ADMIN] {message}" if sender == ADMIN_NAME else message
-        for user, connection in self.active_connections.items():
+        for connection in self.active_connections.values():
             try:
                 await connection.send_text(display_msg)
             except:
@@ -95,7 +95,7 @@ async def get():
             <input type="number" id="regAge" placeholder="29">
             <input type="text" id="regLoc" placeholder="Zacatecoluca">
             <textarea id="regBio" placeholder="¿Quién soy?" rows="3"></textarea>
-            <button class="btn-pink" onclick="startApp()">Publicar y Entrar</button>
+            <button class="btn-pink" id="btnJoin" onclick="startApp()">Publicar y Entrar</button>
         </div>
 
         <div id="main-app">
@@ -148,6 +148,11 @@ async def get():
                     document.getElementById('messages').appendChild(d);
                     document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
                 };
+
+                ws.onerror = (err) => {
+                    console.error("Error de conexión:", err);
+                    alert("Error al conectar. Intenta de nuevo.");
+                };
             }
 
             function toggleView(v) {
@@ -157,7 +162,7 @@ async def get():
 
             function send() {
                 let i = document.getElementById('chatInput');
-                if(i.value.trim() && ws.readyState === WebSocket.OPEN) {
+                if(i.value.trim() && ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(i.value);
                     i.value = "";
                 }
