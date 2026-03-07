@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 import sqlalchemy
 
-# --- BASE DE DATOS ---
+# --- CONFIGURACIÓN DE BASE DE DATOS ---
 DB_URL = "sqlite:///./love.db"
 engine = sqlalchemy.create_engine(DB_URL, connect_args={"check_same_thread": False})
 metadata = sqlalchemy.MetaData()
@@ -91,11 +91,11 @@ async def get():
 
         <div id="profile-reg">
             <h2 style="color:#FF4081; text-align:center;">💖 Registro de Perfil</h2>
-            <input type="text" id="regName" placeholder="Silver Breaker">
-            <input type="number" id="regAge" placeholder="29">
-            <input type="text" id="regLoc" placeholder="Zacatecoluca">
+            <input type="text" id="regName" placeholder="Tu Nombre">
+            <input type="number" id="regAge" placeholder="Edad">
+            <input type="text" id="regLoc" placeholder="Ubicación">
             <textarea id="regBio" placeholder="¿Quién soy?" rows="3"></textarea>
-            <button class="btn-pink" id="btnJoin" onclick="startApp()">Publicar y Entrar</button>
+            <button class="btn-pink" onclick="startApp()">Publicar y Entrar</button>
         </div>
 
         <div id="main-app">
@@ -133,8 +133,11 @@ async def get():
                 user = document.getElementById('regName').value.trim();
                 if(!user) return alert("Ingresa tu nombre");
 
+                // FIX PARA RAILWAY: Detectar si es https para usar wss
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                ws = new WebSocket(`${protocol}//${window.location.host}/ws/${user}`);
+                const wsUrl = `${protocol}//${window.location.host}/ws/${encodeURIComponent(user)}`;
+                
+                ws = new WebSocket(wsUrl);
 
                 ws.onopen = () => {
                     document.getElementById('profile-reg').style.display = 'none';
@@ -150,8 +153,7 @@ async def get():
                 };
 
                 ws.onerror = (err) => {
-                    console.error("Error de conexión:", err);
-                    alert("Error al conectar. Intenta de nuevo.");
+                    alert("Error al conectar. Verifica que el servidor en Railway esté activo.");
                 };
             }
 
@@ -182,8 +184,9 @@ async def websocket_endpoint(websocket: WebSocket, user: str):
                 await websocket.send_text("⚠️ Bloqueado por Sala de Castigo.")
             elif data.startswith("/@"):
                 try:
-                    target, msg = data.split(" ", 1)
-                    await manager.send_private(msg, target[2:], user)
+                    parts = data.split(" ", 1)
+                    target = parts[0][2:]
+                    await manager.send_private(parts[1], target, user)
                 except:
                     await websocket.send_text("❌ Usa: /@nombre mensaje")
             else:
