@@ -47,10 +47,18 @@ async def get():
             .btn {{ border: none; background: none; color: #FF4081; font-weight: bold; cursor: pointer; }}
             #input-area {{ padding: 10px; background: white; display: flex; gap: 5px; }}
             input {{ flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }}
-            .modal {{ position: fixed; top:0; left:0; width:100%; height:100%; background:white; display: none; flex-direction: column; padding: 20px; box-sizing: border-box; }}
+            .modal {{ position: fixed; top:0; left:0; width:100%; height:100%; background:white; display: none; flex-direction: column; padding: 20px; box-sizing: border-box; z-index: 1000; }}
+            #login-screen {{ position: fixed; top:0; left:0; width:100%; height:100%; background:#fff5f7; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; padding: 20px; text-align: center; }}
         </style>
     </head>
     <body>
+        <div id="login-screen">
+            <h1 style="color:#FF4081;">💖 LoveConnect</h1>
+            <p>Ingresa tu nombre para entrar al chat</p>
+            <input type="text" id="uName" placeholder="Nombre (ej: Silver Breaker)" style="max-width: 300px; margin-bottom: 20px;">
+            <button class="btn" style="background:#FF4081; color:white; padding:15px 40px; border-radius:25px;" onclick="enterApp()">Entrar al Perfil</button>
+        </div>
+
         <div class="header">💖 LoveConnect</div>
         <div id="chat"></div>
         
@@ -63,17 +71,17 @@ async def get():
             <button class="btn" onclick="show('chat')">💬 Chat</button>
             <button class="btn" onclick="show('news')">📅 Updates</button>
             <button class="btn" onclick="show('suggest')">💡 Pedir</button>
-            <button class="btn" onclick="location.reload()">👤 Perfil</button>
+            <button class="btn" onclick="location.reload()">👤 Salir</button>
         </div>
 
         <div id="news" class="modal">
             <h2>📅 Actualización Mensual</h2>
             <p>{VERSION_MENSUAL}</p>
-            <button class="btn" onclick="show('chat')">Cerrar</button>
+            <button class="btn" onclick="show('chat')">Volver al Chat</button>
         </div>
 
         <div id="suggest" class="modal">
-            <h2>💡 ¿Qué quieres agregar?</h2>
+            <h2>💡 Sugerencias</h2>
             <textarea id="sugText" style="width:100%; height:100px; border-radius:10px; padding:10px;"></textarea>
             <button class="btn" onclick="sendSuggest()">Enviar Propuesta</button>
             <button class="btn" onclick="show('chat')">Volver</button>
@@ -81,11 +89,19 @@ async def get():
 
         <script>
             let ws;
-            let user = prompt("Ingresa tu nombre:") || "Invitado";
+            let user = "";
             
-            function connect() {{
+            function enterApp() {{
+                user = document.getElementById('uName').value.trim();
+                if(!user) return alert("Escribe un nombre");
+                
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 ws = new WebSocket(`${{protocol}}//${{window.location.host}}/ws/${{encodeURIComponent(user)}}`);
+                
+                ws.onopen = () => {{
+                    document.getElementById('login-screen').style.display = 'none';
+                }};
+                
                 ws.onmessage = (e) => {{
                     let d = document.createElement('div');
                     d.className = 'msg';
@@ -93,7 +109,8 @@ async def get():
                     document.getElementById('chat').appendChild(d);
                     document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
                 }};
-                ws.onerror = () => alert("Servidor despertando... espera 5s y recarga.");
+                
+                ws.onerror = () => alert("Conectando... espera 5s y reintenta.");
             }}
 
             function send() {{
@@ -107,7 +124,7 @@ async def get():
                     ws.send("💡 SUGERENCIA: " + s.value); 
                     s.value = ""; 
                     show('chat');
-                    alert("¡Propuesta enviada al Admin!");
+                    alert("¡Propuesta enviada!");
                 }}
             }}
 
@@ -115,8 +132,6 @@ async def get():
                 document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
                 if(id !== 'chat') document.getElementById(id).style.display = 'flex';
             }}
-
-            connect();
         </script>
     </body>
     </html>
