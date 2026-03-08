@@ -9,17 +9,18 @@ OBRA = "https://books2read.com/u/mYG1X0"
 
 html = f"""
 <!DOCTYPE html>
-<html style="height:100%; margin:0;">
+<html style="height:100%; overflow:hidden;">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body {{ margin: 0; background: #fff5f7; font-family: sans-serif; height: 100%; display: flex; flex-direction: column; }}
+        * {{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }}
+        body {{ margin: 0; background: #fff5f7; font-family: sans-serif; height: 100%; display: flex; flex-direction: column; overflow: hidden; }}
         .h {{ background: #FF4081; color: white; padding: 15px; text-align: center; font-weight: bold; flex-shrink: 0; }}
-        #c {{ flex: 1; overflow-y: auto; background: white; padding: 10px; }}
-        .m {{ background: #f1f1f1; padding: 10px; border-radius: 12px; margin-bottom: 8px; max-width: 80%; font-size: 14px; width: fit-content; }}
-        .u {{ padding: 10px; background: white; border-top: 1px solid #eee; display: flex; gap: 8px; flex-shrink: 0; }}
+        #c {{ flex: 1; overflow-y: auto; background: white; padding: 10px; -webkit-overflow-scrolling: touch; }}
+        .m {{ background: #f1f1f1; padding: 10px; border-radius: 12px; margin-bottom: 8px; max-width: 80%; font-size: 14px; width: fit-content; word-break: break-all; }}
+        .u {{ padding: 10px; background: white; border-top: 1px solid #eee; display: flex; gap: 8px; flex-shrink: 0; align-items: center; }}
         input {{ flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 16px; }}
-        .s {{ border: none; background: #FF4081; color: white; border-radius: 50%; width: 45px; height: 45px; cursor: pointer; font-size: 20px; flex-shrink: 0; }}
+        .s {{ border: none; background: #FF4081; color: white; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; font-size: 22px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }}
         .n {{ display: flex; justify-content: space-around; background: white; padding: 10px; border-top: 1px solid #eee; flex-shrink: 0; }}
         .b {{ border: none; background: none; color: #FF4081; font-weight: bold; font-size: 12px; }}
         #l {{ position: fixed; inset: 0; background: #fff5f7; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }}
@@ -35,7 +36,7 @@ html = f"""
     <div id="c"></div>
     <div class="u">
         <input type="text" id="mi" placeholder="Escribe..." onkeypress="if(event.key==='Enter') sd()">
-        <button class="s" onclick="sd()">🚀</button>
+        <button class="s" id="btn_send">🚀</button>
     </div>
     <div class="n">
         <button class="b" onclick="alert('Obra: {OBRA}')">📅 MI OBRA</button>
@@ -44,6 +45,10 @@ html = f"""
     </div>
     <script>
         let ws; let nick = "";
+        const chat = document.getElementById('c');
+        const inp = document.getElementById('mi');
+        const btn = document.getElementById('btn_send');
+
         function st() {{
             nick = document.getElementById('un').value.trim() || "Usuario";
             document.getElementById('l').style.display = 'none';
@@ -53,17 +58,22 @@ html = f"""
             const p = location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(p + "//" + location.host + "/ws/" + encodeURIComponent(nick));
             ws.onmessage = (e) => {{
-                if(e.data === "CLR") document.getElementById('c').innerHTML = "";
-                else {{ let d=document.createElement('div'); d.className='m'; d.textContent=e.data; let chat=document.getElementById('c'); chat.appendChild(d); chat.scrollTop=chat.scrollHeight; }}
+                if(e.data === "CLR") chat.innerHTML = "";
+                else {{ let d=document.createElement('div'); d.className='m'; d.textContent=e.data; chat.appendChild(d); chat.scrollTop=chat.scrollHeight; }}
             }};
             ws.onclose = () => setTimeout(co, 1000);
         }}
         function sd() {{
-            const i = document.getElementById('mi');
-            if(!i.value) return;
-            if(ws && ws.readyState === 1) {{ ws.send(i.value); i.value = ""; }}
-            else {{ co(); setTimeout(() => {{ if(ws.readyState===1) {{ ws.send(i.value); i.value=""; }} }}, 500); }}
+            if(!inp.value.trim()) return;
+            if(ws && ws.readyState === 1) {{
+                ws.send(inp.value.trim());
+                inp.value = "";
+                inp.focus();
+            }} else {{ co(); }}
         }}
+        // Truco para móvil: Escuchar el toque físico del dedo
+        btn.addEventListener('touchstart', (e) => {{ e.preventDefault(); sd(); }}, false);
+        btn.addEventListener('click', (e) => {{ sd(); }}, false);
     </script>
 </body>
 </html>
