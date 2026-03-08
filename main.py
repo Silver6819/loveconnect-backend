@@ -3,9 +3,11 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 app = FastAPI()
+
+# --- DATOS DE AUTOR ---
 ADMIN_NAME = "Silver Breaker"
 PAYPAL = "https://www.paypal.com/paypalme/silver676"
-OBRA = "El Espectro Infernal: https://books2read.com/u/mYG1X0"
+OBRA = "¡Lee 'El Espectro Infernal' aquí: https://books2read.com/u/mYG1X0"
 
 class ConnectionManager:
     def __init__(self):
@@ -32,76 +34,65 @@ async def get():
         <title>LoveConnect</title>
         <style>
             body {{ font-family: sans-serif; margin: 0; background: #fff5f7; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }}
-            .header {{ background: #FF4081; color: white; padding: 15px; text-align: center; font-weight: bold; }}
-            #chat {{ flex: 1; overflow-y: auto; padding: 15px; background: #fdfdfd; display: flex; flex-direction: column; gap: 8px; }}
-            .m {{ background: white; padding: 10px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-width: 85%; word-wrap: break-word; font-size: 14px; }}
-            #ui {{ padding: 10px; background: white; display: flex; gap: 5px; border-top: 1px solid #eee; }}
+            .header {{ background: #FF4081; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 20px; }}
+            #chat {{ flex: 1; overflow-y: auto; padding: 15px; background: #ffffff; display: block; }}
+            .m {{ background: #f1f1f1; padding: 10px; border-radius: 12px; margin-bottom: 8px; width: fit-content; max-width: 85%; font-size: 15px; color: #333; border: 1px solid #eee; }}
+            #ui {{ padding: 10px; background: white; border-top: 2px solid #fff5f7; display: flex; gap: 8px; }}
             input {{ flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 25px; outline: none; }}
-            .menu {{ display: flex; background: white; border-top: 1px solid #ddd; padding: 10px; justify-content: space-around; }}
-            .btn {{ border: none; background: none; color: #FF4081; font-weight: bold; cursor: pointer; }}
-            #login {{ position: fixed; top:0; left:0; width:100%; height:100%; background:#fff5f7; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; text-align: center; }}
+            .menu {{ display: flex; justify-content: space-around; background: white; padding: 12px; border-top: 1px solid #eee; }}
+            .btn {{ border: none; background: none; color: #FF4081; font-weight: bold; font-size: 14px; cursor: pointer; }}
+            #login {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff5f7; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }}
         </style>
     </head>
     <body>
         <div id="login">
             <h1 style="color:#FF4081;">💖 LoveConnect</h1>
-            <input type="text" id="uName" placeholder="Tu Nombre" style="max-width: 250px; margin-bottom: 20px; padding: 10px;">
-            <button id="btnEnter" onclick="start()" style="background:#FF4081; color:white; padding:15px 40px; border:none; border-radius:25px; font-weight:bold; cursor:pointer;">ENTRAR</button>
+            <input type="text" id="u" placeholder="Tu Nombre" style="padding:12px; border-radius:10px; border:1px solid #ddd; width: 250px; margin-bottom: 20px;">
+            <button onclick="entrar()" style="background:#FF4081; color:white; padding:15px 40px; border:none; border-radius:25px; font-weight:bold;">ENTRAR AL CHAT</button>
         </div>
 
         <div class="header">💖 LoveConnect</div>
         <div id="chat"></div>
-        <div id="ui"><input type="text" id="msg" placeholder="Escribe..." onkeypress="if(event.key==='Enter') send()"> <button class="btn" onclick="send()">🚀</button></div>
         
+        <div id="ui">
+            <input type="text" id="m" placeholder="Escribe un mensaje..." onkeypress="if(event.key==='Enter') enviar()">
+            <button onclick="enviar()" style="border:none; background:none; font-size:20px;">🚀</button>
+        </div>
+
         <div class="menu">
-            <button class="btn" onclick="alert('{OBRA}')">📅 Obra</button>
-            <button class="btn" onclick="window.open('{PAYPAL}')">💳 PayPal</button>
-            <button class="btn" onclick="location.reload()">👤 Salir</button>
+            <button class="btn" onclick="alert('{OBRA}')">📅 OBRA</button>
+            <button class="btn" onclick="window.open('{PAYPAL}')">💳 PAYPAL</button>
+            <button class="btn" onclick="location.reload()">👤 SALIR</button>
         </div>
 
         <script>
-            let ws; let user = "";
-            function start() {{
-                const input = document.getElementById('uName');
-                user = input.value.trim();
-                if(!user) return alert("Escribe un nombre");
-                
-                // Forzamos que la pantalla desaparezca de inmediato
+            let socket; let user = "";
+            function entrar() {{
+                user = document.getElementById('u').value.trim();
+                if(!user) return alert("Pon un nombre");
                 document.getElementById('login').style.display = 'none';
-                connect();
+                conectar();
             }}
-            function connect() {{
-                // Usamos una ruta absoluta para evitar confusiones de Railway
-                const prot = location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const url = prot + "//" + location.host + "/ws/" + encodeURIComponent(user);
-                
-                console.log("Intentando conectar a:", url);
-                ws = new WebSocket(url);
-                
-                ws.onmessage = (e) => {{
-                    if(e.data === "CLEAR") {{
-                        document.getElementById('chat').innerHTML = "";
-                    }} else {{
-                        let d = document.createElement('div');
-                        d.className = 'm';
-                        d.innerText = e.data;
-                        let c = document.getElementById('chat');
-                        c.appendChild(d);
+            function conectar() {{
+                const p = location.protocol === 'https:' ? 'wss:' : 'ws:';
+                socket = new WebSocket(p + "//" + location.host + "/ws/" + encodeURIComponent(user));
+                socket.onmessage = (e) => {{
+                    if(e.data === "CLEAR") {{ document.getElementById('chat').innerHTML = ""; }}
+                    else {{
+                        const box = document.createElement('div');
+                        box.className = 'm';
+                        box.textContent = e.data;
+                        const c = document.getElementById('chat');
+                        c.appendChild(box);
                         c.scrollTop = c.scrollHeight;
                     }}
                 }};
-                
-                ws.onclose = () => {{
-                    console.log("Conexión perdida. Reintentando...");
-                    setTimeout(connect, 2000);
-                }};
-
-                ws.onerror = (err) => console.error("Error de WebSocket:", err);
+                socket.onclose = () => setTimeout(conectar, 2000);
             }}
-            function send() {{
-                let i = document.getElementById('msg');
-                if(i.value && ws && ws.readyState === 1) {{
-                    ws.send(i.value);
+            function enviar() {{
+                const i = document.getElementById('m');
+                if(i.value && socket.readyState === 1) {{
+                    socket.send(i.value);
                     i.value = "";
                 }}
             }}
@@ -119,8 +110,8 @@ async def websocket_endpoint(websocket: WebSocket, user: str):
             if data == "/limpiar" and user == ADMIN_NAME:
                 await manager.broadcast("CLEAR")
             else:
-                prefix = "⭐ [ADMIN]" if user == ADMIN_NAME else user
-                await manager.broadcast(f"{{prefix}}: {{data}}")
+                tag = "⭐ [ADMIN]" if user == ADMIN_NAME else user
+                await manager.broadcast(f"{{tag}}: {{data}}")
     except WebSocketDisconnect:
         manager.disconnect(user)
 
