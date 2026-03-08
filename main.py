@@ -3,12 +3,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 app = FastAPI()
-
-# --- CONFIGURACIÓN FINAL ---
 ADMIN_NAME = "Silver Breaker"
-PAYPAL_URL = "https://www.paypal.com/paypalme/silver676"
-LIBRO_LINK = "https://books2read.com/u/mYG1X0"
-ACTUALIZACION = "Marzo 2026: Lanzamiento de 'El Espectro Infernal' en tiendas internacionales."
+PAYPAL = "https://www.paypal.com/paypalme/silver676"
+OBRA = "El Espectro Infernal: https://books2read.com/u/mYG1X0"
 
 class ConnectionManager:
     def __init__(self):
@@ -48,9 +45,8 @@ async def get():
     <body>
         <div id="login">
             <h1 style="color:#FF4081;">💖 LoveConnect</h1>
-            <p>Ingresa tu nombre</p>
-            <input type="text" id="uName" placeholder="Ej: {ADMIN_NAME}" style="max-width: 250px; margin-bottom: 20px;">
-            <button onclick="start()" style="background:#FF4081; color:white; padding:15px 40px; border:none; border-radius:25px; font-weight:bold;">ENTRAR</button>
+            <input type="text" id="uName" placeholder="Tu Nombre" style="max-width: 250px; margin-bottom: 20px; padding: 10px;">
+            <button id="btnEnter" onclick="start()" style="background:#FF4081; color:white; padding:15px 40px; border:none; border-radius:25px; font-weight:bold; cursor:pointer;">ENTRAR</button>
         </div>
 
         <div class="header">💖 LoveConnect</div>
@@ -58,34 +54,56 @@ async def get():
         <div id="ui"><input type="text" id="msg" placeholder="Escribe..." onkeypress="if(event.key==='Enter') send()"> <button class="btn" onclick="send()">🚀</button></div>
         
         <div class="menu">
-            <button class="btn" onclick="alert('{ACTUALIZACION}\\n\\nCompra aquí: {LIBRO_LINK}')">📅 Obra</button>
-            <button class="btn" onclick="window.open('{PAYPAL_URL}')">💳 PayPal</button>
+            <button class="btn" onclick="alert('{OBRA}')">📅 Obra</button>
+            <button class="btn" onclick="window.open('{PAYPAL}')">💳 PayPal</button>
             <button class="btn" onclick="location.reload()">👤 Salir</button>
         </div>
 
         <script>
             let ws; let user = "";
             function start() {{
-                user = document.getElementById('uName').value.trim();
-                if(!user) return;
+                const input = document.getElementById('uName');
+                user = input.value.trim();
+                if(!user) return alert("Escribe un nombre");
+                
+                // Forzamos que la pantalla desaparezca de inmediato
+                document.getElementById('login').style.display = 'none';
                 connect();
             }}
             function connect() {{
+                // Usamos una ruta absoluta para evitar confusiones de Railway
                 const prot = location.protocol === 'https:' ? 'wss:' : 'ws:';
-                ws = new WebSocket(`${{prot}}//${{location.host}}/ws/${{encodeURIComponent(user)}}`);
-                ws.onopen = () => document.getElementById('login').style.display = 'none';
+                const url = prot + "//" + location.host + "/ws/" + encodeURIComponent(user);
+                
+                console.log("Intentando conectar a:", url);
+                ws = new WebSocket(url);
+                
                 ws.onmessage = (e) => {{
-                    if(e.data === "CLEAR") {{ document.getElementById('chat').innerHTML = ""; }}
-                    else {{
-                        let d = document.createElement('div'); d.className = 'm'; d.innerText = e.data;
-                        let c = document.getElementById('chat'); c.appendChild(d); c.scrollTop = c.scrollHeight;
+                    if(e.data === "CLEAR") {{
+                        document.getElementById('chat').innerHTML = "";
+                    }} else {{
+                        let d = document.createElement('div');
+                        d.className = 'm';
+                        d.innerText = e.data;
+                        let c = document.getElementById('chat');
+                        c.appendChild(d);
+                        c.scrollTop = c.scrollHeight;
                     }}
                 }};
-                ws.onclose = () => setTimeout(connect, 2000);
+                
+                ws.onclose = () => {{
+                    console.log("Conexión perdida. Reintentando...");
+                    setTimeout(connect, 2000);
+                }};
+
+                ws.onerror = (err) => console.error("Error de WebSocket:", err);
             }}
             function send() {{
                 let i = document.getElementById('msg');
-                if(i.value && ws.readyState === 1) {{ ws.send(i.value); i.value = ""; }}
+                if(i.value && ws && ws.readyState === 1) {{
+                    ws.send(i.value);
+                    i.value = "";
+                }}
             }}
         </script>
     </body>
