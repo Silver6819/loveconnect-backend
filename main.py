@@ -34,44 +34,36 @@ html = f"""
     </div>
     <div class="h">💖 LoveConnect</div>
     <div id="c"></div>
-    
-    <form class="u" onsubmit="sd(event)">
+    <div class="u">
         <input type="text" id="mi" placeholder="Escribe..." autocomplete="off">
-        <button type="submit" class="s">🚀</button>
-    </form>
-
+        <button type="button" class="s" onclick="sd()">🚀</button>
+    </div>
     <div class="n">
         <button class="b" onclick="alert('Obra: {OBRA}')">📅 MI OBRA</button>
         <button class="b" onclick="window.open('{PAYPAL}')">💳 PAYPAL</button>
         <button class="b" onclick="location.reload()">👤 SALIR</button>
     </div>
-
     <script>
         let ws; let nick = "";
-        const chat = document.getElementById('c');
-        const inp = document.getElementById('mi');
-
         function st() {{
             nick = document.getElementById('un').value.trim() || "Usuario";
             document.getElementById('l').style.display = 'none';
             co();
         }}
-
         function co() {{
             ws = new WebSocket((location.protocol==='https:'?'wss:':'ws:')+"//"+location.host+"/ws/"+encodeURIComponent(nick));
             ws.onmessage = (e) => {{
                 let d=document.createElement('div'); d.className='m'; d.textContent=e.data;
-                chat.appendChild(d); chat.scrollTop=chat.scrollHeight;
+                let chat=document.getElementById('c'); chat.appendChild(d); chat.scrollTop=chat.scrollHeight;
             }};
             ws.onclose = () => setTimeout(co, 1000);
         }}
-
-        function sd(e) {{
-            if(e) e.preventDefault(); // EVITA QUE EL TECLADO SE CIERRE DE GOLPE
-            const val = inp.value.trim();
-            if(val && ws && ws.readyState === 1) {{
-                ws.send(val);
-                inp.value = "";
+        function sd() {{
+            let i = document.getElementById('mi');
+            if(i.value && ws && ws.readyState === 1) {{
+                ws.send(i.value);
+                i.value = "";
+                i.focus();
             }}
         }}
     </script>
