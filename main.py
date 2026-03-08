@@ -3,39 +3,40 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 app = FastAPI()
+# Configuración original de Silver Breaker
 ADMIN = "Silver Breaker"
 PAYPAL = "https://www.paypal.com/paypalme/silver676"
 OBRA = "https://books2read.com/u/mYG1X0"
 
 html = f"""
 <!DOCTYPE html>
-<html>
+<html style="height:100%; overflow:hidden;">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         * {{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }}
-        body {{ margin: 0; background: #fff5f7; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }}
-        .h {{ background: #FF4081; color: white; padding: 15px; text-align: center; font-weight: bold; flex-shrink: 0; }}
-        #c {{ flex: 1; overflow-y: auto; background: white; padding: 10px; }}
-        .m {{ background: #f1f1f1; padding: 10px; border-radius: 12px; margin-bottom: 8px; max-width: 80%; font-size: 14px; width: fit-content; }}
+        body {{ margin: 0; background: #fff5f7; font-family: sans-serif; height: 100%; display: flex; flex-direction: column; }}
+        .h {{ background: #FF4081; color: white; padding: 15px; text-align: center; font-weight: bold; flex-shrink: 0; z-index: 10; }}
+        #c {{ flex: 1; overflow-y: auto; background: white; padding: 15px; -webkit-overflow-scrolling: touch; }}
+        .m {{ background: #f1f1f1; padding: 10px; border-radius: 15px; margin-bottom: 10px; max-width: 85%; font-size: 14px; width: fit-content; word-wrap: break-word; }}
         .u {{ padding: 10px; background: white; border-top: 1px solid #eee; display: flex; gap: 8px; flex-shrink: 0; }}
-        input {{ flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 16px; }}
-        .s {{ border: none; background: #FF4081; color: white; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; font-size: 22px; }}
+        input {{ flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 25px; outline: none; font-size: 16px; }}
+        .s {{ border: none; background: #FF4081; color: white; border-radius: 50%; width: 48px; height: 48px; cursor: pointer; font-size: 20px; flex-shrink: 0; }}
         .n {{ display: flex; justify-content: space-around; background: white; padding: 10px; border-top: 1px solid #eee; flex-shrink: 0; }}
-        .b {{ border: none; background: none; color: #FF4081; font-weight: bold; font-size: 12px; }}
+        .b {{ border: none; background: none; color: #FF4081; font-weight: bold; font-size: 11px; }}
         #l {{ position: fixed; inset: 0; background: #fff5f7; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }}
     </style>
 </head>
 <body>
     <div id="l">
         <h2 style="color:#FF4081">💖 LoveConnect</h2>
-        <input type="text" id="un" placeholder="Tu Nombre" style="max-width:200px; margin-bottom:15px; border-radius:10px; padding:10px;">
-        <button onclick="st()" style="background:#FF4081; color:white; border:none; padding:12px 40px; border-radius:20px; font-weight:bold;">ENTRAR</button>
+        <input type="text" id="un" placeholder="Tu Nombre" style="max-width:200px; margin-bottom:15px; border-radius:12px; padding:12px; border:1px solid #ddd;">
+        <button onclick="st()" style="background:#FF4081; color:white; border:none; padding:12px 45px; border-radius:30px; font-weight:bold; font-size:16px;">ENTRAR</button>
     </div>
     <div class="h">💖 LoveConnect</div>
     <div id="c"></div>
     <div class="u">
-        <input type="text" id="mi" placeholder="Escribe..." autocomplete="off">
+        <input type="text" id="mi" placeholder="Escribe un mensaje..." autocomplete="off">
         <button type="button" class="s" onclick="sd()">🚀</button>
     </div>
     <div class="n">
@@ -45,55 +46,52 @@ html = f"""
     </div>
     <script>
         let ws; let nick = "";
+        const chat = document.getElementById('c');
+        const inp = document.getElementById('mi');
+
         function st() {{
             nick = document.getElementById('un').value.trim() || "Usuario";
             document.getElementById('l').style.display = 'none';
             co();
         }}
         function co() {{
-            ws = new WebSocket((location.protocol==='https:'?'wss:':'ws:')+"//"+location.host+"/ws/"+encodeURIComponent(nick));
+            // FUERZA LA CONEXIÓN SEGURA WSS (SSL)
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const url = protocol + "//" + location.host + "/ws/" + encodeURIComponent(nick);
+            ws = new WebSocket(url);
             ws.onmessage = (e) => {{
-                let d=document.createElement('div'); d.className='m'; d.textContent=e.data;
-                let chat=document.getElementById('c'); chat.appendChild(d); chat.scrollTop=chat.scrollHeight;
+                let d = document.createElement('div'); d.className = 'm'; d.textContent = e.data;
+                chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
             }};
-            ws.onclose = () => setTimeout(co, 1000);
+            ws.onclose = () => setTimeout(co, 1500);
+            ws.onerror = (err) => console.error("Error socket:", err);
         }}
         function sd() {{
-            let i = document.getElementById('mi');
-            if(i.value && ws && ws.readyState === 1) {{
-                ws.send(i.value);
-                i.value = "";
-                i.focus();
+            if(inp.value.trim() && ws && ws.readyState === 1) {{
+                ws.send(inp.value.trim());
+                inp.value = "";
+                inp.focus();
             }}
         }}
+        inp.addEventListener("keypress", (e) => {{ if(e.key === "Enter") sd(); }});
     </script>
 </body>
 </html>
 """
 
-class Manager:
-    def __init__(self): self.active = []
-    async def connect(self, ws): await ws.accept(); self.active.append(ws)
-    def disconnect(self, ws): 
-        if ws in self.active: self.active.remove(ws)
-    async def broadcast(self, m):
-        for ws in self.active:
-            try: await ws.send_text(m)
-            except: pass
-
-man = Manager()
 @app.get("/")
 async def get(): return HTMLResponse(html)
 
 @app.websocket("/ws/{{u}}")
 async def ws(websocket: WebSocket, u: str):
-    await man.connect(websocket)
+    await websocket.accept()
     try:
         while True:
             data = await websocket.receive_text()
             tag = "⭐ [ADMIN]" if u == ADMIN else u
-            await man.broadcast(f"{{tag}}: {{data}}")
-    except: man.disconnect(websocket)
+            # Enviamos el mensaje de vuelta para confirmar que funciona
+            await websocket.send_text(f"{{tag}}: {{data}}")
+    except: pass
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
