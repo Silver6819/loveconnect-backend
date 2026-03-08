@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse
 
 app = FastAPI()
 
-# --- CONFIGURACIÓN LIMPIA ---
+# --- CONFIGURACIÓN ---
 ADMIN_NAME = "Silver Breaker"
 PAYPAL = "https://www.paypal.com/paypalme/silver676"
 OBRA = "¡Lee 'El Espectro Infernal' aquí: https://books2read.com/u/mYG1X0"
@@ -14,17 +14,24 @@ html_content = f"""
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>LoveConnect</title>
     <style>
-        body {{ font-family: sans-serif; margin: 0; background: #fff5f7; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }}
-        .header {{ background: #FF4081; color: white; padding: 15px; text-align: center; font-weight: bold; }}
-        #chat {{ flex: 1; overflow-y: auto; padding: 15px; background: white; }}
-        .m {{ background: #f1f1f1; padding: 10px; border-radius: 12px; margin-bottom: 8px; width: fit-content; max-width: 85%; font-size: 14px; word-wrap: break-word; }}
-        #ui {{ padding: 10px; background: white; border-top: 1px solid #eee; display: flex; gap: 8px; align-items: center; }}
-        input {{ flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 25px; outline: none; }}
-        .menu {{ display: flex; justify-content: space-around; background: white; padding: 12px; border-top: 1px solid #eee; }}
-        .btn {{ border: none; background: none; color: #FF4081; font-weight: bold; cursor: pointer; }}
+        * {{ box-sizing: border-box; }}
+        body {{ font-family: sans-serif; margin: 0; background: #fff5f7; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }}
+        .header {{ background: #FF4081; color: white; padding: 15px; text-align: center; font-weight: bold; flex-shrink: 0; }}
+        
+        /* Contenedor de chat con altura fija para evitar que se ponga en blanco */
+        #chat {{ flex: 1; overflow-y: auto; padding: 15px; background: white; display: flex; flex-direction: column; gap: 10px; }}
+        
+        .m {{ background: #f1f1f1; padding: 10px; border-radius: 12px; width: fit-content; max-width: 85%; font-size: 14px; word-wrap: break-word; }}
+        
+        #ui {{ padding: 10px; background: white; border-top: 1px solid #eee; display: flex; gap: 8px; flex-shrink: 0; }}
+        input {{ flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 25px; outline: none; font-size: 16px; }}
+        
+        .menu {{ display: flex; justify-content: space-around; background: white; padding: 12px; border-top: 1px solid #eee; flex-shrink: 0; }}
+        .btn {{ border: none; background: none; color: #FF4081; font-weight: bold; cursor: pointer; text-decoration: none; font-size: 14px; }}
+        
         #login {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff5f7; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }}
     </style>
 </head>
@@ -51,35 +58,43 @@ html_content = f"""
 
     <script>
         let socket; let user = "";
+        const chatDiv = document.getElementById('chat');
+
         function entrar() {{
             user = document.getElementById('u').value.trim();
             if(!user) return alert("Escribe tu nombre");
             document.getElementById('login').style.display = 'none';
             conectar();
         }}
+
         function conectar() {{
             const p = location.protocol === 'https:' ? 'wss:' : 'ws:';
             socket = new WebSocket(p + "//" + location.host + "/ws/" + encodeURIComponent(user));
+            
             socket.onmessage = (e) => {{
-                if(e.data === "CLEAR") {{ document.getElementById('chat').innerHTML = ""; }}
-                else {{
+                if(e.data === "CLEAR") {{
+                    chatDiv.innerHTML = "";
+                }} else {{
                     const box = document.createElement('div');
                     box.className = 'm';
                     box.textContent = e.data;
-                    const c = document.getElementById('chat');
-                    c.appendChild(box);
-                    c.scrollTop = c.scrollHeight;
+                    chatDiv.appendChild(box);
+                    chatDiv.scrollTop = chatDiv.scrollHeight;
                 }}
             }};
+            
             socket.onclose = () => setTimeout(conectar, 2000);
         }}
+
         function enviar() {{
             const i = document.getElementById('m');
-            // Si el socket está cerrado, intentamos reconectar antes de enviar
+            if(!i.value) return;
+            
             if(!socket || socket.readyState !== 1) {{
                 conectar();
+                // Intento rápido de envío tras reconexión
                 setTimeout(() => {{ if(socket.readyState === 1) {{ socket.send(i.value); i.value = ""; }} }}, 500);
-            }} else if(i.value) {{
+            }} else {{
                 socket.send(i.value);
                 i.value = "";
             }}
