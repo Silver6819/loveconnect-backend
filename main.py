@@ -9,12 +9,10 @@ ADMIN_NAME = "Silver Breaker"
 PAYPAL_URL = "https://www.paypal.com/paypalme/silver676"
 OBRA_URL = "https://books2read.com/u/mYG1X0"
 
-# Memoria temporal de mensajes
 chat_log = []
 
 @app.get("/")
 async def home():
-    # Construcción de las burbujas con el diseño de ChatGPT
     mensajes_html = "".join([
         f'<div class="bubble"><b>{ADMIN_NAME} 🌟:</b> {m}</div>' 
         for m in chat_log
@@ -28,7 +26,7 @@ async def home():
         <style>
             body {{
                 margin:0;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                font-family: -apple-system, sans-serif;
                 background:#fff0f6;
                 display:flex;
                 justify-content:center;
@@ -48,12 +46,13 @@ async def home():
                 text-align:center;
                 padding:15px;
                 font-weight:bold;
-                font-size:18px;
             }}
             #chat-box {{
                 flex:1;
                 overflow-y:auto;
                 padding:20px;
+                display: flex;
+                flex-direction: column;
             }}
             .bubble {{
                 background:linear-gradient(135deg,#ff4fa3,#ff7ac6);
@@ -63,34 +62,35 @@ async def home():
                 margin-bottom:10px;
                 max-width:85%;
                 font-size:14px;
-                box-shadow:0 3px 8px rgba(0,0,0,0.08);
+                box-shadow:0 3px 8px rgba(0,0,0,0.05);
                 word-wrap: break-word;
             }}
             form {{
                 display:flex;
                 border-top:1px solid #eee;
+                padding: 10px;
             }}
             input {{
                 flex:1;
-                border:none;
-                padding:14px;
-                font-size:16px;
+                border:1px solid #eee;
+                padding:12px;
+                border-radius: 20px;
                 outline:none;
             }}
             button {{
                 background:#ff4fa3;
                 border:none;
                 color:white;
-                padding:0 20px;
-                cursor:pointer;
+                padding:10px 20px;
+                border-radius: 20px;
+                margin-left: 10px;
                 font-weight:bold;
             }}
             footer {{
                 text-align:center;
-                padding:12px;
+                padding:15px;
                 font-size:12px;
                 background:#fafafa;
-                border-top: 1px solid #eee;
             }}
             footer a {{
                 color:#ff4fa3;
@@ -103,20 +103,20 @@ async def home():
         <div class="container">
             <header>💖 LoveConnect</header>
             <div id="chat-box">
-                {mensajes_html if mensajes_html else '<p style="text-align:center; color:gray;">No hay mensajes aún...</p>'}
+                {mensajes_html if mensajes_html else '<p style="text-align:center;color:gray;">¡Bienvenido, Admin!</p>'}
             </div>
             <form action="/send" method="post">
-                <input name="msg" placeholder="Escribe algo..." required autocomplete="off">
+                <input name="msg" placeholder="Escribe un mensaje..." required autocomplete="off">
                 <button type="submit">Enviar</button>
             </form>
             <footer>
-                <a href="{OBRA_URL}" target="_blank">📖 MI OBRA</a> | 
+                <a href="{OBRA_URL}" target="_blank">📖 OBRA</a> | 
                 <a href="{PAYPAL_URL}" target="_blank">💳 PAYPAL</a>
             </footer>
         </div>
         <script>
-            let chat = document.getElementById("chat-box");
-            chat.scrollTop = chat.scrollHeight;
+            var objDiv = document.getElementById("chat-box");
+            objDiv.scrollTop = objDiv.scrollHeight;
         </script>
     </body>
     </html>
@@ -124,11 +124,8 @@ async def home():
 
 @app.post("/send")
 async def send(msg: str = Form(...)):
-    # Guardamos el mensaje
     chat_log.append(msg)
-    # Mantener solo los últimos 20 para no saturar
     if len(chat_log) > 20: chat_log.pop(0)
-    # Redirigir al inicio para ver el cambio
     return HTMLResponse("<script>location.href='/'</script>")
 
 if __name__ == "__main__":
