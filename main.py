@@ -11,100 +11,35 @@ OBRA_URL = "https://books2read.com/u/mYG1X0"
 
 chat_log = []
 
+# DISEÑO SEPARADO PARA EVITAR CRASH
+CSS_STYLE = """
+body { margin:0; font-family: sans-serif; background:#fff0f6; display:flex; justify-content:center; }
+.container { width:100%; max-width:420px; height:100vh; display:flex; flex-direction:column; background:white; }
+header { background:linear-gradient(135deg,#ff4fa3,#ff7ac6); color:white; text-align:center; padding:15px; font-weight:bold; }
+#chat-box { flex:1; overflow-y:auto; padding:20px; display: flex; flex-direction: column; }
+.bubble { background:linear-gradient(135deg,#ff4fa3,#ff7ac6); color:white; padding:10px 14px; border-radius:18px; margin-bottom:10px; max-width:85%; font-size:14px; word-wrap: break-word; }
+form { display:flex; border-top:1px solid #eee; padding: 10px; }
+input { flex:1; border:1px solid #eee; padding:12px; border-radius: 20px; outline:none; }
+button { background:#ff4fa3; border:none; color:white; padding:10px 20px; border-radius: 20px; margin-left: 10px; font-weight:bold; }
+footer { text-align:center; padding:15px; font-size:12px; background:#fafafa; }
+footer a { color:#ff4fa3; text-decoration:none; font-weight:bold; }
+"""
+
 @app.get("/")
 async def home():
-    mensajes_html = "".join([
-        f'<div class="bubble"><b>{ADMIN_NAME} 🌟:</b> {m}</div>' 
-        for m in chat_log
-    ])
-
-    return HTMLResponse(f"""
+    mensajes_html = "".join([f'<div class="bubble"><b>{ADMIN_NAME} 🌟:</b> {m}</div>' for m in chat_log])
+    
+    html_content = f"""
     <html>
     <head>
         <title>LoveConnect</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body {{
-                margin:0;
-                font-family: -apple-system, sans-serif;
-                background:#fff0f6;
-                display:flex;
-                justify-content:center;
-            }}
-            .container {{
-                width:100%;
-                max-width:420px;
-                height:100vh;
-                display:flex;
-                flex-direction:column;
-                background:white;
-                box-shadow:0 0 15px rgba(0,0,0,0.08);
-            }}
-            header {{
-                background:linear-gradient(135deg,#ff4fa3,#ff7ac6);
-                color:white;
-                text-align:center;
-                padding:15px;
-                font-weight:bold;
-            }}
-            #chat-box {{
-                flex:1;
-                overflow-y:auto;
-                padding:20px;
-                display: flex;
-                flex-direction: column;
-            }}
-            .bubble {{
-                background:linear-gradient(135deg,#ff4fa3,#ff7ac6);
-                color:white;
-                padding:10px 14px;
-                border-radius:18px;
-                margin-bottom:10px;
-                max-width:85%;
-                font-size:14px;
-                box-shadow:0 3px 8px rgba(0,0,0,0.05);
-                word-wrap: break-word;
-            }}
-            form {{
-                display:flex;
-                border-top:1px solid #eee;
-                padding: 10px;
-            }}
-            input {{
-                flex:1;
-                border:1px solid #eee;
-                padding:12px;
-                border-radius: 20px;
-                outline:none;
-            }}
-            button {{
-                background:#ff4fa3;
-                border:none;
-                color:white;
-                padding:10px 20px;
-                border-radius: 20px;
-                margin-left: 10px;
-                font-weight:bold;
-            }}
-            footer {{
-                text-align:center;
-                padding:15px;
-                font-size:12px;
-                background:#fafafa;
-            }}
-            footer a {{
-                color:#ff4fa3;
-                text-decoration:none;
-                font-weight:bold;
-            }}
-        </style>
+        <style>{CSS_STYLE}</style>
     </head>
     <body>
         <div class="container">
             <header>💖 LoveConnect</header>
-            <div id="chat-box">
-                {mensajes_html if mensajes_html else '<p style="text-align:center;color:gray;">¡Bienvenido, Admin!</p>'}
-            </div>
+            <div id="chat-box">{mensajes_html if mensajes_html else '<p style="text-align:center;color:gray;">¡Servidor Listo!</p>'}</div>
             <form action="/send" method="post">
                 <input name="msg" placeholder="Escribe un mensaje..." required autocomplete="off">
                 <button type="submit">Enviar</button>
@@ -120,7 +55,8 @@ async def home():
         </script>
     </body>
     </html>
-    """)
+    """
+    return HTMLResponse(content=html_content)
 
 @app.post("/send")
 async def send(msg: str = Form(...)):
