@@ -9,18 +9,18 @@ OBRA = "https://books2read.com/u/mYG1X0"
 
 html = f"""
 <!DOCTYPE html>
-<html style="height:100%;">
+<html style="height:100%; overflow:hidden;">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <style>
         * {{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }}
-        body {{ margin: 0; background: #fff5f7; font-family: sans-serif; height: 100%; display: flex; flex-direction: column; overflow: hidden; }}
+        body {{ margin: 0; background: #fff5f7; font-family: sans-serif; height: 100%; display: flex; flex-direction: column; }}
         .h {{ background: #FF4081; color: white; padding: 15px; text-align: center; font-weight: bold; flex-shrink: 0; }}
-        #c {{ flex: 1; overflow-y: auto; background: white; padding: 15px; }}
+        #c {{ flex: 1; overflow-y: auto; background: white; padding: 15px; -webkit-overflow-scrolling: touch; }}
         .m {{ background: #f1f1f1; padding: 10px; border-radius: 12px; margin-bottom: 10px; max-width: 85%; font-size: 14px; width: fit-content; }}
-        .u {{ padding: 10px; background: white; border-top: 1px solid #eee; display: flex; gap: 8px; flex-shrink: 0; }}
+        .u {{ padding: 10px; background: white; border-top: 1px solid #eee; display: flex; gap: 8px; flex-shrink: 0; align-items: center; }}
         input {{ flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 16px; }}
-        .s {{ border: none; background: #FF4081; color: white; border-radius: 12px; min-width: 85px; height: 45px; cursor: pointer; font-weight: bold; box-shadow: 0 4px #c2185b; }}
+        .s {{ border: none; background: #FF4081; color: white; border-radius: 10px; min-width: 80px; height: 45px; cursor: pointer; font-weight: bold; box-shadow: 0 4px #c2185b; }}
         .s:active {{ box-shadow: 0 0 #c2185b; transform: translateY(4px); }}
         .n {{ display: flex; justify-content: space-around; background: white; padding: 10px; border-top: 1px solid #eee; flex-shrink: 0; }}
         .b {{ border: none; background: none; color: #FF4081; font-weight: bold; font-size: 11px; }}
@@ -37,7 +37,7 @@ html = f"""
     <div id="c"></div>
     <div class="u">
         <input type="text" id="mi" placeholder="Escribe..." autocomplete="off">
-        <button type="button" class="s" onclick="sd()">ENVIAR</button>
+        <button type="button" class="s" id="sendBtn">ENVIAR</button>
     </div>
     <div class="n">
         <button class="b" onclick="alert('Obra: {OBRA}')">📅 MI OBRA</button>
@@ -48,6 +48,7 @@ html = f"""
         let ws; let nick = "";
         const chat = document.getElementById('c');
         const inp = document.getElementById('mi');
+        const btn = document.getElementById('sendBtn');
 
         function st() {{
             nick = document.getElementById('un').value.trim() || "Usuario";
@@ -65,49 +66,44 @@ html = f"""
             ws.onclose = () => setTimeout(co, 1000);
         }}
 
-        function sd() {{
+        // LIMPIEZA INTERNA DEL BOTÓN: Evento puro sin intermediarios
+        btn.onclick = () => {{
             const val = inp.value.trim();
             if (val && ws && ws.readyState === 1) {{
                 ws.send(val);
                 inp.value = "";
                 inp.focus();
-            }} else if (val) {{
-                co(); // Reconecta si estaba muerto
-                setTimeout(() => {{ if(ws.readyState===1) {{ ws.send(val); inp.value=""; }} }}, 500);
             }}
-        }}
-        inp.onkeypress = (e) => {{ if(e.key === "Enter") sd(); }};
+        }};
+
+        inp.onkeypress = (e) => {{ if(e.key === "Enter") btn.click(); }};
     </script>
 </body>
 </html>
 """
 
-class Manager:
-    def __init__(self): self.active = []
-    async def connect(self, ws): await ws.accept(); self.active.append(ws)
-    def disconnect(self, ws): 
-        if ws in self.active: self.active.append(ws)
-    async def broadcast(self, m):
-        for ws in self.active:
-            try: await ws.send_text(m)
-            except: pass
-
-man = Manager()
+# MOTOR DE SERVIDOR SIMPLIFICADO
+clients = []
 
 @app.get("/")
 async def get(): return HTMLResponse(html)
 
 @app.websocket("/ws/{{u}}")
 async def ws(websocket: WebSocket, u: str):
-    await man.connect(websocket)
+    await websocket.accept()
+    clients.append(websocket)
     try:
         while True:
             data = await websocket.receive_text()
             tag = "⭐ [ADMIN]" if u == ADMIN else u
-            await man.broadcast(f"{{tag}}: {{data}}")
-    except: man.disconnect(websocket)
+            msg = f"{{tag}}: {{data}}"
+            # Enviar a todos los conectados de forma limpia
+            for client in list(clients):
+                try: await client.send_text(msg)
+                except: clients.remove(client)
+    except:
+        if websocket in clients: clients.remove(websocket)
 
 if __name__ == "__main__":
-    # AQUÍ ESTÁ EL ARREGLO DEL PUERTO 8080
     puerto = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=puerto)
