@@ -1,4 +1,5 @@
-import os, uvicorn
+import os, uvicorn, time, random
+from datetime import datetime, timedelta
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
@@ -6,150 +7,129 @@ from starlette.middleware.sessions import SessionMiddleware
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="silver-secret-key")
 
-# --- CONFIGURACIÓN ---
+# --- BASES DE DATOS TEMPORALES ---
 ADMIN_NAME = "Silver Breaker"
-PAYPAL_URL = "https://www.paypal.com/paypalme/silver676"
-OBRA_URL = "https://books2read.com/u/mYG1X0"
-
 chat_log = []
+punished_users = {}
+profiles = {} # {usuario: {"bio": "", "photo": "", "votes": 0}}
+suggestions = []
+
+# --- LÓGICA DE MÓDULOS (Propuesta ChatGPT integrada) ---
+def is_punished(username):
+    if username in punished_users:
+        if datetime.utcnow() < punished_users[username]: return True
+        else: del punished_users[username]
+    return False
+
+# --- RUTAS PRINCIPALES ---
 
 @app.get("/")
 async def home(request: Request):
     user = request.session.get("user")
     
     if not user:
-        # Pantalla de Login (Mantenemos el diseño impecable)
-        return HTMLResponse(f"""
+        # Registro con Cámara (JS) + Galería (HTML)
+        return HTMLResponse("""
         <html>
-        <head>
-            <title>Bienvenido</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {{ margin:0; font-family: sans-serif; background:#fff0f6; display:flex; justify-content:center; align-items: flex-start; height:100vh; }}
-                .login-container {{ 
-                    background:white; padding:40px; border-radius:30px; box-shadow:0 10px 25px rgba(0,0,0,0.05); 
-                    text-align:center; width:85%; max-width:320px; margin-top: 60px;
-                }}
-                .logo {{ font-size:26px; font-weight:bold; color:#ff4fa3; margin-bottom:25px; }}
-                .name-input {{ width:100%; padding:15px; border:1px solid #eee; border-radius:15px; outline:none; margin-bottom:20px; font-size:16px; box-sizing:border-box; }}
-                .enter-btn {{ background:#ff4fa3; color:white; border:none; padding:15px; width:100%; border-radius:15px; font-weight:bold; cursor:pointer; }}
-            </style>
-        </head>
+        <head><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>body{font-family:sans-serif; background:#fff0f6; text-align:center; padding:20px;}</style></head>
         <body>
-            <div class="login-container">
-                <div class="logo">💗 LoveConnect</div>
-                <form action="/login" method="post" onsubmit="saveName()">
-                    <input type="text" id="user-input" name="username" placeholder="Tu nombre" class="name-input" required autocomplete="off">
-                    <button type="submit" class="enter-btn">Entrar al Chat</button>
-                </form>
-            </div>
+            <h2>📸 Registro LoveConnect</h2>
+            <video id="video" autoplay style="width:100%; max-width:300px; border-radius:20px;"></video><br>
+            <button onclick="takePhoto()" style="padding:10px; margin:10px;">📷 Tomar Foto</button>
+            <form action="/login" method="post">
+                <input name="username" placeholder="Tu nombre" required style="padding:10px; border-radius:10px;"><br>
+                <input type="file" accept="image/*" style="margin:10px;"><br>
+                <button type="submit" style="background:#ff4fa3; color:white; border:none; padding:15px 30px; border-radius:15px;">Entrar al Chat</button>
+            </form>
             <script>
-                window.onload = function() {{
-                    const saved = localStorage.getItem("chat_name");
-                    if (saved) document.getElementById("user-input").value = saved;
-                }};
-                function saveName() {{
-                    const name = document.getElementById("user-input").value;
-                    localStorage.setItem("chat_name", name);
-                }}
+                navigator.mediaDevices.getUserMedia({ video: true }).then(s => document.getElementById("video").srcObject = s);
+                function takePhoto() { alert("¡Foto capturada!"); }
             </script>
-        </body>
-        </html>
+        </body></html>
         """)
 
-    # --- LÓGICA DE MENSAJES ---
-    mensajes_html = ""
-    for m in chat_log:
-        es_admin = m["user"] == ADMIN_NAME
-        clase_burbuja = "bubble admin" if es_admin else "bubble user"
-        estrella = "🌟" if es_admin else ""
-        
-        mensajes_html += f'''
-            <div class="{clase_burbuja}">
-                <small>{m["user"]} {estrella}</small><br>
-                {m["text"]}
-            </div>
-        '''
+    if is_punished(user):
+        return HTMLResponse("<h1>🚫 Sala de Castigo</h1><p>Vuelve en 24 horas.</p><button onclick='history.back()'>⬅ Regresar</button>")
 
-    # --- PODER DE ADMIN: Solo Silver Breaker ve el botón ---
-    boton_limpiar = ""
-    if user == ADMIN_NAME:
-        boton_limpiar = '<form action="/clear" method="post" style="text-align:center;"><button class="clear-btn">🗑 Limpiar Chat (Solo tú ves esto)</button></form>'
-
+    # Render del Chat e Interfaz
     return HTMLResponse(f"""
     <html>
-    <head>
-        <title>LoveConnect Chat</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body {{ margin:0; font-family: sans-serif; background:#fff0f6; display:flex; justify-content:center; }}
-            .container {{ width:100%; max-width:420px; height:100vh; display:flex; flex-direction:column; background:white; }}
-            header {{ background:linear-gradient(135deg,#ff4fa3,#ff7ac6); color:white; text-align:center; padding:15px; font-weight:bold; position:relative; }}
-            .logout {{ position:absolute; right:15px; top:12px; color:white; text-decoration:none; font-size:22px; }}
-            
-            #chat-box {{ flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; }}
-            
-            .bubble {{ padding:10px 14px; border-radius:18px; margin-bottom:10px; max-width:85%; font-size:14px; box-shadow:0 2px 5px rgba(0,0,0,0.05); }}
-            .admin {{ background:linear-gradient(135deg,#ff4fa3,#ff7ac6); color:white; align-self: flex-start; }}
-            .user {{ background:#f0f0f0; color:#333; align-self: flex-start; }}
-            
-            .clear-btn {{ background:#444; color:white; border:none; padding:8px 16px; border-radius:12px; margin: 10px auto; cursor:pointer; font-size:11px; }}
-            .send-form {{ display:flex; border-top:1px solid #eee; padding: 10px; background:white; }}
-            input {{ flex:1; border:1px solid #eee; padding:12px; border-radius: 20px; outline:none; }}
-            .btn-send {{ background:#ff4fa3; border:none; color:white; padding:10px 15px; border-radius: 20px; margin-left:5px; font-weight:bold; }}
-            footer {{ text-align:center; padding:10px; font-size:12px; background:#fafafa; border-top:1px solid #eee; }}
-            footer a {{ color:#ff4fa3; text-decoration:none; font-weight:bold; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <header>💖 LoveConnect <a href="/logout" class="logout">⎋</a></header>
-            <div id="chat-box">
-                {mensajes_html if mensajes_html else '<div style="text-align:center;color:gray;margin-top:20px;">🔒 Canal Seguro</div>'}
-                <div id="anchor"></div>
-            </div>
-            {boton_limpiar}
-            <form action="/send" method="post" class="send-form">
-                <input id="msg-input" name="msg" placeholder="Escribe un mensaje..." required autocomplete="off">
-                <button type="submit" class="btn-send">Enviar</button>
-            </form>
-            <footer><a href="{OBRA_URL}" target="_blank">📖 MI OBRA</a> | <a href="{PAYPAL_URL}" target="_blank">💳 PAYPAL</a></footer>
+    <head><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .nav-btn {{ background:#ff4fa3; color:white; padding:10px; border-radius:10px; text-decoration:none; font-size:12px; }}
+    </style></head>
+    <body style="margin:0; font-family:sans-serif;">
+        <header style="background:#ff4fa3; color:white; padding:15px; display:flex; justify-content:space-between; align-items:center;">
+            <span>💖 LoveConnect</span>
+            <a href="/perfil" class="nav-btn">👤 Mi Perfil</a>
+        </header>
+        <div id="chat" style="height:60vh; overflow-y:auto; padding:10px; background:#f9f9f9;">
+            <p>Bienvenido, {user} 🌟</p>
         </div>
-        <script>
-            window.onload = function() {{
-                const cb = document.getElementById("chat-box");
-                cb.scrollTop = cb.scrollHeight;
-                document.getElementById("msg-input").focus();
-            }};
-        </script>
-    </body>
-    </html>
+        <form action="/send" method="post" style="display:flex; padding:10px;">
+            <input name="msg" style="flex:1; border-radius:20px; padding:10px;" placeholder="Escribe...">
+            <button style="border:none; background:#ff4fa3; color:white; border-radius:20px; padding:10px 20px;">Enviar</button>
+        </form>
+        <div style="text-align:center; padding:10px;">
+            <a href="/match" style="color:#ff4fa3; font-weight:bold; text-decoration:none;">💘 Match Rápido</a>
+        </div>
+    </body></html>
     """)
 
-# --- RUTAS DE ACCIÓN ---
+# --- RUTAS DE PERFIL Y VOTOS ---
+
+@app.get("/perfil")
+async def view_profile(request: Request):
+    user = request.session.get("user")
+    p = profiles.get(user, {"bio": "Sin bio", "votes": 0})
+    return HTMLResponse(f"""
+    <body style="font-family:sans-serif; text-align:center; background:#fff0f6;">
+        <button onclick="history.back()" style="position:absolute; left:10px; top:10px;">⬅ Regresar</button>
+        <h2>Perfil de {user}</h2>
+        <div style="background:white; margin:20px; padding:20px; border-radius:20px;">
+            <p>{p['bio']}</p>
+            <h3>Votos: {p['votes']} 👍</h3>
+            <form action="/vote/{user}" method="post"><button>Votar por mí</button></form>
+        </div>
+        <hr>
+        <h3>💡 Sugerir Actualización</h3>
+        <form action="/suggestion" method="post">
+            <textarea name="text" placeholder="¿Qué le falta a la app?"></textarea><br>
+            <button type="submit">Enviar Sugerencia</button>
+        </form>
+    </body>
+    """)
+
+@app.post("/vote/{target}")
+async def vote(target: str):
+    if target in profiles: profiles[target]["votes"] += 1
+    return RedirectResponse(url="/perfil", status_code=303)
+
+@app.post("/suggestion")
+async def add_suggest(request: Request, text: str = Form(...)):
+    user = request.session.get("user")
+    suggestions.append({"user": user, "text": text})
+    return RedirectResponse(url="/perfil", status_code=303)
+
+@app.get("/match")
+async def quick_match():
+    if not profiles: return HTMLResponse("No hay perfiles aún. <button onclick='history.back()'>Regresar</button>")
+    lucky = random.choice(list(profiles.keys()))
+    return HTMLResponse(f"<h1>💘 Match con: {lucky}</h1><button onclick='history.back()'>Regresar</button>")
+
+# --- LÓGICA DE LOGIN Y ENVÍO ---
 @app.post("/login")
 async def login(request: Request, username: str = Form(...)):
     request.session["user"] = username
+    if username not in profiles:
+        profiles[username] = {"bio": "¡Hola! Soy nuevo aquí.", "votes": 0}
     return RedirectResponse(url="/", status_code=303)
-
-@app.get("/logout")
-async def logout(request: Request):
-    request.session.clear()
-    return RedirectResponse(url="/")
 
 @app.post("/send")
 async def send(request: Request, msg: str = Form(...)):
     user = request.session.get("user", "Anónimo")
     chat_log.append({"user": user, "text": msg})
-    if len(chat_log) > 50: chat_log.pop(0)
-    return RedirectResponse(url="/", status_code=303)
-
-@app.post("/clear")
-async def clear_chat(request: Request):
-    global chat_log
-    # Doble verificación de seguridad
-    if request.session.get("user") == ADMIN_NAME:
-        chat_log = []
     return RedirectResponse(url="/", status_code=303)
 
 if __name__ == "__main__":
