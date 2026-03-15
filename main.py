@@ -1,28 +1,32 @@
 import os, uvicorn, time, random
-from datetime import datetime, timedelta
-from fastapi import FastAPI, Form, Request
+from datetime import datetime
+from fastapi import FastAPI, Form, Request, Body
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="silver-breaker-final-key")
+app.add_middleware(SessionMiddleware, secret_key="silver-breaker-ultra-v2")
 
 # --- BASES DE DATOS ---
 chat_log = []
-profiles = {} # {user: {"likes": set(), "points": 0}}
+profiles = {} # {user: {"likes": set(), "points": 0, "bio": "", "avatar": ""}}
 online_users = set()
 stats = {"msgs": 0, "matches": 0}
 
-# --- ESTILOS ---
+# --- ESTILOS "PREMIUM" ---
 ESTILOS = """
 <style>
-    body { font-family: 'Segoe UI', sans-serif; background:#fff0f6; margin:0; text-align:center; }
-    .card { max-width:350px; margin:20px auto; padding:20px; background:white; border-radius:25px; box-shadow:0 10px 20px rgba(0,0,0,0.05); }
-    .btn-pink { background:#ff4fa3; color:white; border:none; padding:12px; border-radius:20px; width:90%; font-weight:bold; cursor:pointer; text-decoration:none; display:inline-block; }
-    #online { color: #2ecc71; font-weight: bold; font-size: 14px; padding: 10px; }
-    .bubble { padding:10px; margin:5px; border-radius:15px; max-width:80%; clear:both; }
-    .mine { background:#ff4fa3; color:white; float:right; }
-    .others { background:#eee; color:#333; float:left; }
+    body { font-family: 'Segoe UI', sans-serif; background:#fff0f6; margin:0; text-align:center; color: #444; }
+    .nav { background:white; padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; position:sticky; top:0; z-index:100; }
+    .card-swipe { width:320px; margin:40px auto; background:white; border-radius:30px; box-shadow:0 15px 35px rgba(0,0,0,0.1); overflow:hidden; transition: 0.3s; }
+    .avatar-big { width:100%; height:320px; background:#ff4fa3; display:flex; align-items:center; justify-content:center; font-size:100px; color:white; }
+    .info-box { padding:20px; text-align:left; }
+    .btn-circle { width:60px; height:60px; border-radius:50%; border:none; cursor:pointer; font-size:24px; box-shadow:0 5px 15px rgba(0,0,0,0.1); transition:0.2s; }
+    .btn-circle:active { transform: scale(0.9); }
+    .btn-no { background:white; color:#ff4444; }
+    .btn-yes { background:#ff4fa3; color:white; }
+    #online-tag { color: #2ecc71; font-weight: bold; font-size:14px; }
+    .btn-main { background:#ff4fa3; color:white; border:none; padding:12px 25px; border-radius:25px; text-decoration:none; font-weight:bold; }
 </style>
 """
 
@@ -30,106 +34,139 @@ ESTILOS = """
 async def home(request: Request):
     user = request.session.get("user")
     if not user: return RedirectResponse("/login-page")
+    online_users.add(user)
     
-    online_users.add(user) # Usuario entra a la lista de conectados
-    
-    chat_html = "".join([f'<div class="bubble {"mine" if m["user"]==user else "others"}"><b>{m["user"]}:</b> {m["text"]}</div>' for m in chat_log])
-
     return HTMLResponse(f"""
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">{ESTILOS}</head>
     <body>
-        <div style="background:white; border-bottom:1px solid #eee;">
-            <div id="online">🟢 0 personas conectadas</div>
-            <div style="font-size:10px; color:#ff4fa3; padding-bottom:5px;">🔥 {stats['msgs']} mensajes hoy | ❤️ {stats['matches']} matches</div>
+        <div class="nav">
+            <b style="color:#ff4fa3;">💖 LoveConnect</b>
+            <span id="online-tag">🟢 Cargando...</span>
         </div>
         
-        <div id="chat-box" style="height:55vh; overflow-y:auto; padding:15px;">{chat_html}<div id="end"></div></div>
-        
-        <form action="/send" method="post" style="padding:10px; background:white; display:flex;">
-            <input name="msg" placeholder="Mensaje..." required style="flex:1; padding:10px; border-radius:20px; border:1px solid #eee;">
-            <button style="background:#ff4fa3; color:white; border:none; border-radius:50%; width:40px; margin-left:5px;">➤</button>
-        </form>
-        
-        <div style="padding:10px;">
-            <a href="/swipe" class="btn-pink" style="width:45%; font-size:12px;">🔥 Swipe</a>
-            <a href="/perfil" class="btn-pink" style="width:45%; font-size:12px; background:#666;">👤 Perfil</a>
+        <div style="padding:20px;">
+            <h2 style="color:#ff4fa3;">¿A quién conocerás hoy?</h2>
+            <div id="swipe-area">
+                <div class="card-swipe" id="perfil-card">
+                    <div class="avatar-big" id="avatar-view">👤</div>
+                    <div class="info-box">
+                        <h2 id="nombre-view">Buscando...</h2>
+                        <p id="bio-view">Cargando perfiles disponibles...</p>
+                    </div>
+                    <div style="display:flex; justify-content:space-evenly; padding-bottom:25px;">
+                        <button class="btn-circle btn-no" onclick="siguiente()">❌</button>
+                        <button class="btn-circle btn-yes" onclick="darLike()">❤️</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="position:fixed; bottom:20px; width:100%; display:flex; justify-content:center; gap:10px;">
+            <a href="/chat" class="btn-main" style="background:white; color:#ff4fa3; border:1px solid #ff4fa3;">💬 Chat</a>
+            <a href="/perfil" class="btn-main">👤 Mi Perfil</a>
         </div>
 
         <script>
-            document.getElementById('end').scrollIntoView();
-            // MEJORA CHATGPT: Actualizar online cada 5 segundos
-            function actualizarOnline(){{
-                fetch("/online_count").then(r=>r.json()).then(data=>{{
-                    document.getElementById("online").innerText = "🟢 " + data.online + " personas conectadas ahora";
+            let perfiles = [];
+            let index = 0;
+
+            async function cargarPerfiles() {{
+                const res = await fetch("/api/perfiles");
+                perfiles = await res.json();
+                mostrarPerfil();
+            }}
+
+            function mostrarPerfil() {{
+                if (index >= perfiles.length) {{
+                    document.getElementById("swipe-area").innerHTML = "<div class='card-swipe' style='padding:40px;'><h3>🎉 ¡Has visto a todos por hoy!</h3><p>Vuelve más tarde o invita amigos.</p></div>";
+                    return;
+                }}
+                let p = perfiles[index];
+                document.getElementById("avatar-view").innerText = p.nombre[0].toUpperCase();
+                document.getElementById("nombre-view").innerText = p.nombre;
+                document.getElementById("bio-view").innerText = p.bio || "¡Hola! Estoy usando LoveConnect.";
+            }}
+
+            async function darLike() {{
+                let target = perfiles[index].nombre;
+                const res = await fetch("/api/like", {{
+                    method: "POST",
+                    headers: {{"Content-Type": "application/json"}},
+                    body: JSON.stringify({{target: target}})
+                }});
+                const data = await res.json();
+                if (data.match) alert("💘 ¡ES UN MATCH CON " + target + "!");
+                siguiente();
+            }}
+
+            function siguiente() {{
+                index++;
+                mostrarPerfil();
+            }}
+
+            function updateOnline() {{
+                fetch("/api/stats").then(r=>r.json()).then(d=>{{
+                    document.getElementById("online-tag").innerText = "🟢 " + d.online + " activos";
                 }});
             }}
-            setInterval(actualizarOnline, 5000);
-            actualizarOnline();
+
+            setInterval(updateOnline, 5000);
+            updateOnline();
+            cargarPerfiles();
         </script>
     </body></html>
     """)
 
-@app.get("/online_count")
-def online_count():
-    return {"online": len(online_users)}
+# --- API ENDPOINTS (PUNTO 1 Y 2) ---
 
-@app.get("/swipe")
-async def swipe_page(request: Request):
+@app.get("/api/perfiles")
+def get_perfiles(request: Request):
     user = request.session.get("user")
-    others = [u for u in profiles.keys() if u != user and u not in profiles[user].get("likes", set())]
-    if not others:
-        return HTMLResponse(f"<html>{ESTILOS}<body><div class='card'><h3>¡No hay más perfiles!</h3><a href='/' class='btn-pink'>Volver</a></div></body></html>")
+    # Filtramos: que no sea yo mismo y a los que NO les he dado like
+    disponibles = [
+        {{"nombre": u, "bio": p.get("bio", "")}} 
+        for u, p in profiles.items() 
+        if u != user and u not in profiles[user]["likes"]
+    ]
+    return disponibles
+
+@app.post("/api/like")
+async def api_like(request: Request, data: dict = Body(...)):
+    user = request.session.get("user")
+    target = data.get("target")
+    is_match = False
     
-    target = random.choice(others)
-    return HTMLResponse(f"""
-    <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">{ESTILOS}</head>
-    <body>
-        <div class="card">
-            <h1>👤</h1>
-            <h2>{target}</h2>
-            <p>¿Te gusta este perfil?</p>
-            <div style="display:flex; justify-content:space-between;">
-                <button class="btn-pink" style="background:#ccc; width:45%;" onclick="location.reload()">⏭️ No</button>
-                <form action="/like/{target}" method="post" style="width:45%;"><button class="btn-pink">❤️ Sí</button></form>
-            </div>
-        </div>
-    </body></html>
-    """)
-
-@app.post("/like/{target}")
-async def like_user(request: Request, target: str):
-    user = request.session.get("user")
-    if user:
+    if user and target in profiles:
         profiles[user]["likes"].add(target)
-        # SISTEMA DE MATCH REAL:
+        # Verificar Match Real
         if user in profiles[target]["likes"]:
             stats["matches"] += 1
-            return HTMLResponse(f"<html>{ESTILOS}<body style='background:#ff4fa3; color:white; text-align:center; padding-top:100px;'><h1>💘 ¡MATCH REAL!</h1><p>Ahora puedes hablar con {target}</p><a href='/' class='btn-pink' style='background:white; color:#ff4fa3;'>Ir al Chat</a></body></html>")
-    return RedirectResponse("/swipe", status_code=303)
+            is_match = True
+            
+    return {"status": "ok", "match": is_match}
 
-@app.get("/perfil")
-async def perfil(request: Request):
-    user = request.session.get("user")
-    p = profiles.get(user, {"points": 0})
-    return HTMLResponse(f"<html>{ESTILOS}<body><div class='card'><h2>{user}</h2><p>Puntos: {p['points']}</p><a href='/' class='btn-pink'>Volver</a></div></body></html>")
+@app.get("/api/stats")
+def get_stats():
+    return {"online": len(online_users), "matches": stats["matches"]}
 
-@app.post("/send")
-async def send(request: Request, msg: str = Form(...)):
+# --- RUTAS DE APOYO ---
+
+@app.get("/chat")
+async def chat_view(request: Request):
     user = request.session.get("user")
-    if user and msg.strip():
-        chat_log.append({"user": user, "text": msg})
-        stats["msgs"] += 1
-        if len(chat_log) > 25: chat_log.pop(0)
-    return RedirectResponse("/", status_code=303)
+    if not user: return RedirectResponse("/login-page")
+    # (Aquí iría tu código de chat de ayer)
+    return HTMLResponse(f"<html>{ESTILOS}<body><div class='nav'><b>Chat Grupal</b><a href='/'>🏠 Inicio</a></div><p>Área de chat en construcción con el nuevo diseño...</p></body></html>")
 
 @app.get("/login-page")
 async def login_p():
-    return HTMLResponse(f"<html>{ESTILOS}<body><div class='card'><h2>💖 LoveConnect</h2><form action='/login' method='post'><input name='username' required placeholder='Tu nombre'><br><br><button class='btn-pink'>Entrar</button></form></div></body></html>")
+    return HTMLResponse(f"<html>{ESTILOS}<body><div class='card-swipe' style='margin-top:100px; padding:30px;'><h2>💖 LoveConnect</h2><form action='/login' method='post'><input name='username' placeholder='Tu nombre' required style='padding:12px; width:80%; border-radius:15px; border:1px solid #eee;'><br><br><button class='btn-main'>Entrar</button></form></div></body></html>")
 
 @app.post("/login")
 async def login(request: Request, username: str = Form(...)):
     request.session["user"] = username
-    if username not in profiles: profiles[username] = {"likes": set(), "points": 0}
+    if username not in profiles:
+        profiles[username] = {"likes": set(), "points": 0, "bio": "Explorando LoveConnect 🚀"}
     return RedirectResponse("/", status_code=303)
 
 if __name__ == "__main__":
