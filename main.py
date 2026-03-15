@@ -1,11 +1,10 @@
 import os, uvicorn, time
-from fastapi import FastAPI, Form, Request, Body, HTTPException
+from fastapi import FastAPI, Form, Request, Body
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 app = FastAPI()
-# Llave de sesión estable para evitar errores de "None"
-app.add_middleware(SessionMiddleware, secret_key="silver_breaker_2026_key")
+app.add_middleware(SessionMiddleware, secret_key="silver_breaker_final_v1")
 
 # --- BASE DE DATOS ---
 chat_log = []
@@ -13,19 +12,20 @@ priv_chats = {}
 profiles = {} 
 online = {}
 
-# --- DISEÑO ACTUALIZADO CON SOPORTE PARA FOTOS ---
 ESTILOS = """
 <style>
-    :root { --p: #ff4fa3; --bg: #fff0f6; }
+    :root { --p: #ff4fa3; --admin: #6c5ce7; --bg: #fff0f6; }
     body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin:0; text-align:center; color:#444; }
-    .nav { background:#fff; padding:12px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; position:sticky; top:0; z-index:100; }
+    .nav { background:#fff; padding:12px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; position:sticky; top:0; z-index:100; align-items:center; }
     .card { width:90%; max-width:340px; margin:20px auto; background:#fff; border-radius:25px; box-shadow:0 10px 30px rgba(0,0,0,0.08); overflow:hidden; }
-    .btn { background: var(--p); color:#fff; border:none; padding:12px 25px; border-radius:25px; cursor:pointer; font-weight:bold; text-decoration:none; display:inline-block; }
-    .img-perfil { width:100%; height:300px; object-fit: cover; background:#eee; display:flex; align-items:center; justify-content:center; font-size:80px; }
-    .chat-box { height:60vh; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:10px; }
-    .bubble { padding:10px 15px; border-radius:20px; font-size:14px; max-width:80%; }
+    .btn { background: var(--p); color:#fff; border:none; padding:12px 25px; border-radius:25px; cursor:pointer; font-weight:bold; text-decoration:none; display:inline-block; transition: 0.3s; }
+    .btn:active { transform: scale(0.95); }
+    .img-perfil { width:100%; height:320px; object-fit: cover; background:#eee; display:flex; align-items:center; justify-content:center; font-size:80px; }
+    .chat-box { height:60vh; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:10px; background:#f9f9f9; }
+    .bubble { padding:10px 15px; border-radius:20px; font-size:14px; max-width:80%; line-height:1.4; }
     .mine { background: var(--p); color:#fff; align-self:flex-end; border-bottom-right-radius:2px; }
     .others { background:#fff; align-self:flex-start; border-bottom-left-radius:2px; box-shadow:0 2px 5px rgba(0,0,0,0.05); }
+    .badge-admin { background: var(--admin); color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; }
 </style>
 """
 
@@ -41,22 +41,22 @@ async def home(request: Request):
     <body>
         <div class="nav"><b>💖 LoveConnect</b> <small id="on">🟢 --</small></div>
         <div id="sw">
-            <div class="card" id="main-card">
+            <div class="card">
                 <div id="pic_cont"></div>
                 <div style="padding:20px; text-align:left;">
-                    <h3 id="nom" style="margin:0;">Buscando...</h3>
-                    <p id="bio" style="font-size:14px; color:#666;"></p>
+                    <h3 id="nom" style="margin:0;">...</h3>
+                    <p id="bio" style="font-size:14px; color:#666; margin-top:5px;"></p>
                 </div>
                 <div style="padding:0 0 25px 0; display:flex; justify-content:center; gap:20px;">
-                    <button class="btn" style="background:#ddd; color:#333;" onclick="sig()">❌</button>
+                    <button class="btn" style="background:#eee; color:#333;" onclick="sig()">❌</button>
                     <button class="btn" onclick="like()">❤️</button>
                 </div>
             </div>
         </div>
         <div style="position:fixed; bottom:20px; width:100%; display:flex; justify-content:center; gap:10px;">
-            <a href="/chat" class="btn" style="background:#fff; color:var(--p); border:1px solid var(--p);">💬 Chat</a>
-            <a href="/privados" class="btn" style="background:#333;">✉️</a>
-            <a href="/perfil" class="btn">👤 Mi Perfil</a>
+            <a href="/chat" class="btn" style="background:#fff; color:var(--p); border:1.5px solid var(--p);">💬 Chat</a>
+            <a href="/privados" class="btn" style="background:#333;">✉️ Match</a>
+            <a href="/perfil" class="btn">👤 Perfil</a>
         </div>
         <script>
             let ps = [], i = 0;
@@ -67,22 +67,18 @@ async def home(request: Request):
             }}
             function show() {{
                 if (i >= ps.length) {{ 
-                    document.getElementById("sw").innerHTML = "<div class='card' style='padding:40px;'><h3>✨ ¡Has visto a todos!</h3><button onclick='location.reload()' class='btn'>Refrescar</button></div>"; 
+                    document.getElementById("sw").innerHTML = "<div class='card' style='padding:50px;'><h3>✨ ¡Visto todo!</h3><button onclick='location.reload()' class='btn'>Volver a ver</button></div>"; 
                     return; 
                 }}
                 document.getElementById("nom").innerText = ps[i].nombre;
                 document.getElementById("bio").innerText = ps[i].bio;
                 const cont = document.getElementById("pic_cont");
-                if(ps[i].foto) {{
-                    cont.innerHTML = `<img src="${{ps[i].foto}}" class="img-perfil">`;
-                }} else {{
-                    cont.innerHTML = `<div class="img-perfil">👤</div>`;
-                }}
+                cont.innerHTML = ps[i].foto ? `<img src="${{ps[i].foto}}" class="img-perfil">` : `<div class="img-perfil">👤</div>`;
             }}
             async function like() {{
                 const r = await fetch("/api/like/"+ps[i].nombre);
                 const d = await r.json();
-                if (d.m) alert("💘 ¡Es un Match!");
+                if (d.m) alert("💘 ¡ES UN MATCH!");
                 sig();
             }}
             function sig() {{ i++; show(); }}
@@ -100,23 +96,25 @@ async def home(request: Request):
 async def perfil_view(request: Request):
     user = request.session.get("user")
     if not user: return RedirectResponse("/login")
-    p = profiles.get(user, {"bio": "", "points": 0, "foto": ""})
+    p = profiles.get(user, {})
+    lvl = "∞" if user == "Silver Breaker" else (1 + (p.get('points', 0) // 50))
+    badge = '<span class="badge-admin">👑 ADMIN</span>' if user == "Silver Breaker" else ""
+    
     return HTMLResponse(f"""
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">{ESTILOS}</head>
     <body>
         <div class="nav"><a href="/" style="text-decoration:none;">⬅️</a> <b>Mi Perfil</b> <span></span></div>
-        <div class="card" style="padding:20px;">
-            <form action="/update-perfil" method="post">
-                <p>URL de tu Foto (Facebook/Instagram/Imgur):</p>
-                <input name="foto" value="{p.get('foto','')}" placeholder="https://..." style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd;">
-                <p>Tu Bio / Ubicación:</p>
-                <textarea name="bio" style="width:100%; height:60px; border-radius:10px; border:1px solid #ddd;">{p.get('bio','')}</textarea>
-                <br><br>
-                <button class="btn" style="width:100%;">Guardar Cambios</button>
+        <div class="card" style="padding:25px;">
+            <h2>{user} {badge}</h2>
+            <div style="background:var(--bg); padding:10px; border-radius:15px; margin-bottom:20px;">LVL: <b>{lvl}</b></div>
+            <form action="/update-perfil" method="post" style="text-align:left;">
+                <label style="font-size:12px; color:#999;">URL FOTO PERFIL:</label>
+                <input name="foto" value="{p.get('foto','')}" style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd; margin-bottom:15px;">
+                <label style="font-size:12px; color:#999;">BIO / UBICACIÓN:</label>
+                <textarea name="bio" style="width:100%; height:80px; border-radius:10px; border:1px solid #ddd; padding:10px;">{p.get('bio','')}</textarea>
+                <button class="btn" style="width:100%; margin-top:20px;">Actualizar Todo</button>
             </form>
-            <hr>
-            <p>Puntos de Nivel: <b>{p.get('points',0)}</b></p>
-            <a href="/login" style="color:red; font-size:12px;">Cerrar Sesión</a>
+            <br><a href="/login" style="color:red; font-size:12px; text-decoration:none;">Salgir de la cuenta</a>
         </div>
     </body></html>
     """)
@@ -125,78 +123,90 @@ async def perfil_view(request: Request):
 async def update_perfil(request: Request, bio: str = Form(...), foto: str = Form(...)):
     user = request.session.get("user")
     if user in profiles:
-        profiles[user]["bio"] = bio[:100]
+        profiles[user]["bio"] = bio[:150]
         profiles[user]["foto"] = foto.strip()
     return RedirectResponse("/perfil", status_code=303)
 
-@app.get("/login")
-def login_page():
-    return HTMLResponse(f"""
-    <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">{ESTILOS}</head>
-    <body>
-        <div class="card" style="margin-top:100px; padding:30px;">
-            <h2>💖 LoveConnect</h2>
-            <form action="/login" method="post">
-                <input name="u" placeholder="Tu nombre" required style="width:100%; padding:12px; border-radius:15px; border:1px solid #ddd;">
-                <br><br>
-                <button class="btn" style="width:100%;">Entrar</button>
-            </form>
-        </div>
-    </body></html>
-    """)
-
-@app.post("/login")
-async def do_login(request: Request, u: str = Form(...)):
-    user = u.strip()[:15]
-    request.session["user"] = user
-    if user not in profiles:
-        profiles[user] = {"likes": set(), "points": 0, "bio": "El Salvador", "foto": ""}
-    return RedirectResponse("/", status_code=303)
-
-# --- APIs DE SOPORTE ---
-@app.get("/api/ps")
-def get_peers(request: Request):
+@app.get("/privados")
+async def priv_list(request: Request):
     user = request.session.get("user")
-    return [{"nombre": n, "bio": p["bio"], "foto": p["foto"]} for n, p in profiles.items() if n != user]
+    if not user: return RedirectResponse("/login")
+    
+    # 👑 SILVER BREAKER MODO DIOS
+    if user == "Silver Breaker":
+        chats = [n for n in profiles.keys() if n != user]
+    else:
+        # Solo matches reales
+        chats = [n for n in profiles[user]["likes"] if user in profiles.get(n,{}).get("likes",set())]
+    
+    lista = "".join([f'<a href="/chat_p/{c}" class="card" style="display:block; padding:15px; text-decoration:none; color:black; border-left:5px solid #ff4fa3;">Chat con <b>{c}</b></a>' for c in chats])
+    return HTMLResponse(f"<html>{ESTILOS}<body><div class='nav'><a href='/'>⬅️</a><b>Bandeja de Entrada</b><span></span></div>{lista if lista else '<p style=margin-top:50px;>No hay matches aún. Sigue intentando.</p>'}</body></html>")
+
+@app.get("/chat_p/{target}")
+async def private_chat(request: Request, target: str):
+    user = request.session.get("user")
+    if not user: return RedirectResponse("/login")
+    pair = tuple(sorted((user, target)))
+    msgs = priv_chats.get(pair, [])
+    html_msgs = "".join([f'<div class="bubble {"mine" if m["u"]==user else "others"}"><b>{m["u"]}</b><br>{m["t"]}</div>' for m in msgs])
+    return HTMLResponse(f"<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>{ESTILOS}</head><body><div class='nav'><a href='/privados'>⬅️</a><b>Chat con {target}</b><span></span></div><div class='chat-box' id='cb'>{html_msgs}<div id='e'></div></div><form action='/send_p/{target}' method='post' style='display:flex; padding:15px; background:#fff;'><input name='msg' required style='flex:1; padding:10px; border-radius:20px; border:1px solid #ddd;'><button class='btn' style='margin-left:10px;'>➤</button></form><script>document.getElementById('e').scrollIntoView();</script></body></html>")
+
+@app.post("/send_p/{target}")
+async def send_p(request: Request, target: str, msg: str = Form(...)):
+    user = request.session.get("user")
+    pair = tuple(sorted((user, target)))
+    if pair not in priv_chats: priv_chats[pair] = []
+    priv_chats[pair].append({"u": user, "t": msg[:200]})
+    return RedirectResponse(f"/chat_p/{target}", status_code=303)
+
+@app.get("/api/ps")
+def api_peers(request: Request):
+    user = request.session.get("user")
+    # Algoritmo: Silver Breaker siempre sale primero
+    all_users = []
+    if "Silver Breaker" in profiles and user != "Silver Breaker" and "Silver Breaker" not in profiles.get(user,{}).get("likes",set()):
+        all_users.append({"nombre": "Silver Breaker", "bio": profiles["Silver Breaker"]["bio"], "foto": profiles["Silver Breaker"]["foto"]})
+    
+    rest = [{"nombre": n, "bio": p["bio"], "foto": p["foto"]} for n, p in profiles.items() if n != user and n != "Silver Breaker" and n not in profiles.get(user,{}).get("likes",set())]
+    return all_users + rest
 
 @app.get("/api/like/{target}")
-def add_like(request: Request, target: str):
+def api_like(request: Request, target: str):
     user = request.session.get("user")
-    if user not in profiles or target not in profiles: return {"m": False}
+    if user not in profiles: return {"m": False}
     profiles[user]["likes"].add(target)
-    match = user in profiles[target]["likes"]
+    match = user in profiles.get(target,{}).get("likes",set())
     if match: profiles[user]["points"] += 10
     return {"m": match}
 
 @app.get("/api/st")
-def get_stats():
-    active = len([t for t in online.values() if time.time() - t < 60])
-    return {"o": active}
+def api_st():
+    act = len([t for t in online.values() if time.time() - t < 60])
+    return {"o": act}
 
 @app.get("/chat")
-async def chat_view(request: Request):
+async def chat_g(request: Request):
     u = request.session.get("user")
     if not u: return RedirectResponse("/login")
-    msgs = "".join([f'<div class="bubble {"mine" if m["u"]==u else "others"}"><b>{m["u"]}</b><br>{m["t"]}</div>' for m in chat_log])
+    msgs = "".join([f'<div class="bubble {"mine" if m["u"]==u else "others"}"><b>{m["u"]} {"👑" if m["u"]=="Silver Breaker" else ""}</b><br>{m["t"]}</div>' for m in chat_log])
     return HTMLResponse(f"<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>{ESTILOS}</head><body><div class='nav'><a href='/'>⬅️</a><b>Chat Grupal</b><span></span></div><div class='chat-box'>{msgs}</div><form action='/send' method='post' style='padding:15px; display:flex;'><input name='m' style='flex:1; padding:10px; border-radius:20px; border:1px solid #ddd;'><button class='btn' style='margin-left:5px;'>➤</button></form></body></html>")
 
 @app.post("/send")
 async def send_msg(request: Request, m: str = Form(...)):
     u = request.session.get("user")
-    if u and m: chat_log.append({"u": u, "t": m[:100]})
+    if u and m: chat_log.append({"u": u, "t": m[:150]})
+    if len(chat_log) > 30: chat_log.pop(0)
     return RedirectResponse("/chat", status_code=303)
 
-@app.get("/privados")
-async def priv_list(request: Request):
-    user = request.session.get("user")
-    # Para Silver Breaker: ver a todos. Para otros: solo sus matches.
-    if user == "Silver Breaker":
-        chats = [n for n in profiles.keys() if n != user]
-    else:
-        chats = [n for n in profiles[user]["likes"] if user in profiles.get(n,{}).get("likes",set())]
-    
-    lista = "".join([f'<a href="/chat_p/{c}" class="card" style="display:block; padding:15px; text-decoration:none; color:black;">Chat con {c}</a>' for c in chats])
-    return HTMLResponse(f"<html>{ESTILOS}<body><div class='nav'><a href='/'>⬅️</a><b>Privados</b><span></span></div>{lista if lista else '<p>No hay chats aún</p>'}</body></html>")
+@app.get("/login")
+def login_p(): return HTMLResponse(f"<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>{ESTILOS}</head><body><div class='card' style='margin-top:100px; padding:30px;'><h2>💖 LoveConnect</h2><form action='/login' method='post'><input name='u' placeholder='Tu nombre' required style='width:100%; padding:12px; border-radius:15px; border:1px solid #ddd;'><br><br><button class='btn' style='width:100%'>Entrar</button></form></div></body></html>")
+
+@app.post("/login")
+async def do_login(request: Request, u: str = Form(...)):
+    user = u.strip()[:15]
+    request.session["user"] = user
+    if user not in profiles: profiles[user] = {"likes": set(), "points": 0, "bio": "El Salvador", "foto": ""}
+    return RedirectResponse("/", status_code=303)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
