@@ -4,122 +4,124 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 app = FastAPI()
-# Llave de sesión robusta para evitar errores de autenticación
-app.add_middleware(SessionMiddleware, secret_key="silver_breaker_key_2026")
+# Clave de seguridad para mantener la sesión activa
+app.add_middleware(SessionMiddleware, secret_key="silver_breaker_secure_2026")
 
-# --- BASE DE DATOS TEMPORAL ---
-# Usamos diccionarios simples para que Railway no se bloquee
-db_users = {}
-chat_history = []
+# --- BASE DE DATOS EN MEMORIA ---
+usuarios = {}
+mensajes_globales = []
 
-# --- DISEÑO LIMPIO Y RESPONSIVO ---
+# --- ESTILO VISUAL (Basado en tus capturas favoritas) ---
 CSS = """
 <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #fff0f5; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-    .container { background: white; width: 90%; max-width: 400px; padding: 20px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
-    .btn { background: #ff4fa3; color: white; border: none; padding: 12px 20px; border-radius: 50px; cursor: pointer; text-decoration: none; font-weight: bold; width: 100%; display: block; margin-top: 10px; }
-    input, textarea { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #eee; border-radius: 15px; box-sizing: border-box; }
-    .chat-box { height: 300px; overflow-y: auto; border: 1px solid #f9f9f9; padding: 10px; margin-bottom: 10px; background: #fafafa; border-radius: 15px; }
-    .msg { background: #ffe4ee; padding: 8px 12px; border-radius: 15px; margin: 5px 0; text-align: left; font-size: 14px; }
-    .admin-tag { background: #6c5ce7; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #fff0f6; margin: 0; padding: 20px; color: #333; }
+    .card { background: white; max-width: 450px; margin: 20px auto; padding: 30px; border-radius: 30px; box-shadow: 0 10px 30px rgba(255, 79, 163, 0.1); text-align: center; }
+    h1 { color: #ff4fa3; font-size: 24px; }
+    .btn-principal { background: #ff4fa3; color: white; border: none; padding: 15px 30px; border-radius: 50px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; text-decoration: none; display: block; margin: 10px 0; }
+    .btn-secundario { background: #f0f0f0; color: #555; border: none; padding: 10px 20px; border-radius: 50px; cursor: pointer; text-decoration: none; display: inline-block; margin: 5px; font-size: 14px; }
+    input, textarea { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ffe0ed; border-radius: 15px; box-sizing: border-box; font-size: 14px; }
+    .chat-container { height: 350px; overflow-y: auto; background: #fafafa; border-radius: 20px; padding: 15px; margin-bottom: 15px; border: 1px solid #f0f0f0; }
+    .burbuja { background: #ff4fa3; color: white; padding: 10px 15px; border-radius: 20px 20px 5px 20px; margin: 8px 0; text-align: right; margin-left: auto; width: fit-content; max-width: 80%; }
+    .nombre-admin { color: #ff4fa3; font-weight: bold; display: block; font-size: 12px; margin-bottom: 4px; }
 </style>
 """
 
-# --- RUTAS DE NAVEGACIÓN ---
+# --- RUTAS DE NAVEGACIÓN (Simplificadas para evitar "Not Found") ---
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def inicio(request: Request):
     user = request.session.get("user")
-    if user:
-        return RedirectResponse(url="/main_chat")
+    if user: return RedirectResponse(url="/sala-chat")
     
-    # Pantalla de Login corregida
     return f"""
-    <html><head><meta name='viewport' content='width=device-width, initial-scale=1'>{CSS}</head>
-    <body><div class='container'>
+    <html><head><meta name="viewport" content="width=device-width, initial-scale=1">{CSS}</head>
+    <body><div class="card">
         <h1>💖 LoveConnect</h1>
-        <form action="/login_action" method="post">
-            <input type="text" name="username" placeholder="Tu nombre o apodo" required>
-            <button type="submit" class="btn">Entrar</button>
+        <form action="/entrar" method="post">
+            <input type="text" name="nombre" placeholder="¿Cómo te llamas?" required>
+            <button type="submit" class="btn-principal">Empezar</button>
         </form>
     </div></body></html>
     """
 
-@app.post("/login_action")
-async def login_action(request: Request, username: str = Form(...)):
-    clean_name = username.strip()
-    request.session["user"] = clean_name
-    if clean_name not in db_users:
-        db_users[clean_name] = {"bio": "¡Hola! Estoy en LoveConnect.", "status": "Activo"}
-    return RedirectResponse(url="/main_chat", status_code=303)
+@app.post("/entrar")
+async def entrar(request: Request, nombre: str = Form(...)):
+    user_id = nombre.strip()
+    request.session["user"] = user_id
+    if user_id not in usuarios:
+        usuarios[user_id] = {"bio": "El Salvador", "foto": ""}
+    return RedirectResponse(url="/sala-chat", status_code=303)
 
-@app.get("/main_chat", response_class=HTMLResponse)
-async def main_chat(request: Request):
+@app.get("/sala-chat", response_class=HTMLResponse)
+async def sala_chat(request: Request):
     user = request.session.get("user")
     if not user: return RedirectResponse(url="/")
-
-    # Generar mensajes
-    msgs = "".join([f"<div class='msg'><b>{m['u']}:</b> {m['t']}</div>" for m in chat_history])
     
+    # Construir burbujas de chat
+    chat_html = ""
+    for m in mensajes_globales:
+        clase_admin = "👑 " if m['u'] == "Silver Breaker" else ""
+        chat_html += f"<div class='burbuja'><span style='font-size:10px; opacity:0.8;'>{clase_admin}{m['u']}</span><br>{m['t']}</div>"
+
     return f"""
-    <html><head><meta name='viewport' content='width=device-width, initial-scale=1'>{CSS}</head>
-    <body><div class='container'>
+    <html><head><meta name="viewport" content="width=device-width, initial-scale=1">{CSS}</head>
+    <body><div class="card">
         <h3>Chat Grupal 🟢</h3>
-        <div class="chat-box">{msgs}</div>
-        <form action="/send_msg" method="post">
-            <input type="text" name="text" placeholder="Escribe un mensaje..." required>
-            <button type="submit" class="btn">Enviar</button>
+        <div class="chat-container">{chat_html}</div>
+        <form action="/enviar-msg" method="post">
+            <input type="text" name="msg" placeholder="Escribe un mensaje..." required>
+            <button type="submit" class="btn-principal">Enviar</button>
         </form>
-        <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
-        <div style="display:flex; gap:10px;">
-            <a href="/my_profile" class="btn" style="background:#eee; color:#333;">Mi Perfil</a>
-            <a href="/logout" class="btn" style="background:#ffeded; color:red;">Salir</a>
+        <div style="margin-top:20px;">
+            <a href="/mi-perfil" class="btn-secundario">👤 Perfil</a>
+            <a href="/salir" class="btn-secundario" style="color:red;">✖ Salir</a>
         </div>
     </div></body></html>
     """
 
-@app.post("/send_msg")
-async def send_msg(request: Request, text: str = Form(...)):
+@app.post("/enviar-msg")
+async def enviar_msg(request: Request, msg: str = Form(...)):
     user = request.session.get("user")
     if user:
-        chat_history.append({"u": user, "t": text[:100]})
-        if len(chat_history) > 30: chat_history.pop(0)
-    return RedirectResponse(url="/main_chat", status_code=303)
+        mensajes_globales.append({"u": user, "t": msg[:150]})
+        if len(mensajes_globales) > 25: mensajes_globales.pop(0)
+    return RedirectResponse(url="/sala-chat", status_code=303)
 
-@app.get("/my_profile", response_class=HTMLResponse)
-async def my_profile(request: Request):
+@app.get("/mi-perfil", response_class=HTMLResponse)
+async def mi_perfil(request: Request):
     user = request.session.get("user")
     if not user: return RedirectResponse(url="/")
     
-    profile = db_users.get(user, {"bio": "..."})
-    admin_label = "<span class='admin-tag'>ADMIN</span>" if user == "Silver Breaker" else ""
+    datos = usuarios.get(user, {"bio": "Sin biografía"})
+    admin_tag = "<span style='background:#6c5ce7; color:white; padding:3px 10px; border-radius:10px; font-size:12px;'>LVL: ∞ ADMIN</span>" if user == "Silver Breaker" else ""
 
     return f"""
-    <html><head><meta name='viewport' content='width=device-width, initial-scale=1'>{CSS}</head>
-    <body><div class='container'>
-        <h2>{user} {admin_label}</h2>
-        <form action="/update_profile" method="post">
-            <p>Tu Biografía:</p>
-            <textarea name="new_bio" rows="3">{profile['bio']}</textarea>
-            <button type="submit" class="btn">Guardar Cambios</button>
+    <html><head><meta name="viewport" content="width=device-width, initial-scale=1">{CSS}</head>
+    <body><div class="card">
+        <h1>{user}</h1>
+        {admin_tag}
+        <form action="/actualizar-perfil" method="post" style="margin-top:20px;">
+            <p>Tu Bio:</p>
+            <textarea name="nueva_bio">{datos['bio']}</textarea>
+            <button type="submit" class="btn-principal">Guardar Cambios</button>
         </form>
         <br>
-        <a href="/main_chat" style="color:#ff4fa3; text-decoration:none;">← Volver al chat</a>
+        <a href="/sala-chat" style="color:#ff4fa3; text-decoration:none; font-weight:bold;">← Volver al Chat</a>
     </div></body></html>
     """
 
-@app.post("/update_profile")
-async def update_profile(request: Request, new_bio: str = Form(...)):
+@app.post("/actualizar-perfil")
+async def actualizar_perfil(request: Request, nueva_bio: str = Form(...)):
     user = request.session.get("user")
-    if user in db_users:
-        db_users[user]["bio"] = new_bio[:150]
-    return RedirectResponse(url="/my_profile", status_code=303)
+    if user in usuarios:
+        usuarios[user]["bio"] = nueva_bio[:200]
+    return RedirectResponse(url="/mi-perfil", status_code=303)
 
-@app.get("/logout")
-async def logout(request: Request):
+@app.get("/salir")
+async def salir(request: Request):
     request.session.clear()
     return RedirectResponse(url="/")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
