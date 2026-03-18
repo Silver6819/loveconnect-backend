@@ -1,120 +1,152 @@
-import os, uvicorn
-from datetime import datetime, timedelta
-from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from starlette.middleware.sessions import SessionMiddleware
+from fastapi import FastAPI, Request, Form
+from fastapi.responses import HTMLResponse
+from datetime import date
+import uvicorn
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="silver_breaker_infinity_2026")
 
-# --- BASE DE DATOS ACTUALIZADA CON TU INFO ---
+# --- BASE DE DATOS DE ALMAS (Simulada) ---
+# Aquí controlamos quién es Premium y quién está en el Chat de Castigo
 usuarios_db = {
-    "Silver Breaker": {"p": "1234", "lvl": "∞", "join": datetime.utcnow(), "is_pre": True, "img": ""}
-} 
-chat_global = []
-sugerencias_mejoras = []
+    "Silver676": {
+        "pass": "admin123", 
+        "lvl": "∞", 
+        "rango": "Creador", 
+        "prestigio": 9999,
+        "tipo": "Premium",
+        "castigado": False
+    },
+    "UsuarioEjemplo": {
+        "pass": "123",
+        "lvl": "1",
+        "rango": "Explorador",
+        "prestigio": 0,
+        "tipo": "Básico",
+        "castigado": False
+    }
+}
 
-# CONFIGURACIÓN DE TU PAYPAL (SEGÚN CAPTURA)
-PAYPAL_BUSINESS_ID = "@silver676" 
+# --- LÓGICA DE NEGOCIO ---
+def calcular_edad(fecha_nacimiento: str):
+    try:
+        today = date.today()
+        birth = date.fromisoformat(fecha_nacimiento)
+        return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+    except:
+        return 0
 
-def es_premium(user):
-    u = usuarios_db.get(user)
-    if not u: return False
-    if u["is_pre"] or user == "Silver Breaker": return True
-    return datetime.utcnow() < u["join"] + timedelta(days=3)
+# --- DISEÑO UNIFICADO (HTML + CSS CYBER-NEON) ---
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>LoveConnect v6.0 - Edición Estelar</title>
+    <style>
+        body { background:#050505; color:white; font-family:Arial, sans-serif; margin:0; overflow-x:hidden; }
+        :root { --blue:#00f7ff; --pink:#ff00c8; }
+        .neon-blue { color:var(--blue); text-shadow:0 0 10px var(--blue); }
+        .neon-pink { color:var(--pink); text-shadow:0 0 10px var(--pink); }
+        
+        /* Pantalla +18 */
+        #age-gate { position:fixed; top:0; left:0; width:100%; height:100%; background:black; 
+                    display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:1000; text-align:center; }
+        
+        /* Contenedores y Cards */
+        .container { max-width:450px; margin:40px auto; padding:20px; border: 1px solid #222; border-radius:15px; background:#0a0a0a; text-align:center; }
+        input { background:black; border:2px solid var(--blue); padding:10px; color:white; margin:10px 0; width:80%; outline:none; border-radius:5px; }
+        
+        button { background:transparent; border:2px solid var(--blue); color:var(--blue); padding:12px 25px; cursor:pointer; transition:0.3s; font-weight:bold; text-transform:uppercase; }
+        button:hover { box-shadow:0 0 15px var(--blue); background:var(--blue); color:black; }
+        
+        .pink-btn { border-color:var(--pink); color:var(--pink); }
+        .pink-btn:hover { box-shadow:0 0 20px var(--pink); background:var(--pink); color:white; }
 
-CSS_ESTELAR = """
-<style>
-:root { --pink: #ff2e88; --blue: #00e5ff; --purp: #9b5cff; }
-body { background: #050510; color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 15px; }
-.container { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border-radius: 20px; padding: 20px; max-width: 450px; margin: auto; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 0 20px rgba(0,229,255,0.1); }
-.lvl { background: var(--blue); color: #000; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; }
-.btn-premium { background: linear-gradient(90deg, #f39c12, #e67e22); border: none; color: white; padding: 12px; width: 100%; border-radius: 25px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-.msg { background: rgba(255,255,255,0.08); padding: 10px; border-radius: 15px; margin-bottom: 10px; border-left: 3px solid var(--pink); animation: slideIn 0.3s ease; }
-@keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-input { width: 100%; padding: 10px; border-radius: 15px; border: 1px solid #333; background: #111; color: white; margin-bottom: 10px; }
-</style>
+        .memberships { display:flex; gap:10px; justify-content:center; margin:25px 0; }
+        .card { border:2px solid; padding:15px; width:180px; border-radius:12px; background:#0f0f0f; transition: 0.3s; }
+        .blue-card { border-color:var(--blue); box-shadow:0 0 10px var(--blue); }
+        .pink-card { border-color:var(--pink); box-shadow:0 0 15px var(--pink); }
+        
+        /* Perfil */
+        .profile-img { width:110px; height:110px; border-radius:50%; border:3px solid var(--blue); box-shadow:0 0 15px var(--blue); margin-bottom:10px; }
+        .action-btn { cursor:pointer; font-size:1.3rem; transition:0.3s; margin: 0 8px; }
+        .action-btn:hover { transform: scale(1.3); filter: drop-shadow(0 0 5px white); }
+        
+        #chat-box { text-align:left; height:250px; overflow-y:auto; background:#000; padding:15px; border:1px solid #111; margin-top:20px; border-radius:10px; }
+    </style>
+</head>
+<body>
+
+    <div id="age-gate">
+        <h1 class="neon-pink">ADVERTENCIA +18</h1>
+        <p style="max-width:350px; line-height:1.5;">Esta es una comunidad para adultos. Cualquier falta a las reglas te enviará directamente al <b>Chat de Castigo</b>.</p>
+        <button onclick="document.getElementById('age-gate').style.display='none'">ACEPTAR Y CONTINUAR</button>
+    </div>
+
+    <div class="container">
+        <h1 class="neon-blue" style="letter-spacing:3px;">LOVE CONNECT</h1>
+        
+        <div class="profile">
+            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Silver" class="profile-img">
+            <h2 class="neon-blue">LvL: {{ lvl }}</h2>
+            <p style="color:#888;">Rango: <span class="neon-pink">{{ rango }}</span></p>
+        </div>
+
+        <hr style="border:0.5px solid #222; margin:20px 0;">
+
+        <div class="memberships">
+            <div class="card blue-card">
+                <h3 class="neon-blue">Básico</h3>
+                <p style="font-size:0.85rem;">Chat, Audio y Galería<br><b>¡ILIMITADOS!</b></p>
+                <button style="font-size:0.65rem;">TU NIVEL</button>
+            </div>
+            
+            <div class="card pink-card">
+                <h3 class="neon-pink">Premium</h3>
+                <p style="font-size:0.85rem;">Todo lo Básico +<br><b>Videos Ilimitados</b></p>
+                <a href="https://www.paypal.me/silver676" target="_blank" style="text-decoration:none;">
+                    <button class="pink-btn" style="font-size:0.65rem;">PODER CÓSMICO</button>
+                </a>
+            </div>
+        </div>
+
+        <div id="registro" style="margin-top:20px;">
+            <h4 class="neon-blue">Registro de Almas</h4>
+            <input type="date" id="birthdate" onchange="actualizarEdad()">
+            <input type="text" id="age_display" placeholder="Edad Calculada" readonly>
+        </div>
+
+        <div id="chat-box">
+            <p><span class="neon-blue"><b>Admin:</b></span> Bienvenidos a la Red Estelar. ❤️ 🔗</p>
+            <p><b>Usuario_Beta:</b> ¿Alguien para compartir videos? <span class="action-btn">❤️</span></p>
+        </div>
+    </div>
+
+    <script>
+        function actualizarEdad() {
+            let fecha = new Date(document.getElementById("birthdate").value);
+            let hoy = new Date();
+            let edad = hoy.getFullYear() - fecha.getFullYear();
+            if (hoy.getMonth() < fecha.getMonth() || (hoy.getMonth() == fecha.getMonth() && hoy.getDate() < fecha.getDate())) {
+                edad--;
+            }
+            document.getElementById("age_display").value = edad + " años reales";
+        }
+    </script>
+</body>
+</html>
 """
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    return f"<html><head>{CSS_ESTELAR}</head><body><div class='container'><h1>❤️ LoveConnect</h1><form action='/login' method='post'><input name='u' placeholder='Usuario' required><input name='p' type='password' placeholder='Clave' required><button style='width:100%; background:var(--pink); border:none; color:white; padding:10px; border-radius:20px;'>ENTRAR</button></form></div></body></html>"
-
-@app.post("/login")
-async def login(request: Request, u: str = Form(...), p: str = Form(...)):
-    if u not in usuarios_db:
-        usuarios_db[u] = {"p": p, "lvl": 1, "join": datetime.utcnow(), "is_pre": False, "img": ""}
-    if usuarios_db[u]["p"] == p:
-        request.session["user"] = u
-        return RedirectResponse(url="/chat", status_code=303)
-    return "Credenciales incorrectas."
-
-@app.get("/chat", response_class=HTMLResponse)
-async def chat_view(request: Request):
-    me = request.session.get("user")
-    if not me: return RedirectResponse(url="/")
+async def home():
+    # Simulamos que eres tú el que entra
+    user = usuarios_db["Silver676"]
     
-    u_data = usuarios_db[me]
-    bloqueado = not es_premium(me)
+    # Verificamos si está castigado
+    if user["castigado"]:
+        return "<h1>HAS SIDO ENVIADO AL CHAT DE CASTIGO</h1>"
     
-    msgs = "".join([f"<div class='msg'><b>{m['u']} [LvL:{usuarios_db[m['u']]['lvl']}]:</b> {m['t']}</div>" for m in chat_global])
-
-    # SISTEMA DE PAGO PAYPAL REAL
-    paypal_html = ""
-    if bloqueado:
-        paypal_html = f"""
-        <div style='background:rgba(255,0,0,0.1); border:1px solid red; padding:15px; border-radius:15px; text-align:center;'>
-            <p>☢️ TU ACCESO GRATUITO HA EXPIRADO</p>
-            <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
-                <input type="hidden" name="cmd" value="_xclick">
-                <input type="hidden" name="business" value="{PAYPAL_BUSINESS_ID}">
-                <input type="hidden" name="item_name" value="LoveConnect Premium - {me}">
-                <input type="hidden" name="amount" value="5.00">
-                <input type="hidden" name="currency_code" value="USD">
-                <button class='btn-premium'>DESBLOQUEAR PREMIUM (PayPal)</button>
-            </form>
-        </div>"""
-
-    admin_panel = f"<hr><a href='/admin_db' style='color:var(--blue); font-size:12px; text-decoration:none;'>[GOD MODE: REGISTRO DE ALMAS]</a>" if me == "Silver Breaker" else ""
-
-    return f"""
-    <html><head>{CSS_ESTELAR}</head><body>
-    <div class='container'>
-        <div style='display:flex; justify-content:space-between;'><b>{me}</b> <span class='lvl'>LvL {u_data['lvl']}</span></div>
-        <hr>
-        {paypal_html if bloqueado else f'<div style="height:300px; overflow-y:auto; margin-bottom:10px;">{msgs}</div><form action="/postear" method="post"><input name="m" placeholder="Escribir mensaje..." required><button style="width:100%; background:var(--blue); border:none; padding:8px; border-radius:15px;">ENVIAR</button></form>'}
-        
-        <div style='margin-top:20px;'>
-            <p style='font-size:11px; color:#888;'>SUGERIR MEJORA:</p>
-            <form action='/sugerir' method='post'><input name='s' style='width:70%; font-size:12px;'><button style='width:25%; font-size:12px;'>Pedir</button></form>
-        </div>
-        {admin_panel}
-        <br><a href='/logout' style='font-size:10px; color:grey;'>Cerrar Sesión</a>
-    </div></body></html>
-    """
-
-@app.get("/admin_db", response_class=HTMLResponse)
-async def admin_db(request: Request):
-    if request.session.get("user") != "Silver Breaker": return "ACCESO DENEGADO"
-    items = "".join([f"<li><b>{u}</b>: {d['p']} (LvL {d['lvl']})</li>" for u, d in usuarios_db.items()])
-    return f"<html><head>{CSS_ESTELAR}</head><body><div class='container'><h2>BASE DE DATOS</h2><ul>{items}</ul><br><a href='/chat' style='color:var(--blue);'>Volver</a></div></body></html>"
-
-@app.post("/postear")
-async def postear(request: Request, m: str = Form(...)):
-    user = request.session.get("user")
-    if user and es_premium(user):
-        chat_global.append({"u": user, "t": m.replace("<","&lt;")})
-    return RedirectResponse(url="/chat", status_code=303)
-
-@app.post("/sugerir")
-async def sugerir(s: str = Form(...)):
-    sugerencias_mejoras.append(s)
-    return RedirectResponse(url="/chat", status_code=303)
-
-@app.get("/logout")
-async def logout(request: Request):
-    request.session.clear()
-    return RedirectResponse(url="/")
+    return HTML_TEMPLATE.replace("{{ lvl }}", str(user["lvl"])).replace("{{ rango }}", user["rango"])
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    uvicorn.run(app, host="0.0.0.0", port=10000)
