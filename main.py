@@ -1,132 +1,159 @@
-from fastapi import FastAPI, Request, Form
+import asyncio
+import os
+from datetime import datetime, timedelta
+from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
-from datetime import date
-import uvicorn
 
 app = FastAPI()
 
+# --- CONFIGURACIÓN DE VIDEOS ---
+VIDEO_LIMIT = 10
+EXPIRATION_MINUTES = 5
+videos_db = [] # Lista en memoria para rapidez
+if not os.path.exists("static/videos"):
+    os.makedirs("static/videos", exist_ok=True)
+
 # --- BASE DE DATOS DE ALMAS ---
 usuarios_db = {
-    "Silver676": {"pass": "1234", "lvl": "∞", "rango": "Creador", "tipo": "Premium", "castigado": False}
+    "Silver676": {"lvl": "∞", "rango": "Creador", "tipo": "Premium", "castigado": False}
 }
-
 mensajes_globales = []
-sugerencias = []
 
-# --- TEMPLATE ÚNICO ---
-HTML_TEMPLATE = """
+# --- LIMPIEZA AUTOMÁTICA DE VIDEOS (Cada 60 seg) ---
+async def cleanup_videos():
+    while True:
+        now = datetime.now()
+        for v in videos_db[:]:
+            if v["expires_at"] < now:
+                try:
+                    os.remove(v["path"])
+                except: pass
+                videos_db.remove(v)
+        await asyncio.sleep(60)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(cleanup_videos())
+
+# --- HTML UNIFICADO (CYBER-NEON) ---
+HTML_BASE = """
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LoveConnect v6.1</title>
+    <title>LoveConnect v7.0</title>
     <style>
-        body { background:#050505; color:white; font-family:Arial, sans-serif; margin:0; text-align:center; }
+        body { background:#000; color:white; font-family:sans-serif; margin:0; text-align:center; overflow-x:hidden; }
         :root { --blue:#00f7ff; --pink:#ff00c8; }
         .neon-blue { color:var(--blue); text-shadow:0 0 10px var(--blue); }
         .neon-pink { color:var(--pink); text-shadow:0 0 10px var(--pink); }
-        
-        #age-gate { position:fixed; top:0; left:0; width:100%; height:100%; background:black; 
-                    display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:2000; }
-        
-        .container { max-width:450px; margin:20px auto; padding:15px; border: 1px solid #222; border-radius:15px; background:#0a0a0a; }
-        input { background:black; border:2px solid var(--blue); padding:10px; color:white; margin:5px 0; width:85%; outline:none; }
-        
-        button { background:transparent; border:2px solid var(--blue); color:var(--blue); padding:10px; cursor:pointer; font-weight:bold; width:90%; margin:10px 0; }
-        button:hover { box-shadow:0 0 15px var(--blue); background:var(--blue); color:black; }
-        
-        .pink-btn { border-color:var(--pink); color:var(--pink); }
-        .pink-btn:hover { box-shadow:0 0 15px var(--pink); background:var(--pink); color:white; }
 
-        .card { border:1px solid; padding:10px; margin:10px; border-radius:10px; background:#111; display:inline-block; width:40%; vertical-align:top; font-size:0.7rem; }
-        .blue-card { border-color:var(--blue); }
-        .pink-card { border-color:var(--pink); }
+        /* PROTOCOLO +18 */
+        #interrogation { position:fixed; width:100%; height:100%; background:black; display:flex; 
+                         flex-direction:column; justify-content:center; align-items:center; z-index:9999; }
         
-        #chat-box { text-align:left; height:200px; overflow-y:auto; background:#000; padding:10px; border:1px solid #222; margin:10px 0; }
-        .admin-link { color:red; font-size:0.7rem; text-decoration:none; display:block; margin-top:10px; }
+        /* SALA DE CASTIGO */
+        #prison { position:fixed; width:100%; height:100%; background:#000; display:{{ show_prison }}; 
+                  justify-content:center; align-items:center; z-index:9998; }
+        .cell { border:2px solid var(--blue); padding:40px; box-shadow:0 0 20px var(--blue); }
+        .glitch { animation: glitch 1s infinite; font-size: 30px; }
+
+        /* CONTENEDORES */
+        .container { max-width:450px; margin:20px auto; padding:15px; border:1px solid #222; border-radius:15px; background:#0a0a0a; }
+        .pink-btn { border:2px solid var(--pink); color:var(--pink); background:transparent; padding:10px; cursor:pointer; font-weight:bold; width:90%; transition:0.3s; }
+        .pink-btn:hover { box-shadow:0 0 20px var(--pink); background:var(--pink); color:white; }
+        
+        /* GOD MODE */
+        .god-mode { position:fixed; bottom:10px; right:10px; padding:8px; border:2px solid red; color:red; background:black; cursor:pointer; font-size:10px; }
+
+        @keyframes glitch{ 0%{text-shadow:2px 0 red;} 50%{text-shadow:-2px 0 blue;} 100%{text-shadow:0 0 10px white;} }
     </style>
 </head>
 <body>
 
-    <div id="age-gate">
-        <h1 class="neon-pink">CONTENIDO +18</h1>
-        <p style="padding:20px;">Si cometes faltas irás a la sala de castigo. ¿Aceptas continuar?</p>
-        <button class="pink-btn" onclick="document.getElementById('age-gate').style.display='none'">ACEPTAR Y CONTINUAR</button>
+    <div id="interrogation">
+        <h1 class="neon-pink">PROTOCOLO +18</h1>
+        <p style="max-width:300px;">Comunidad para adultos. Faltas resultan en aislamiento en la SALA DE CASTIGO.</p>
+        <button class="pink-btn" onclick="document.getElementById('interrogation').style.display='none'">ACEPTAR Y ENTRAR</button>
+    </div>
+
+    <div id="prison">
+        <div class="cell">
+            <h1 class="neon-pink glitch">HAS SIDO AISLADO</h1>
+            <p>Por orden del Creador</p>
+        </div>
     </div>
 
     <div class="container">
         <h2 class="neon-blue">LoveConnect</h2>
-        <p><b>{{ user }}</b> <span class="neon-blue">[LvL: {{ lvl }}]</span></p>
+        <p>Usuario: <b>{{ user }}</b> <span class="neon-pink">LvL: {{ lvl }}</span></p>
 
-        <div class="memberships">
-            <div class="card blue-card">
-                <h3 class="neon-blue">Básico</h3>
-                <p>Chat, Audio y Galería<br><b>ILIMITADOS</b></p>
-            </div>
-            <div class="card pink-card">
-                <h3 class="neon-pink">Premium</h3>
-                <p>Todo +<br><b>Videos Ilimitados</b></p>
-                <a href="https://www.paypal.me/silver676" target="_blank"><button class="pink-btn" style="width:100%; font-size:0.6rem;">MEJORAR</button></a>
-            </div>
+        <div style="border:1px dashed var(--pink); padding:10px; margin-bottom:15px;">
+            <h3 class="neon-pink">Zona de Videos</h3>
+            <p style="font-size:10px; color:gray;">⚠️ Los videos desaparecen en 5 minutos</p>
+            <form action="/upload-video" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" style="font-size:10px;">
+                <button type="submit" class="pink-btn" style="width:50%; margin-top:5px;">Subir (Premium)</button>
+            </form>
         </div>
 
-        <div id="chat-box">
+        <div id="chat" style="text-align:left; height:200px; overflow-y:auto; background:black; padding:10px; border:1px solid #222;">
             {% for m in mensajes %}
-                <p style="margin:5px 0;"><b>{{ m.user }}:</b> {{ m.msg }} <span>❤️ 🔗</span></p>
+                <p><b>{{ m.user }}:</b> {{ m.msg }}</p>
             {% endfor %}
         </div>
 
-        <form action="/enviar" method="post">
-            <input type="text" name="msg" placeholder="Escribe un mensaje..." required>
-            <button type="submit">ENVIAR</button>
-        </form>
-
-        <form action="/sugerencia" method="post" style="margin-top:10px;">
-            <input type="text" name="sug" placeholder="Sugerir mejora..." required>
-            <button type="submit" style="width:40%; font-size:0.6rem;">Pedir</button>
+        <form action="/send" method="post" style="margin-top:10px;">
+            <input type="text" name="msg" placeholder="Mensaje..." style="width:70%; background:#000; color:white; border:1px solid var(--blue); padding:5px;">
+            <button type="submit" style="background:var(--blue); border:none; padding:6px;">🚀</button>
         </form>
 
         {% if user == "Silver676" %}
-            <a href="/borrar_todo" class="admin-link">[GOD MODE: BORRAR TODO EL CHAT]</a>
-            <p style="font-size:0.6rem; color:gray;">Sugerencias recibidas: {{ total_sug }}</p>
+            <a href="/clear-chat"><button class="god-mode">BORRAR HISTORIAL GRUPAL</button></a>
         {% endif %}
     </div>
 
-    <script>
-        function actualizarEdad() {
-            let birth = new Date(document.getElementById("birthdate").value);
-            let age = new Date().getFullYear() - birth.getFullYear();
-            document.getElementById("age_val").value = age + " años reales";
-        }
-    </script>
 </body>
 </html>
 """
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    # Simulamos que eres Silver676 entrando
     u = usuarios_db["Silver676"]
-    html = HTML_TEMPLATE.replace("{{ user }}", "Silver676")
-    html = html.replace("{{ lvl }}", u["lvl"])
-    html = html.replace("{{ total_sug }}", str(len(sugerencias)))
-    # Aquí renderizamos los mensajes (simplificado para el ejemplo)
+    prison_display = "flex" if u["castigado"] else "none"
+    html = HTML_BASE.replace("{{ user }}", "Silver676").replace("{{ lvl }}", u["lvl"]).replace("{{ show_prison }}", prison_display)
     return html
 
-@app.post("/enviar")
-async def enviar(msg: str = Form(...)):
+@app.post("/send")
+async def send_msg(msg: str = Form(...)):
     mensajes_globales.append({"user": "Silver676", "msg": msg})
     return RedirectResponse("/", status_code=303)
 
-@app.post("/sugerencia")
-async def sugerir(sug: str = Form(...)):
-    sugerencias.append(sug)
+@app.get("/clear-chat")
+async def clear_chat():
+    mensajes_globales.clear()
     return RedirectResponse("/", status_code=303)
 
-@app.get("/borrar_todo")
-async def borrar():
-    mensajes_globales.clear()
+@app.post("/upload-video")
+async def upload_video(file: UploadFile = File(...)):
+    # VALIDACIÓN CRÍTICA: Solo Premium
+    user_type = usuarios_db["Silver676"]["tipo"]
+    if user_type != "Premium":
+        return {"error": "Solo usuarios Premium pueden subir videos."}
+    
+    if len(videos_db) >= VIDEO_LIMIT:
+        return {"error": "Límite de 10 videos alcanzado. Espera a que expiren."}
+
+    path = f"static/videos/{file.filename}"
+    with open(path, "wb") as f:
+        f.write(await file.read())
+    
+    videos_db.append({
+        "filename": file.filename,
+        "path": path,
+        "expires_at": datetime.now() + timedelta(minutes=EXPIRATION_MINUTES)
+    })
     return RedirectResponse("/", status_code=303)
 
 if __name__ == "__main__":
