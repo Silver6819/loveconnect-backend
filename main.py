@@ -1,102 +1,75 @@
-import os
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 app = FastAPI()
+# Llave de seguridad para la sesión
+app.add_middleware(SessionMiddleware, secret_key="silver_breaker_reset_2026")
 
-# CLAVE DE SESIÓN (Para que el Login no se borre al recargar)
-app.add_middleware(SessionMiddleware, secret_key="SILVER_BREAKER_KEY_99")
-
-# --- BASE DE DATOS EN MEMORIA (LIMPIEZA DE CRASH) ---
-mensajes_globales = []
-# Usuario maestro configurado
-USUARIOS = {"Silver676": "1234"} 
-
-# --- MOTOR DE DISEÑO (SIN LLAVES RARAS) ---
-def generar_html(usuario=None, pagina="login"):
-    # Estilos Neón Unificados
-    estilos = """
-    <style>
-        body { background:#000; color:white; font-family:sans-serif; text-align:center; margin:0; }
-        .neon-blue { color:#00f7ff; text-shadow:0 0 10px #00f7ff; }
-        .neon-pink { color:#ff00c8; text-shadow:0 0 10px #ff00c8; }
-        .container { max-width:400px; margin:20px auto; padding:20px; border:1px solid #222; border-radius:15px; background:#0a0a0a; }
-        input { width:80%; padding:10px; margin:10px 0; background:#111; border:1px solid #333; color:white; border-radius:5px; }
-        .btn-pink { background:transparent; border:2px solid #ff00c8; color:#ff00c8; padding:10px 20px; cursor:pointer; font-weight:bold; width:90%; }
-        .chat-box { height:300px; overflow-y:auto; background:#000; border:1px solid #111; text-align:left; padding:10px; margin:10px 0; font-size:14px; }
-        .logout { color:gray; font-size:10px; text-decoration:none; margin-top:20px; display:block; }
-    </style>
-    """
-    
-    if pagina == "login":
-        return f"""
-        <html>{estilos}<body>
-            <div class="container">
-                <h1 class="neon-pink">❤️ LoveConnect</h1>
-                <form action="/login" method="post">
-                    <input type="text" name="user" placeholder="Usuario" required><br>
-                    <input type="password" name="password" placeholder="Clave" required><br>
-                    <button type="submit" class="btn-pink">ENTRAR</button>
-                </form>
-            </div>
-        </body></html>
-        """
-    
-    if pagina == "chat":
-        msjs = ""
-        for m in mensajes_globales:
-            msjs += f"<p style='border-bottom:1px solid #111; padding:5px;'><b class='neon-blue'>{m['user']}:</b> {m['msg']}</p>"
-        
-        return f"""
-        <html>{estilos}<body>
-            <div class="container">
-                <h2 class="neon-blue">LOVE CONNECT</h2>
-                <p>Hola, <b>{usuario}</b> <span class="neon-pink">[LvL: ∞]</span></p>
-                
-                <div class="chat-box">{msjs if msjs else "Sin mensajes..."}</div>
-                
-                <form action="/enviar" method="post" style="display:flex; gap:5px;">
-                    <input type="text" name="msg" placeholder="Escribe..." required>
-                    <button type="submit" style="background:#00f7ff; border:none; padding:10px; cursor:pointer;">🚀</button>
-                </form>
-
-                <a href="/borrar" style="color:red; font-size:10px; display:block; margin-top:10px;">[GOD MODE: LIMPIAR CHAT]</a>
-                <a href="/logout" class="logout">Cerrar Sesión</a>
-            </div>
-        </body></html>
-        """
-
-# --- RUTAS DE LÓGICA ---
+# --- CONFIGURACIÓN DE ACCESO REAL ---
+# Usuario: Silver Breaker | Clave: 0000
+CREDENCIALES = {"usuario": "Silver Breaker", "clave": "0000"}
+CHAT = []
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    user = request.session.get("user")
+async def inicio(request: Request):
+    user = request.session.get("u")
     if not user:
-        return generar_html(pagina="login")
-    return generar_html(usuario=user, pagina="chat")
+        return """
+        <body style="background:#000; color:#ff00c8; text-align:center; padding-top:50px; font-family:sans-serif;">
+            <h1>❤️ LOVE CONNECT</h1>
+            <p style="color:#00f7ff;">Identidad: Silver Breaker</p>
+            <form action="/login" method="post" style="display:inline-block; background:#111; padding:20px; border-radius:10px; border: 1px solid #222;">
+                <input name="u" placeholder="Nombre de Usuario" style="margin:5px; padding:12px; width:200px;"><br>
+                <input name="p" type="password" placeholder="Contraseña" style="margin:5px; padding:12px; width:200px;"><br>
+                <button style="background:#ff00c8; color:white; border:none; padding:10px 20px; cursor:pointer; font-weight:bold; width:100%; margin-top:10px;">ENTRAR</button>
+            </form>
+        </body>
+        """
+    
+    # Renderizado simple de mensajes
+    historial = "".join([f"<p style='color:white; border-bottom:1px solid #222; padding:5px;'><b>{m['u']}:</b> {m['m']}</p>" for m in CHAT])
+    
+    return f"""
+    <body style="background:#000; color:white; font-family:sans-serif; padding:20px;">
+        <h2 style="color:#00f7ff;">Bienvenido, {user} (Creador)</h2>
+        <div style="background:#111; height:250px; overflow-y:auto; padding:15px; border:1px solid #333; border-radius:10px;">
+            {historial if CHAT else "<p style='color:gray;'>El servidor ha sido limpiado. No hay mensajes.</p>"}
+        </div><br>
+        <form action="/enviar" method="post" style="display:flex; gap:10px;">
+            <input name="m" placeholder="Escribir mensaje grupal..." style="flex-grow:1; padding:12px; background:#000; color:white; border:1px solid #00f7ff;">
+            <button style="padding:12px 20px; background:#00f7ff; border:none; font-weight:bold; cursor:pointer;">🚀</button>
+        </form><br>
+        <div style="margin-top:20px; border-top:1px solid #222; padding-top:10px;">
+            <a href="/limpiar" style="color:red; text-decoration:none; font-weight:bold;">[🔥 BORRAR TODO EL CHAT]</a> 
+            <span style="color:#333; margin: 0 10px;">|</span>
+            <a href="/salir" style="color:gray; text-decoration:none;">Cerrar Sesión</a>
+        </div>
+    </body>
+    """
 
 @app.post("/login")
-async def login(request: Request, user: str = Form(...), password: str = Form(...)):
-    if user in USUARIOS and USUARIOS[user] == password:
-        request.session["user"] = user
+async def login(request: Request, u: str = Form(...), p: str = Form(...)):
+    # Verificación estricta con tu nombre
+    if u == CREDENCIALES["usuario"] and p == CREDENCIALES["clave"]:
+        request.session["u"] = u
         return RedirectResponse("/", status_code=303)
-    return HTMLResponse("<h2>Clave incorrecta</h2><a href='/'>Volver</a>")
+    return HTMLResponse("<body style='background:black;color:red;text-align:center;padding-top:50px;'><h2>Acceso Denegado</h2><p>Verifica el nombre Silver Breaker y la clave.</p><a href='/'>Volver a intentar</a></body>")
 
 @app.post("/enviar")
-async def enviar(request: Request, msg: str = Form(...)):
-    user = request.session.get("user")
-    if user:
-        mensajes_globales.append({"user": user, "msg": msg})
+async def enviar(request: Request, m: str = Form(...)):
+    if request.session.get("u"):
+        CHAT.append({"u": request.session["u"], "m": m})
     return RedirectResponse("/", status_code=303)
 
-@app.get("/borrar")
-async def borrar(request: Request):
-    if request.session.get("user") == "Silver676":
-        mensajes_globales.clear()
+@app.get("/limpiar")
+async def limpiar(request: Request):
+    # Solo tú puedes limpiar
+    if request.session.get("u") == "Silver Breaker":
+        CHAT.clear()
     return RedirectResponse("/", status_code=303)
 
-@app.get("/logout")
-async def logout(request: Request):
+@app.get("/salir")
+async def salir(request: Request):
     request.session.clear()
     return RedirectResponse("/", status_code=303)
