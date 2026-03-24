@@ -6,12 +6,12 @@ import uvicorn
 
 app = FastAPI()
 
-# Configuramos la carpeta donde está tu index.html
+# Esto busca la carpeta 'templates'
 templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_item(request: Request):
-    # Esto buscará el archivo index.html dentro de la carpeta templates
+    # Esto muestra el index.html que acabas de guardar
     return templates.TemplateResponse("index.html", {"request": request})
 
 if __name__ == "__main__":
