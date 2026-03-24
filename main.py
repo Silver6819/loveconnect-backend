@@ -6,9 +6,8 @@ app = FastAPI()
 
 @app.get("/")
 async def root():
-    return {"status": "LoveConnect está vivo", "message": "Reseteo completado con éxito"}
+    return {"status": "LoveConnect está vivo", "message": "Reseteo completado"}
 
 if __name__ == "__main__":
-    # Esto asegura que Render pueda asignar el puerto que necesite
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
