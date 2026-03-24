@@ -1,86 +1,98 @@
 import os
+import uvicorn
+import databases
+import sqlalchemy
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-app = FastAPI()
-# Middleware para manejar las sesiones de usuario
-app.add_middleware(SessionMiddleware, secret_key="debug_key_silver_2026")
+# 1. Configuración de la Base de Datos Real
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Base de datos temporal (Se borra si reinicias Render)
-USUARIOS = {"silver breaker": "123"} 
-CHAT = []
+# Si no hay DB configurada, usaremos una local de prueba para que no explote
+if not DATABASE_URL:
+    DATABASE_URL = "sqlite:///./test.db"
+
+database = databases.Database(DATABASE_URL)
+metadata = sqlalchemy.MetaData()
+
+# Definición de la tabla de usuarios
+usuarios_tabla = sqlalchemy.Table(
+    "usuarios_loveconnect",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
+    sqlalchemy.Column("usuario", sqlalchemy.String, unique=True),
+    sqlalchemy.Column("clave", sqlalchemy.String),
+    sqlalchemy.Column("ubicacion", sqlalchemy.String, default="Zacatecoluca")
+)
+
+engine = sqlalchemy.create_engine(DATABASE_URL)
+metadata.create_all(engine)
+
+app = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key="silver_breaker_prod_2026")
+
+@app.on_event("startup")
+async def startup():
+    await database.connect()
+
+@app.on_event("shutdown")
+async def shutdown():
+    await database.disconnect()
+
+# --- RUTAS LÓGICAS ---
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     user = request.session.get("u")
-    if not user: 
-        return RedirectResponse("/login", status_code=303)
-    
-    mensajes = "".join([f"<li><b>{m['u']}:</b> {m['m']}</li>" for m in CHAT])
-    return f"""
-    <html><body>
-        <h1>LoveConnect - MODO PRUEBA</h1>
-        <p>Usuario actual: {user} | <a href="/logout">Cerrar Sesion</a></p>
-        <hr>
-        <ul>{mensajes if CHAT else "No hay mensajes."}</ul>
-        <form action="/send" method="post">
-            <input name="msg" placeholder="Mensaje" required>
-            <button type="submit">Enviar</button>
-        </form>
-    </body></html>
-    """
+    if not user: return RedirectResponse("/login", status_code=303)
+    return f"<html><body><h1>LoveConnect: Base de Datos Conectada</h1><p>Hola, {user}</p><a href='/logout'>Salir</a></body></html>"
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_p():
     return """
-    <html><body>
-        <h2>Ingresar</h2>
-        <form action="/login" method="post">
-            <input name="u" placeholder="Usuario" required><br>
-            <input name="p" type="password" placeholder="Clave" required><br>
-            <button type="submit">Entrar</button>
-        </form>
-        <p><a href="/signup">Registrarse</a></p>
-    </body></html>
+    <html><body><h2>Ingresar</h2>
+    <form action="/login" method="post">
+        <input name="u" placeholder="Usuario" required><br>
+        <input name="p" type="password" placeholder="Clave" required><br>
+        <button type="submit">Entrar</button>
+    </form>
+    <p><a href="/signup">Registrarse</a></p></body></html>
     """
 
 @app.post("/login")
 async def login_logic(request: Request, u: str = Form(...), p: str = Form(...)):
-    u_key = u.lower().strip()
-    if u_key in USUARIOS and USUARIOS[u_key] == p:
+    u_clean = u.lower().strip()
+    query = usuarios_tabla.select().where(usuarios_tabla.c.usuario == u_clean)
+    user_db = await database.fetch_one(query)
+    
+    if user_db and user_db["clave"] == p:
         request.session["u"] = u
         return RedirectResponse("/", status_code=303)
-    return "Error: Credenciales invalidas. <a href='/login'>Volver</a>"
+    return "Error: Datos incorrectos. <a href='/login'>Volver</a>"
 
 @app.get("/signup", response_class=HTMLResponse)
 async def signup_p():
     return """
-    <html><body>
-        <h2>Crear Cuenta</h2>
-        <form action="/signup" method="post">
-            <input name="u" placeholder="Nuevo Usuario" required><br>
-            <input name="p" type="password" placeholder="Nueva Clave" required><br>
-            <button type="submit">Registrar</button>
-        </form>
-        <p><a href="/login">Ya tengo cuenta</a></p>
-    </body></html>
+    <html><body><h2>Registro Real (SQL)</h2>
+    <form action="/signup" method="post">
+        <input name="u" placeholder="Tu Usuario" required><br>
+        <input name="p" type="password" placeholder="Tu Clave" required><br>
+        <button type="submit">Crear Cuenta Permanente</button>
+    </form></body></html>
     """
 
 @app.post("/signup")
 async def signup_logic(u: str = Form(...), p: str = Form(...)):
-    u_key = u.lower().strip()
-    if u_key not in USUARIOS:
-        USUARIOS[u_key] = p
+    u_clean = u.lower().strip()
+    try:
+        query = usuarios_tabla.insert().values(usuario=u_clean, clave=p)
+        await database.execute(query)
         return RedirectResponse("/login", status_code=303)
-    return "El usuario ya existe. <a href='/signup'>Volver</a>"
-
-@app.post("/send")
-async def send_msg(request: Request, msg: str = Form(...)):
-    user = request.session.get("u")
-    if user:
-        CHAT.append({"u": user, "m": msg})
-    return RedirectResponse("/", status_code=303)
+    except Exception as e:
+        return f"Error: El usuario ya existe o hubo un problema. <a href='/signup'>Volver</a>"
 
 @app.get("/logout")
 async def logout(request: Request):
