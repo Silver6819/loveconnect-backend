@@ -1,100 +1,70 @@
 import os
 import uvicorn
-import databases
-import sqlalchemy
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
-from starlette.middleware.sessions import SessionMiddleware
+from fastapi.templating import Jinja2Templates
+from sqlalchemy import MetaData, Table, Column, String, Integer, create_engine
+from databases import Database
 
-# 1. Configuración de la Base de Datos Real
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+# 1. Configuración de Variables de Entorno y Base de Datos
+DATABASE_URL = os.getenv("DATABASE_URL")
+database = Database(DATABASE_URL)
+metadata = MetaData()
+engine = create_engine(DATABASE_URL)
 
-# Si no hay DB configurada, usaremos una local de prueba para que no explote
-if not DATABASE_URL:
-    DATABASE_URL = "sqlite:///./test.db"
-
-database = databases.Database(DATABASE_URL)
-metadata = sqlalchemy.MetaData()
-
-# Definición de la tabla de usuarios
-usuarios_tabla = sqlalchemy.Table(
-    "usuarios_loveconnect",
+# 2. Definición de la Tabla 'users'
+users = Table(
+    "users",
     metadata,
-    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
-    sqlalchemy.Column("usuario", sqlalchemy.String, unique=True),
-    sqlalchemy.Column("clave", sqlalchemy.String),
-    sqlalchemy.Column("ubicacion", sqlalchemy.String, default="Zacatecoluca")
+    Column("id", Integer, primary_key=True),
+    Column("username", String(50), unique=True),
+    Column("password", String(50)),
 )
 
-engine = sqlalchemy.create_engine(DATABASE_URL)
-metadata.create_all(engine)
-
+# 3. Inicialización de FastAPI
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="silver_breaker_prod_2026")
+templates = Jinja2Templates(directory="templates")
 
+# 4. Eventos de Conexión Segura (Sugerido por ChatGPT)
 @app.on_event("startup")
 async def startup():
+    # Conecta a la DB asíncrona
     await database.connect()
+    # Crea las tablas físicamente en el elefante de Render
+    metadata.create_all(engine)
 
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
 
-# --- RUTAS LÓGICAS ---
-
+# 5. Rutas de la Aplicación
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    user = request.session.get("u")
-    if not user: return RedirectResponse("/login", status_code=303)
-    return f"<html><body><h1>LoveConnect: Base de Datos Conectada</h1><p>Hola, {user}</p><a href='/logout'>Salir</a></body></html>"
-
-@app.get("/login", response_class=HTMLResponse)
-async def login_p():
-    return """
-    <html><body><h2>Ingresar</h2>
-    <form action="/login" method="post">
-        <input name="u" placeholder="Usuario" required><br>
-        <input name="p" type="password" placeholder="Clave" required><br>
-        <button type="submit">Entrar</button>
-    </form>
-    <p><a href="/signup">Registrarse</a></p></body></html>
-    """
-
-@app.post("/login")
-async def login_logic(request: Request, u: str = Form(...), p: str = Form(...)):
-    u_clean = u.lower().strip()
-    query = usuarios_tabla.select().where(usuarios_tabla.c.usuario == u_clean)
-    user_db = await database.fetch_one(query)
-    
-    if user_db and user_db["clave"] == p:
-        request.session["u"] = u
-        return RedirectResponse("/", status_code=303)
-    return "Error: Datos incorrectos. <a href='/login'>Volver</a>"
-
-@app.get("/signup", response_class=HTMLResponse)
-async def signup_p():
-    return """
-    <html><body><h2>Registro Real (SQL)</h2>
-    <form action="/signup" method="post">
-        <input name="u" placeholder="Tu Usuario" required><br>
-        <input name="p" type="password" placeholder="Tu Clave" required><br>
-        <button type="submit">Crear Cuenta Permanente</button>
-    </form></body></html>
-    """
+async def read_item(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/signup")
-async def signup_logic(u: str = Form(...), p: str = Form(...)):
-    u_clean = u.lower().strip()
+async def signup(username: str = Form(...), password: str = Form(...)):
     try:
-        query = usuarios_tabla.insert().values(usuario=u_clean, clave=p)
+        query = users.insert().values(username=username, password=password)
         await database.execute(query)
-        return RedirectResponse("/login", status_code=303)
+        # 303 es el código correcto para redirección tras un POST
+        return RedirectResponse(url="/", status_code=303)
     except Exception as e:
-        return f"Error: El usuario ya existe o hubo un problema. <a href='/signup'>Volver</a>"
+        return f"Error en el registro: {str(e)}"
 
-@app.get("/logout")
-async def logout(request: Request):
-    request.session.clear()
-    return RedirectResponse("/login", status_code=303)
+@app.post("/login")
+async def login(username: str = Form(...), password: str = Form(...)):
+    try:
+        query = users.select().where(users.c.username == username, users.c.password == password)
+        user = await database.fetch_one(query)
+        if user:
+            return f"¡Bienvenido a LoveConnect, {username}!"
+        return "Usuario o contraseña incorrectos."
+    except Exception as e:
+        return f"Error en el servidor: {str(e)}"
+
+# 6. Configuración de Puerto para Render
+if __name__ == "__main__":
+    # Render asigna un puerto dinámico, usualmente el 10000
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
