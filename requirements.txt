@@ -2,3 +2,6 @@ fastapi
 uvicorn
 python-multipart
 itsdangerous
+databases[postgresql]
+psycopg2-binary
+sqlalchemy
