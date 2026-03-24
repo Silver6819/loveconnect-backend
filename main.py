@@ -1,12 +1,18 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 import uvicorn
 
 app = FastAPI()
 
-@app.get("/")
-async def root():
-    return {"status": "LoveConnect está vivo", "message": "Reseteo completado"}
+# Configuramos la carpeta donde está tu index.html
+templates = Jinja2Templates(directory="templates")
+
+@app.get("/", response_class=HTMLResponse)
+async def read_item(request: Request):
+    # Esto buscará el archivo index.html dentro de la carpeta templates
+    return templates.TemplateResponse("index.html", {"request": request})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
