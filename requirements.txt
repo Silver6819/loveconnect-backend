@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
+databases[postgresql]
 jinja2
-databases
-asyncpg
+python-multipart
