@@ -5,21 +5,21 @@ from fastapi.templating import Jinja2Templates
 import databases
 import uvicorn
 
-# 1. Configuración de la Base de Datos (El Elefante)
+# 1. Configuración de la Base de Datos (El Elefante de Railway)
 URL_ELEFANTE = "postgresql://loveconnect_db_user:o8hYijuhIHVR3id8sVOdbWa3V3jQ4GrW@dpg-d71crdn5gffc73fobmpg-a/loveconnect_db"
 DATABASE_URL = os.getenv("DATABASE_URL", URL_ELEFANTE)
 database = databases.Database(DATABASE_URL)
 
 app = FastAPI()
 
-# 2. Configuración de Rutas (Para que Render encuentre el HTML)
+# 2. Configuración de Rutas para Templates (Corrección de ruta absoluta)
 base_dir = os.path.dirname(os.path.realpath(__file__))
 templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
 
 @app.on_event("startup")
 async def startup():
     await database.connect()
-    # Tabla básica sin premium para probar
+    # Tabla simplificada para asegurar que funcione la conexión
     query = """
     CREATE TABLE IF NOT EXISTS usuarios (
         id SERIAL PRIMARY KEY,
@@ -33,12 +33,13 @@ async def startup():
 async def shutdown():
     await database.disconnect()
 
-# 3. Ruta Principal: Carga el formulario rosa
+# 3. RUTA CORREGIDA: Aquí estaba el error del "Internal Server Error"
 @app.get("/", response_class=HTMLResponse)
 async def read_item(request: Request):
+    # Asegúrate de que esta línea no tenga comas extras al final
     return templates.TemplateResponse("index.html", {"request": request})
 
-# 4. Ruta de Registro: Solo nombre y email
+# 4. Ruta de Registro
 @app.post("/registro")
 async def registro(nombre: str = Form(...), email: str = Form(...)):
     try:
@@ -46,8 +47,10 @@ async def registro(nombre: str = Form(...), email: str = Form(...)):
         await database.execute(query=query, values={"nombre": nombre, "email": email})
         return {"status": "success", "message": f"¡Hola {nombre}! Bienvenido a LoveConnect."}
     except Exception as e:
-        return {"status": "error", "message": "Hubo un problema o el correo ya existe."}
+        # Esto te ayudará a ver qué pasa si falla el registro
+        return {"status": "error", "message": f"Error: {str(e)}"}
 
 if __name__ == "__main__":
+    # Render asigna el puerto dinámicamente
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
