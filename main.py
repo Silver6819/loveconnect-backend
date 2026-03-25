@@ -12,14 +12,14 @@ database = databases.Database(DATABASE_URL)
 
 app = FastAPI()
 
-# 2. Configuración de Rutas para Templates (Corrección de ruta absoluta)
+# 2. Configuración de Rutas para Templates (Ruta absoluta para Render)
 base_dir = os.path.dirname(os.path.realpath(__file__))
 templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
 
 @app.on_event("startup")
 async def startup():
     await database.connect()
-    # Tabla simplificada para asegurar que funcione la conexión
+    # Tabla simplificada para asegurar la conexión inicial
     query = """
     CREATE TABLE IF NOT EXISTS usuarios (
         id SERIAL PRIMARY KEY,
@@ -33,10 +33,10 @@ async def startup():
 async def shutdown():
     await database.disconnect()
 
-# 3. RUTA CORREGIDA: Aquí estaba el error del "Internal Server Error"
+# 3. Ruta Principal: Carga tu formulario rosa
 @app.get("/", response_class=HTMLResponse)
 async def read_item(request: Request):
-    # Asegúrate de que esta línea no tenga comas extras al final
+    # Diccionario limpio para evitar el error de 'tuple' que vimos en logs
     return templates.TemplateResponse("index.html", {"request": request})
 
 # 4. Ruta de Registro
@@ -47,10 +47,10 @@ async def registro(nombre: str = Form(...), email: str = Form(...)):
         await database.execute(query=query, values={"nombre": nombre, "email": email})
         return {"status": "success", "message": f"¡Hola {nombre}! Bienvenido a LoveConnect."}
     except Exception as e:
-        # Esto te ayudará a ver qué pasa si falla el registro
         return {"status": "error", "message": f"Error: {str(e)}"}
 
+# 5. Ejecución (Ajuste recomendado para mayor limpieza y compatibilidad)
 if __name__ == "__main__":
-    # Render asigna el puerto dinámicamente
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 8000))
+    # Usamos 'app' directamente en lugar de "main:app"
+    uvicorn.run(app, host="0.0.0.0", port=port)
