@@ -5,24 +5,26 @@ from fastapi.templating import Jinja2Templates
 import databases
 import uvicorn
 
-# 1. Dirección del elefante (directa para evitar errores de NoneType)
+# 1. Configuración de la Base de Datos (El Elefante)
 URL_ELEFANTE = "postgresql://loveconnect_db_user:o8hYijuhIHVR3id8sVOdbWa3V3jQ4GrW@dpg-d71crdn5gffc73fobmpg-a/loveconnect_db"
 DATABASE_URL = os.getenv("DATABASE_URL", URL_ELEFANTE)
-
 database = databases.Database(DATABASE_URL)
+
 app = FastAPI()
-templates = Jinja2Templates(directory="templates")
+
+# 2. Configuración de Rutas (Para que Render encuentre el HTML)
+base_dir = os.path.dirname(os.path.realpath(__file__))
+templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
 
 @app.on_event("startup")
 async def startup():
     await database.connect()
-    # Creamos la tabla con la columna 'es_premium' lista para el futuro
+    # Tabla básica sin premium para probar
     query = """
     CREATE TABLE IF NOT EXISTS usuarios (
         id SERIAL PRIMARY KEY,
         nombre TEXT,
-        email TEXT UNIQUE,
-        es_premium BOOLEAN DEFAULT FALSE
+        email TEXT UNIQUE
     )
     """
     await database.execute(query)
@@ -31,19 +33,20 @@ async def startup():
 async def shutdown():
     await database.disconnect()
 
+# 3. Ruta Principal: Carga el formulario rosa
 @app.get("/", response_class=HTMLResponse)
 async def read_item(request: Request):
-    # Esto cargará tu index.html original
     return templates.TemplateResponse("index.html", {"request": request})
 
+# 4. Ruta de Registro: Solo nombre y email
 @app.post("/registro")
 async def registro(nombre: str = Form(...), email: str = Form(...)):
     try:
-        query = "INSERT INTO usuarios(nombre, email, es_premium) VALUES (:nombre, :email, :premium)"
-        await database.execute(query=query, values={"nombre": nombre, "email": email, "premium": False})
-        return {"status": "success", "message": f"¡Hola {nombre}! Ya eres parte de LoveConnect."}
+        query = "INSERT INTO usuarios(nombre, email) VALUES (:nombre, :email)"
+        await database.execute(query=query, values={"nombre": nombre, "email": email})
+        return {"status": "success", "message": f"¡Hola {nombre}! Bienvenido a LoveConnect."}
     except Exception as e:
-        return {"status": "error", "message": "El correo ya existe o hubo un problema."}
+        return {"status": "error", "message": "Hubo un problema o el correo ya existe."}
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
