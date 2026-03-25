@@ -12,52 +12,43 @@ database = databases.Database(DATABASE_URL)
 
 app = FastAPI()
 
-# 2. Configuración de Rutas para Templates
+# 2. Configuración de Rutas para Templates (Ruta absoluta segura)
 base_dir = os.path.dirname(os.path.realpath(__file__))
-templates_path = os.path.join(base_dir, "templates")
-templates = Jinja2Templates(directory=templates_path)
+templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
 
 @app.on_event("startup")
 async def startup():
-    print("🚀 INFO: Iniciando aplicación LoveConnect...")
+    print("🚀 INFO: Iniciando conexión con el elefante...")
     try:
-        print(f"🔗 INFO: Intentando conectar a la DB en: {DATABASE_URL[:20]}...")
         await database.connect()
-        print("✅ ÉXITO: Base de datos conectada correctamente")
-
-        query = """
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id SERIAL PRIMARY KEY,
-            nombre TEXT,
-            email TEXT UNIQUE
-        )
-        """
+        query = "CREATE TABLE IF NOT EXISTS usuarios (id SERIAL PRIMARY KEY, nombre TEXT, email TEXT UNIQUE)"
         await database.execute(query)
-        print("✅ ÉXITO: Tabla 'usuarios' verificada/creada")
+        print("✅ ÉXITO: Base de datos lista.")
     except Exception as e:
-        print(f"❌ ERROR CRÍTICO EN STARTUP: {e}")
+        print(f"❌ ERROR DB: {e}")
 
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
 
+# 3. RUTA CORREGIDA (Aquí es donde estaba el error del log)
 @app.get("/", response_class=HTMLResponse)
 async def read_item(request: Request):
-    print("📂 INFO: Accediendo a la ruta principal (/)")
-    try:
-        return templates.TemplateResponse("index.html", {"request": request})
-    except Exception as e:
-        print(f"❌ ERROR AL CARGAR INDEX.HTML: {e}")
-        return HTMLResponse(content=f"Error interno: No se encuentra el diseño. {e}", status_code=500)
+    print("📂 INFO: Cargando index.html...")
+    # Enviamos el contexto de forma explícita para evitar el error de 'tuple'
+    return templates.TemplateResponse(
+        name="index.html", 
+        context={"request": request}
+    )
 
+# 4. Registro de usuarios
 @app.post("/registro")
 async def registro(nombre: str = Form(...), email: str = Form(...)):
     try:
         query = "INSERT INTO usuarios(nombre, email) VALUES (:nombre, :email)"
         await database.execute(query=query, values={"nombre": nombre, "email": email})
-        return {"status": "success", "message": f"¡Hola {nombre}! Registro exitoso."}
+        return {"status": "success", "message": f"¡Hola {nombre}! Bienvenido a LoveConnect."}
     except Exception as e:
-        print(f"❌ ERROR EN REGISTRO: {e}")
         return {"status": "error", "message": f"Error: {str(e)}"}
 
 if __name__ == "__main__":
