@@ -10,8 +10,11 @@ import databases
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Fix para Render (muy importante)
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+if not DATABASE_URL:
+    raise Exception("DATABASE_URL no está configurada en Render")
+
+# Fix obligatorio para asyncpg
+if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 
 database = databases.Database(DATABASE_URL)
@@ -43,24 +46,28 @@ async def startup():
         """
         await database.execute(query)
 
-    except Exception as e:
-        print(f"Error en base de datos: {e}")
+        print("✅ Base de datos conectada correctamente")
 
+    except Exception as e:
+        print(f"❌ Error en base de datos: {e}")
 
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
 
 # -------------------------
-# 4. RUTA PRINCIPAL
+# 4. HOME
 # -------------------------
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request}
-    )
+    try:
+        return templates.TemplateResponse(
+            "index.html",
+            {"request": request}
+        )
+    except Exception as e:
+        return HTMLResponse(f"<h1>Error cargando HTML: {e}</h1>")
 
 # -------------------------
 # 5. REGISTRO
