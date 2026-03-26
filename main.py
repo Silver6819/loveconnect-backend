@@ -1,8 +1,11 @@
-import os
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-import databases
+
+app = FastAPI()
+
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    return "<h1>LoveConnect funcionando 🚀</h1>"
 
 # -------------------------
 # 1. BASE DE DATOS
