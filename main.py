@@ -29,9 +29,10 @@ app = FastAPI()
 # 2. TEMPLATES
 # -------------------------
 
-base_dir = os.path.dirname(os.path.realpath(__file__))
-templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
-
+return templates.TemplateResponse(
+    "index.html",
+    {"request": request},
+)
 # -------------------------
 # 3. EVENTOS
 # -------------------------
