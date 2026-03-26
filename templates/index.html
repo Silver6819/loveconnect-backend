@@ -5,7 +5,19 @@
     <title>LoveConnect</title>
 </head>
 <body>
+
     <h1>Bienvenido a LoveConnect 💘</h1>
-    <p>Tu app ya está viva 🚀</p>
+    <p>Regístrate para encontrar a tu pareja ideal.</p>
+
+    <form action="/registro" method="post">
+        <input type="text" name="nombre" placeholder="Tu nombre" required>
+        <input type="email" name="email" placeholder="Tu correo" required>
+        <button type="submit">Unirse</button>
+    </form>
+
+    {% if mensaje %}
+        <p>{{ mensaje }}</p>
+    {% endif %}
+
 </body>
 </html>
