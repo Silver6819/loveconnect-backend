@@ -3,4 +3,5 @@ uvicorn
 jinja2
 databases[postgresql]
 asyncpg
+sqlalchemy
 python-multipart
