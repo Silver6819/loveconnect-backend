@@ -11,13 +11,17 @@ import databases
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    raise Exception("DATABASE_URL no está configurada en Render")
+    print("⚠️ DATABASE_URL no configurada")
 
-# Fix obligatorio para asyncpg
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+# Corrección para asyncpg (MUY IMPORTANTE)
+if DATABASE_URL and (
+    DATABASE_URL.startswith("postgres://") or
+    DATABASE_URL.startswith("postgresql://")
+):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://") \
+                               .replace("postgresql://", "postgresql+asyncpg://")
 
-database = databases.Database(DATABASE_URL)
+database = databases.Database(DATABASE_URL) if DATABASE_URL else None
 
 app = FastAPI()
 
@@ -34,26 +38,30 @@ templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
 
 @app.on_event("startup")
 async def startup():
-    try:
-        await database.connect()
+    if database:
+        try:
+            await database.connect()
 
-        query = """
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id SERIAL PRIMARY KEY,
-            nombre TEXT,
-            email TEXT UNIQUE
-        )
-        """
-        await database.execute(query)
+            query = """
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id SERIAL PRIMARY KEY,
+                nombre TEXT,
+                email TEXT UNIQUE
+            )
+            """
+            await database.execute(query)
 
-        print("✅ Base de datos conectada correctamente")
+            print("✅ Base de datos conectada correctamente")
 
-    except Exception as e:
-        print(f"❌ Error en base de datos: {e}")
+        except Exception as e:
+            print(f"❌ Error en DB (la app sigue funcionando): {e}")
+    else:
+        print("⚠️ No hay conexión a base de datos")
 
 @app.on_event("shutdown")
 async def shutdown():
-    await database.disconnect()
+    if database:
+        await database.disconnect()
 
 # -------------------------
 # 4. HOME
@@ -75,6 +83,9 @@ async def home(request: Request):
 
 @app.post("/registro")
 async def registro(nombre: str = Form(...), email: str = Form(...)):
+    if not database:
+        return {"status": "error", "message": "Base de datos no disponible"}
+
     try:
         query = "INSERT INTO usuarios(nombre, email) VALUES (:nombre, :email)"
         await database.execute(query=query, values={"nombre": nombre, "email": email})
