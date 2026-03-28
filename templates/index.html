@@ -1,23 +1,11 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>LoveConnect</title>
-</head>
-<body>
+<h2>Usuarios registrados 💕</h2>
 
-    <h1>Bienvenido a LoveConnect 💘</h1>
-    <p>Regístrate para encontrar a tu pareja ideal.</p>
-
-    <form action="/registro" method="post">
-        <input type="text" name="nombre" placeholder="Tu nombre" required>
-        <input type="email" name="email" placeholder="Tu correo" required>
-        <button type="submit">Unirse</button>
-    </form>
-
-    {% if mensaje %}
-        <p>{{ mensaje }}</p>
-    {% endif %}
-
-</body>
-</html>
+{% if usuarios %}
+    <ul>
+        {% for usuario in usuarios %}
+            <li>{{ usuario }}</li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>No hay usuarios todavía.</p>
+{% endif %}
