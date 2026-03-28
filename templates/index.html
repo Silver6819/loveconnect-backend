@@ -9,3 +9,25 @@
 {% else %}
     <p>No hay usuarios todavía.</p>
 {% endif %}
+
+<hr>
+
+<h2>Chat 💬</h2>
+
+<form action="/mensaje" method="post">
+    <input type="text" name="nombre" placeholder="Tu nombre" required>
+    <input type="text" name="mensaje" placeholder="Escribe un mensaje" required>
+    <button type="submit">Enviar</button>
+</form>
+
+<h3>Mensajes recientes:</h3>
+
+<ul>
+    {% if mensajes %}
+        {% for nombre, mensaje in mensajes %}
+            <li><strong>{{ nombre }}:</strong> {{ mensaje }}</li>
+        {% endfor %}
+    {% else %}
+        <p>No hay mensajes aún.</p>
+    {% endif %}
+</ul>
