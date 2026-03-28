@@ -25,7 +25,7 @@
         <ul>
             {% for usuario in usuarios %}
                 <li>
-                    <a href="/chat/{{ usuario }}">{{ usuario }}</a>
+                    <a href="/chat/{{ usuario | urlencode }}">{{ usuario }}</a>
                 </li>
             {% endfor %}
         </ul>
