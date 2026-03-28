@@ -12,7 +12,7 @@ app = FastAPI()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Ajuste para PostgreSQL (Render/Railway)
+# Ajuste para PostgreSQL (Render)
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
 
@@ -22,30 +22,34 @@ engine = create_engine(
 ) if DATABASE_URL else None
 
 # -------------------------
-# TEMPLATES (FIX IMPORTANTE)
+# TEMPLATES
 # -------------------------
 
 templates = Jinja2Templates(directory="templates")
 
 # -------------------------
-# CREAR TABLA (al iniciar)
+# STARTUP (seguro)
 # -------------------------
 
 @app.on_event("startup")
 def startup():
-    if engine:
-        try:
-            with engine.connect() as conn:
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS usuarios (
-                        id SERIAL PRIMARY KEY,
-                        nombre TEXT,
-                        email TEXT UNIQUE
-                    )
-                """))
-                conn.commit()
-        except Exception as e:
-            print("Error DB:", e)
+    if not engine:
+        print("⚠️ No DATABASE_URL")
+        return
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id SERIAL PRIMARY KEY,
+                    nombre TEXT,
+                    email TEXT UNIQUE
+                )
+            """))
+            conn.commit()
+        print("✅ Base de datos lista")
+    except Exception as e:
+        print("❌ Error DB en startup:", e)
 
 # -------------------------
 # HOME
@@ -53,10 +57,11 @@ def startup():
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "mensaje": None
-    })
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {"mensaje": None}
+    )
 
 # -------------------------
 # REGISTRO
@@ -82,7 +87,8 @@ async def registro(request: Request, nombre: str = Form(...), email: str = Form(
         except Exception:
             mensaje = "Ese correo ya está registrado ⚠️"
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "mensaje": mensaje
-    })
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {"mensaje": mensaje}
+    )
