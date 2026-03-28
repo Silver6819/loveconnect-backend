@@ -1,6 +1,6 @@
 import os
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, text
 
@@ -33,35 +33,29 @@ templates = Jinja2Templates(directory="templates")
 @app.on_event("startup")
 def startup():
     if not engine:
-        print("⚠️ No DATABASE_URL")
         return
 
-    try:
-        with engine.connect() as conn:
-            # Usuarios
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS usuarios (
-                    id SERIAL PRIMARY KEY,
-                    nombre TEXT,
-                    email TEXT UNIQUE
-                )
-            """))
+    with engine.connect() as conn:
+        # Usuarios
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id SERIAL PRIMARY KEY,
+                nombre TEXT,
+                email TEXT UNIQUE
+            )
+        """))
 
-            # Mensajes
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS mensajes (
-                    id SERIAL PRIMARY KEY,
-                    nombre TEXT,
-                    mensaje TEXT
-                )
-            """))
+        # Mensajes privados
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS mensajes (
+                id SERIAL PRIMARY KEY,
+                emisor TEXT,
+                receptor TEXT,
+                mensaje TEXT
+            )
+        """))
 
-            conn.commit()
-
-        print("✅ DB lista")
-
-    except Exception as e:
-        print("❌ Error DB:", e)
+        conn.commit()
 
 # -------------------------
 # HOME
@@ -70,29 +64,19 @@ def startup():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     usuarios = []
-    mensajes = []
 
     if engine:
-        try:
-            with engine.connect() as conn:
-                # Usuarios
-                result = conn.execute(text("SELECT nombre FROM usuarios ORDER BY id DESC"))
-                usuarios = [row[0] for row in result.fetchall()]
-
-                # Mensajes
-                result = conn.execute(text("SELECT nombre, mensaje FROM mensajes ORDER BY id DESC LIMIT 20"))
-                mensajes = result.fetchall()
-
-        except Exception as e:
-            print("Error:", e)
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT nombre FROM usuarios"))
+            usuarios = [row[0] for row in result.fetchall()]
 
     return templates.TemplateResponse(
         request,
         "index.html",
         {
-            "mensaje": None,
             "usuarios": usuarios,
-            "mensajes": mensajes
+            "chat_con": None,
+            "mensajes": []
         }
     )
 
@@ -102,10 +86,6 @@ async def home(request: Request):
 
 @app.post("/registro", response_class=HTMLResponse)
 async def registro(request: Request, nombre: str = Form(...), email: str = Form(...)):
-    mensaje = None
-    usuarios = []
-    mensajes = []
-
     if engine:
         try:
             with engine.connect() as conn:
@@ -114,64 +94,71 @@ async def registro(request: Request, nombre: str = Form(...), email: str = Form(
                     {"nombre": nombre, "email": email}
                 )
                 conn.commit()
+        except:
+            pass
 
-            mensaje = f"¡Hola {nombre}! Bienvenido 💘"
-
-        except Exception:
-            mensaje = "Ese correo ya está registrado ⚠️"
-
-    # Recargar datos
-    try:
-        with engine.connect() as conn:
-            usuarios = [row[0] for row in conn.execute(text("SELECT nombre FROM usuarios ORDER BY id DESC"))]
-            mensajes = conn.execute(text("SELECT nombre, mensaje FROM mensajes ORDER BY id DESC LIMIT 20")).fetchall()
-    except Exception as e:
-        print(e)
-
-    return templates.TemplateResponse(
-        request,
-        "index.html",
-        {
-            "mensaje": mensaje,
-            "usuarios": usuarios,
-            "mensajes": mensajes
-        }
-    )
+    return RedirectResponse("/", status_code=303)
 
 # -------------------------
-# ENVIAR MENSAJE
+# ABRIR CHAT
 # -------------------------
 
-@app.post("/mensaje", response_class=HTMLResponse)
-async def enviar_mensaje(request: Request, nombre: str = Form(...), mensaje: str = Form(...)):
+@app.get("/chat/{usuario}", response_class=HTMLResponse)
+async def chat(request: Request, usuario: str):
     usuarios = []
     mensajes = []
 
-    if engine:
-        try:
-            with engine.connect() as conn:
-                conn.execute(
-                    text("INSERT INTO mensajes(nombre, mensaje) VALUES (:nombre, :mensaje)"),
-                    {"nombre": nombre, "mensaje": mensaje}
-                )
-                conn.commit()
-        except Exception as e:
-            print("Error guardando mensaje:", e)
+    # 👇 TU USUARIO (simple por ahora)
+    usuario_actual = "Marcos Ramírez"
 
-    # Recargar datos
-    try:
+    if engine:
         with engine.connect() as conn:
-            usuarios = [row[0] for row in conn.execute(text("SELECT nombre FROM usuarios ORDER BY id DESC"))]
-            mensajes = conn.execute(text("SELECT nombre, mensaje FROM mensajes ORDER BY id DESC LIMIT 20")).fetchall()
-    except Exception as e:
-        print(e)
+            usuarios = [row[0] for row in conn.execute(text("SELECT nombre FROM usuarios"))]
+
+            result = conn.execute(text("""
+                SELECT emisor, mensaje FROM mensajes
+                WHERE (emisor = :yo AND receptor = :otro)
+                   OR (emisor = :otro AND receptor = :yo)
+                ORDER BY id ASC
+            """), {"yo": usuario_actual, "otro": usuario})
+
+            mensajes = result.fetchall()
 
     return templates.TemplateResponse(
         request,
         "index.html",
         {
-            "mensaje": None,
             "usuarios": usuarios,
+            "chat_con": usuario,
             "mensajes": mensajes
         }
     )
+
+# -------------------------
+# ENVIAR MENSAJE PRIVADO
+# -------------------------
+
+@app.post("/mensaje", response_class=HTMLResponse)
+async def enviar_mensaje(
+    request: Request,
+    receptor: str = Form(...),
+    mensaje: str = Form(...)
+):
+    usuario_actual = "Marcos Ramírez"
+
+    if engine:
+        with engine.connect() as conn:
+            conn.execute(
+                text("""
+                    INSERT INTO mensajes (emisor, receptor, mensaje)
+                    VALUES (:emisor, :receptor, :mensaje)
+                """),
+                {
+                    "emisor": usuario_actual,
+                    "receptor": receptor,
+                    "mensaje": mensaje
+                }
+            )
+            conn.commit()
+
+    return RedirectResponse(f"/chat/{receptor}", status_code=303)
