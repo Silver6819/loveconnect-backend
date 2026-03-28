@@ -12,7 +12,6 @@ app = FastAPI()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Ajuste para PostgreSQL (Render)
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
 
@@ -28,7 +27,7 @@ engine = create_engine(
 templates = Jinja2Templates(directory="templates")
 
 # -------------------------
-# STARTUP (crear tabla)
+# STARTUP
 # -------------------------
 
 @app.on_event("startup")
@@ -39,6 +38,7 @@ def startup():
 
     try:
         with engine.connect() as conn:
+            # Usuarios
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS usuarios (
                     id SERIAL PRIMARY KEY,
@@ -46,50 +46,67 @@ def startup():
                     email TEXT UNIQUE
                 )
             """))
+
+            # Mensajes
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS mensajes (
+                    id SERIAL PRIMARY KEY,
+                    nombre TEXT,
+                    mensaje TEXT
+                )
+            """))
+
             conn.commit()
-        print("✅ Base de datos lista")
+
+        print("✅ DB lista")
+
     except Exception as e:
-        print("❌ Error DB en startup:", e)
+        print("❌ Error DB:", e)
 
 # -------------------------
-# HOME (mostrar usuarios)
+# HOME
 # -------------------------
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     usuarios = []
+    mensajes = []
 
     if engine:
         try:
             with engine.connect() as conn:
-                result = conn.execute(
-                    text("SELECT nombre FROM usuarios ORDER BY id DESC")
-                )
+                # Usuarios
+                result = conn.execute(text("SELECT nombre FROM usuarios ORDER BY id DESC"))
                 usuarios = [row[0] for row in result.fetchall()]
+
+                # Mensajes
+                result = conn.execute(text("SELECT nombre, mensaje FROM mensajes ORDER BY id DESC LIMIT 20"))
+                mensajes = result.fetchall()
+
         except Exception as e:
-            print("Error obteniendo usuarios:", e)
+            print("Error:", e)
 
     return templates.TemplateResponse(
         request,
         "index.html",
         {
             "mensaje": None,
-            "usuarios": usuarios
+            "usuarios": usuarios,
+            "mensajes": mensajes
         }
     )
 
 # -------------------------
-# REGISTRO (guardar + listar)
+# REGISTRO
 # -------------------------
 
 @app.post("/registro", response_class=HTMLResponse)
 async def registro(request: Request, nombre: str = Form(...), email: str = Form(...)):
     mensaje = None
     usuarios = []
+    mensajes = []
 
-    if not engine:
-        mensaje = "Base de datos no disponible"
-    else:
+    if engine:
         try:
             with engine.connect() as conn:
                 conn.execute(
@@ -98,26 +115,63 @@ async def registro(request: Request, nombre: str = Form(...), email: str = Form(
                 )
                 conn.commit()
 
-            mensaje = f"¡Hola {nombre}! Guardado en la base de datos 💘"
+            mensaje = f"¡Hola {nombre}! Bienvenido 💘"
 
         except Exception:
             mensaje = "Ese correo ya está registrado ⚠️"
 
-        # Obtener usuarios actualizados
-        try:
-            with engine.connect() as conn:
-                result = conn.execute(
-                    text("SELECT nombre FROM usuarios ORDER BY id DESC")
-                )
-                usuarios = [row[0] for row in result.fetchall()]
-        except Exception as e:
-            print("Error obteniendo usuarios:", e)
+    # Recargar datos
+    try:
+        with engine.connect() as conn:
+            usuarios = [row[0] for row in conn.execute(text("SELECT nombre FROM usuarios ORDER BY id DESC"))]
+            mensajes = conn.execute(text("SELECT nombre, mensaje FROM mensajes ORDER BY id DESC LIMIT 20")).fetchall()
+    except Exception as e:
+        print(e)
 
     return templates.TemplateResponse(
         request,
         "index.html",
         {
             "mensaje": mensaje,
-            "usuarios": usuarios
+            "usuarios": usuarios,
+            "mensajes": mensajes
+        }
+    )
+
+# -------------------------
+# ENVIAR MENSAJE
+# -------------------------
+
+@app.post("/mensaje", response_class=HTMLResponse)
+async def enviar_mensaje(request: Request, nombre: str = Form(...), mensaje: str = Form(...)):
+    usuarios = []
+    mensajes = []
+
+    if engine:
+        try:
+            with engine.connect() as conn:
+                conn.execute(
+                    text("INSERT INTO mensajes(nombre, mensaje) VALUES (:nombre, :mensaje)"),
+                    {"nombre": nombre, "mensaje": mensaje}
+                )
+                conn.commit()
+        except Exception as e:
+            print("Error guardando mensaje:", e)
+
+    # Recargar datos
+    try:
+        with engine.connect() as conn:
+            usuarios = [row[0] for row in conn.execute(text("SELECT nombre FROM usuarios ORDER BY id DESC"))]
+            mensajes = conn.execute(text("SELECT nombre, mensaje FROM mensajes ORDER BY id DESC LIMIT 20")).fetchall()
+    except Exception as e:
+        print(e)
+
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {
+            "mensaje": None,
+            "usuarios": usuarios,
+            "mensajes": mensajes
         }
     )
