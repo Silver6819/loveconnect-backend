@@ -16,14 +16,16 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
 
-engine = create_engine(DATABASE_URL) if DATABASE_URL else None
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"sslmode": "require"}
+) if DATABASE_URL else None
 
 # -------------------------
-# TEMPLATES
+# TEMPLATES (FIX IMPORTANTE)
 # -------------------------
 
-base_dir = os.path.dirname(os.path.realpath(__file__))
-templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
+templates = Jinja2Templates(directory="templates")
 
 # -------------------------
 # CREAR TABLA (al iniciar)
@@ -51,7 +53,10 @@ def startup():
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "mensaje": None
+    })
 
 # -------------------------
 # REGISTRO
@@ -59,7 +64,7 @@ async def home(request: Request):
 
 @app.post("/registro", response_class=HTMLResponse)
 async def registro(request: Request, nombre: str = Form(...), email: str = Form(...)):
-    mensaje = ""
+    mensaje = None
 
     if not engine:
         mensaje = "Base de datos no disponible"
