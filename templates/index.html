@@ -1,33 +1,61 @@
-<h2>Usuarios registrados 💕</h2>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>LoveConnect 💘</title>
+</head>
+<body>
 
-{% if usuarios %}
-    <ul>
-        {% for usuario in usuarios %}
-            <li>{{ usuario }}</li>
-        {% endfor %}
-    </ul>
-{% else %}
-    <p>No hay usuarios todavía.</p>
-{% endif %}
+    <h1>Bienvenido a LoveConnect 💘</h1>
+    <p>Regístrate para encontrar a tu pareja ideal.</p>
 
-<hr>
+    <!-- REGISTRO -->
+    <form action="/registro" method="post">
+        <input type="text" name="nombre" placeholder="Tu nombre" required>
+        <input type="email" name="email" placeholder="Tu correo" required>
+        <button type="submit">Unirse</button>
+    </form>
 
-<h2>Chat 💬</h2>
+    <hr>
 
-<form action="/mensaje" method="post">
-    <input type="text" name="nombre" placeholder="Tu nombre" required>
-    <input type="text" name="mensaje" placeholder="Escribe un mensaje" required>
-    <button type="submit">Enviar</button>
-</form>
+    <!-- USUARIOS -->
+    <h2>Usuarios 💕</h2>
 
-<h3>Mensajes recientes:</h3>
-
-<ul>
-    {% if mensajes %}
-        {% for nombre, mensaje in mensajes %}
-            <li><strong>{{ nombre }}:</strong> {{ mensaje }}</li>
-        {% endfor %}
+    {% if usuarios %}
+        <ul>
+            {% for usuario in usuarios %}
+                <li>
+                    <a href="/chat/{{ usuario }}">{{ usuario }}</a>
+                </li>
+            {% endfor %}
+        </ul>
     {% else %}
-        <p>No hay mensajes aún.</p>
+        <p>No hay usuarios todavía.</p>
     {% endif %}
-</ul>
+
+    <hr>
+
+    <!-- CHAT PRIVADO -->
+    {% if chat_con %}
+        <h2>Chat con {{ chat_con }} 💬</h2>
+
+        <form action="/mensaje" method="post">
+            <input type="hidden" name="receptor" value="{{ chat_con }}">
+            <input type="text" name="mensaje" placeholder="Escribe un mensaje" required>
+            <button type="submit">Enviar</button>
+        </form>
+
+        <h3>Mensajes:</h3>
+
+        <ul>
+            {% for emisor, mensaje in mensajes %}
+                <li><strong>{{ emisor }}:</strong> {{ mensaje }}</li>
+            {% endfor %}
+        </ul>
+
+    {% else %}
+        <p>Selecciona un usuario para comenzar a chatear 💘</p>
+    {% endif %}
+
+</body>
+</html>
