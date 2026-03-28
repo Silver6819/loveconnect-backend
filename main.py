@@ -1,4 +1,5 @@
 import os
+from urllib.parse import unquote
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -36,7 +37,6 @@ def startup():
         return
 
     with engine.connect() as conn:
-        # Usuarios
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS usuarios (
                 id SERIAL PRIMARY KEY,
@@ -45,7 +45,6 @@ def startup():
             )
         """))
 
-        # Mensajes privados
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS mensajes (
                 id SERIAL PRIMARY KEY,
@@ -100,15 +99,16 @@ async def registro(request: Request, nombre: str = Form(...), email: str = Form(
     return RedirectResponse("/", status_code=303)
 
 # -------------------------
-# ABRIR CHAT
+# CHAT PRIVADO
 # -------------------------
 
 @app.get("/chat/{usuario}", response_class=HTMLResponse)
 async def chat(request: Request, usuario: str):
+    usuario = unquote(usuario)  # 🔥 FIX espacios y tildes
+
     usuarios = []
     mensajes = []
 
-    # 👇 TU USUARIO (simple por ahora)
     usuario_actual = "Marcos Ramírez"
 
     if engine:
@@ -135,7 +135,7 @@ async def chat(request: Request, usuario: str):
     )
 
 # -------------------------
-# ENVIAR MENSAJE PRIVADO
+# ENVIAR MENSAJE
 # -------------------------
 
 @app.post("/mensaje", response_class=HTMLResponse)
