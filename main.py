@@ -68,8 +68,7 @@ async def home(request: Request):
     if engine:
         with engine.connect() as conn:
             result = conn.execute(text("SELECT * FROM usuarios"))
-            usuarios = result.fetchall()
-
+            usuarios = [u[1] for u in result.fetchall()]
     return templates.TemplateResponse("index.html", {
         "request": request,
         "usuarios": usuarios,
