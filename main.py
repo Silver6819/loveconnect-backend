@@ -84,12 +84,7 @@ async def home(request: Request):
         if engine:
             with engine.connect() as conn:
                 result = conn.execute(text("SELECT id, nombre, email FROM usuarios"))
-
-                # 🔥 CONVERSIÓN A JSON (DICCIONARIOS)
-                usuarios = [
-                    {"id": u[0], "nombre": u[1], "email": u[2]}
-                    for u in result.fetchall()
-                ]
+                usuarios = result.mappings().all()  # 🔥 FIX DEFINITIVO
 
         return templates.TemplateResponse("index.html", {
             "request": request,
@@ -131,6 +126,7 @@ async def chat(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
+        # evitar chatear contigo mismo
         if usuario == usuario_actual:
             return RedirectResponse("/", status_code=303)
 
@@ -142,10 +138,7 @@ async def chat(request: Request, usuario: str):
 
                 # usuarios
                 result = conn.execute(text("SELECT id, nombre, email FROM usuarios"))
-                usuarios = [
-                    {"id": u[0], "nombre": u[1], "email": u[2]}
-                    for u in result.fetchall()
-                ]
+                usuarios = result.mappings().all()  # 🔥 FIX
 
                 # mensajes
                 result = conn.execute(text("""
@@ -154,10 +147,7 @@ async def chat(request: Request, usuario: str):
                        OR (emisor = :u2 AND receptor = :u1)
                 """), {"u1": usuario_actual, "u2": usuario})
 
-                mensajes = [
-                    {"emisor": m[0], "mensaje": m[1]}
-                    for m in result.fetchall()
-                ]
+                mensajes = result.mappings().all()  # 🔥 FIX
 
         return templates.TemplateResponse("index.html", {
             "request": request,
