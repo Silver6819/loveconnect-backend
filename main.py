@@ -33,12 +33,12 @@ if DATABASE_URL:
         print("ERROR CONECTANDO DB:", e)
 
 # -------------------------
-# TEMPLATES (CORREGIDO)
+# TEMPLATES (🔥 FIX DEFINITIVO)
 # -------------------------
 templates = Jinja2Templates(directory="templates")
 
-# 🔥 CONFIGURACIÓN SEGURA (sin romper FastAPI)
-templates.env.cache = {}
+# 💥 DESACTIVA COMPLETAMENTE LA CACHE (SOLUCIÓN AL BUG)
+templates.env.cache = None
 templates.env.auto_reload = True
 
 # -------------------------
@@ -153,11 +153,9 @@ async def chat(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
-        # evitar chatear contigo mismo
         if usuario == usuario_actual:
             return RedirectResponse("/", status_code=303)
 
-        # evitar usuario no logueado
         if usuario_actual == "Invitado":
             return RedirectResponse("/", status_code=303)
 
