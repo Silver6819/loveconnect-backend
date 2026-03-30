@@ -8,47 +8,65 @@
 
 <h1>LoveConnect 💘</h1>
 
+<!-- LOGIN -->
+<h3>Entrar</h3>
 <form action="/set_usuario" method="post">
     <input type="text" name="usuario" placeholder="Tu nombre" required>
-    <button>Entrar</button>
+    <button type="submit">Entrar</button>
 </form>
 
-<p>Usuario actual: {{ usuario_actual }}</p>
+<p>Usuario actual: <strong>{{ usuario_actual }}</strong></p>
 
 <hr>
 
+<!-- REGISTRO -->
+<h3>Registro</h3>
 <form action="/registro" method="post">
     <input type="text" name="nombre" placeholder="Nombre" required>
     <input type="email" name="email" placeholder="Correo" required>
-    <button>Registrarse</button>
+    <button type="submit">Registrarse</button>
 </form>
 
 <hr>
 
-<h2>Usuarios</h2>
+<!-- USUARIOS -->
+<h2>Usuarios 💕</h2>
+
+{% if usuarios %}
 <ul>
-{% for u in usuarios %}
-    <li><a href="/chat/{{ u }}">{{ u }}</a></li>
-{% endfor %}
+    {% for u in usuarios %}
+        <li>
+            <a href="/chat/{{ u }}">{{ u }}</a>
+        </li>
+    {% endfor %}
 </ul>
+{% else %}
+<p>No hay usuarios todavía.</p>
+{% endif %}
 
 <hr>
 
+<!-- CHAT -->
 {% if chat_con %}
 <h2>Chat con {{ chat_con }}</h2>
 
 <form action="/mensaje" method="post">
     <input type="hidden" name="receptor" value="{{ chat_con }}">
-    <input type="text" name="mensaje" required>
-    <button>Enviar</button>
+    <input type="text" name="mensaje" placeholder="Escribe un mensaje" required>
+    <button type="submit">Enviar</button>
 </form>
 
+<h3>Mensajes:</h3>
 <ul>
-{% for m in mensajes %}
-    <li><b>{{ m[0] }}:</b> {{ m[1] }}</li>
-{% endfor %}
+    {% for m in mensajes %}
+        <li>
+            <strong>{{ m[0] }}:</strong> {{ m[1] }}
+        </li>
+    {% endfor %}
 </ul>
 
+{% else %}
+<p>Selecciona un usuario para chatear 💬</p>
 {% endif %}
 
 </body>
