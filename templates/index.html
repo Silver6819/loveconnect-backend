@@ -6,73 +6,50 @@
 </head>
 <body>
 
-    <h1>Bienvenido a LoveConnect 💘</h1>
-    <p>Regístrate para encontrar a tu pareja ideal.</p>
+<h1>LoveConnect 💘</h1>
 
-    <!-- LOGIN SIMPLE -->
-    <hr>
-    <h3>Seleccionar usuario 👤</h3>
+<form action="/set_usuario" method="post">
+    <input type="text" name="usuario" placeholder="Tu nombre" required>
+    <button>Entrar</button>
+</form>
 
-    <form action="/set_usuario" method="post">
-        <input type="text" name="usuario" placeholder="Tu nombre" required>
-        <button type="submit">Entrar</button>
-    </form>
+<p>Usuario actual: {{ usuario_actual }}</p>
 
-    <p>Usuario actual: {{ usuario_actual }}</p>
+<hr>
 
-    <hr>
+<form action="/registro" method="post">
+    <input type="text" name="nombre" placeholder="Nombre" required>
+    <input type="email" name="email" placeholder="Correo" required>
+    <button>Registrarse</button>
+</form>
 
-    <!-- REGISTRO -->
-    <form action="/registro" method="post">
-        <input type="text" name="nombre" placeholder="Tu nombre" required>
-        <input type="email" name="email" placeholder="Tu correo" required>
-        <button type="submit">Unirse</button>
-    </form>
+<hr>
 
-    <hr>
+<h2>Usuarios</h2>
+<ul>
+{% for u in usuarios %}
+    <li><a href="/chat/{{ u }}">{{ u }}</a></li>
+{% endfor %}
+</ul>
 
-    <!-- USUARIOS -->
-    <h2>Usuarios 💕</h2>
+<hr>
 
-    {% if usuarios %}
-        <ul>
-            {% for usuario in usuarios %}
-                <li>
-                    <a href="/chat/{{ usuario.nombre | urlencode }}">
-                        {{ usuario.nombre }}
-                    </a>
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p>No hay usuarios todavía.</p>
-    {% endif %}
+{% if chat_con %}
+<h2>Chat con {{ chat_con }}</h2>
 
-    <hr>
+<form action="/mensaje" method="post">
+    <input type="hidden" name="receptor" value="{{ chat_con }}">
+    <input type="text" name="mensaje" required>
+    <button>Enviar</button>
+</form>
 
-    <!-- CHAT PRIVADO -->
-    {% if chat_con %}
-        <h2>Chat con {{ chat_con }} 💬</h2>
+<ul>
+{% for m in mensajes %}
+    <li><b>{{ m[0] }}:</b> {{ m[1] }}</li>
+{% endfor %}
+</ul>
 
-        <form action="/mensaje" method="post">
-            <input type="hidden" name="receptor" value="{{ chat_con }}">
-            <input type="text" name="mensaje" placeholder="Escribe un mensaje" required>
-            <button type="submit">Enviar</button>
-        </form>
-
-        <h3>Mensajes:</h3>
-
-        <ul>
-            {% for msg in mensajes %}
-                <li>
-                    <strong>{{ msg.emisor }}:</strong> {{ msg.mensaje }}
-                </li>
-            {% endfor %}
-        </ul>
-
-    {% else %}
-        <p>Selecciona un usuario para comenzar a chatear 💘</p>
-    {% endif %}
+{% endif %}
 
 </body>
 </html>
