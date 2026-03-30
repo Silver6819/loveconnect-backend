@@ -30,21 +30,21 @@ if DATABASE_URL:
             connect_args={"sslmode": "require"}
         )
     except Exception as e:
-        print("ERROR CONECTANDO DB:", e)
+        print("ERROR DB:", e)
 
 # -------------------------
-# TEMPLATES (🔥 FIX DEFINITIVO)
+# TEMPLATES (FIX TOTAL)
 # -------------------------
 templates = Jinja2Templates(directory="templates")
 
-# 💥 DESACTIVA COMPLETAMENTE LA CACHE (SOLUCIÓN AL BUG)
+# 🔥 FIX BUG JINJA + PYTHON 3.14
 templates.env.cache = None
 templates.env.auto_reload = True
 
 # -------------------------
-# FUNCIÓN PARA MOSTRAR ERRORES
+# ERROR HANDLER
 # -------------------------
-def mostrar_error(e):
+def mostrar_error():
     return HTMLResponse(f"""
     <h1>💥 ERROR DETECTADO</h1>
     <pre>{traceback.format_exc()}</pre>
@@ -79,8 +79,8 @@ def startup():
 
             conn.commit()
 
-    except Exception as e:
-        print("ERROR STARTUP:", e)
+    except:
+        print("ERROR STARTUP")
 
 # -------------------------
 # TEST
@@ -97,8 +97,8 @@ async def set_usuario(request: Request, usuario: str = Form(...)):
     try:
         request.session["usuario"] = usuario
         return RedirectResponse("/", status_code=303)
-    except Exception as e:
-        return mostrar_error(e)
+    except:
+        return mostrar_error()
 
 # -------------------------
 # HOME
@@ -115,16 +115,19 @@ async def home(request: Request):
                 result = conn.execute(text("SELECT nombre FROM usuarios"))
                 usuarios = [row[0] for row in result.fetchall()]
 
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "usuarios": usuarios,
-            "usuario_actual": usuario_actual,
-            "chat_con": None,
-            "mensajes": []
-        })
+        return templates.TemplateResponse(
+            name="index.html",
+            context={
+                "request": request,
+                "usuarios": usuarios,
+                "usuario_actual": usuario_actual,
+                "chat_con": None,
+                "mensajes": []
+            }
+        )
 
-    except Exception as e:
-        return mostrar_error(e)
+    except:
+        return mostrar_error()
 
 # -------------------------
 # REGISTRO
@@ -142,8 +145,8 @@ async def registro(nombre: str = Form(...), email: str = Form(...)):
 
         return RedirectResponse("/", status_code=303)
 
-    except Exception as e:
-        return mostrar_error(e)
+    except:
+        return mostrar_error()
 
 # -------------------------
 # CHAT
@@ -165,11 +168,9 @@ async def chat(request: Request, usuario: str):
         if engine:
             with engine.connect() as conn:
 
-                # usuarios
                 result = conn.execute(text("SELECT nombre FROM usuarios"))
                 usuarios = [row[0] for row in result.fetchall()]
 
-                # mensajes
                 result = conn.execute(text("""
                     SELECT emisor, mensaje FROM mensajes
                     WHERE (emisor = :u1 AND receptor = :u2)
@@ -178,16 +179,19 @@ async def chat(request: Request, usuario: str):
 
                 mensajes = result.fetchall()
 
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "usuarios": usuarios,
-            "usuario_actual": usuario_actual,
-            "chat_con": usuario,
-            "mensajes": mensajes
-        })
+        return templates.TemplateResponse(
+            name="index.html",
+            context={
+                "request": request,
+                "usuarios": usuarios,
+                "usuario_actual": usuario_actual,
+                "chat_con": usuario,
+                "mensajes": mensajes
+            }
+        )
 
-    except Exception as e:
-        return mostrar_error(e)
+    except:
+        return mostrar_error()
 
 # -------------------------
 # MENSAJE
@@ -214,5 +218,5 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
 
         return RedirectResponse(f"/chat/{receptor}", status_code=303)
 
-    except Exception as e:
-        return mostrar_error(e)
+    except:
+        return mostrar_error()
