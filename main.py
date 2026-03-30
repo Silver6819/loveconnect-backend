@@ -15,27 +15,21 @@ app.add_middleware(SessionMiddleware, secret_key="supersecreto")
 # -------------------------
 # BASE DE DATOS
 # -------------------------
-
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"sslmode": "require"}
-) if DATABASE_URL else None
+engine = create_engine(DATABASE_URL) if DATABASE_URL else None
 
 # -------------------------
 # TEMPLATES
 # -------------------------
-
 templates = Jinja2Templates(directory="templates")
 
 # -------------------------
 # STARTUP
 # -------------------------
-
 @app.on_event("startup")
 def startup():
     if not engine:
@@ -62,9 +56,8 @@ def startup():
         conn.commit()
 
 # -------------------------
-# LOGIN SIMPLE
+# LOGIN
 # -------------------------
-
 @app.post("/set_usuario")
 async def set_usuario(request: Request, usuario: str = Form(...)):
     request.session["usuario"] = usuario
@@ -73,115 +66,96 @@ async def set_usuario(request: Request, usuario: str = Form(...)):
 # -------------------------
 # HOME
 # -------------------------
-
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    try:
-        usuario_actual = request.session.get("usuario", "Invitado")
+    usuario_actual = request.session.get("usuario", "Invitado")
 
-        usuarios = []
+    usuarios = []
 
-        if engine:
-            with engine.connect() as conn:
-                result = conn.execute(text("SELECT id, nombre, email FROM usuarios"))
-                usuarios = result.mappings().all()  # 🔥 FIX DEFINITIVO
+    if engine:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT nombre FROM usuarios"))
 
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "usuarios": usuarios,
-            "usuario_actual": usuario_actual,
-            "chat_con": None,
-            "mensajes": []
-        })
+            # 🔥 AQUÍ LA DIFERENCIA: usamos fetchall (tuplas simples)
+            usuarios = [row[0] for row in result.fetchall()]
 
-    except Exception as e:
-        return HTMLResponse(f"Error HOME: {str(e)}")
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "usuarios": usuarios,
+        "usuario_actual": usuario_actual,
+        "chat_con": None,
+        "mensajes": []
+    })
 
 # -------------------------
 # REGISTRO
 # -------------------------
-
 @app.post("/registro")
 async def registro(nombre: str = Form(...), email: str = Form(...)):
-    try:
-        if engine:
-            with engine.connect() as conn:
-                conn.execute(
-                    text("INSERT INTO usuarios (nombre, email) VALUES (:nombre, :email)"),
-                    {"nombre": nombre, "email": email}
-                )
-                conn.commit()
+    if engine:
+        with engine.connect() as conn:
+            conn.execute(
+                text("INSERT INTO usuarios (nombre, email) VALUES (:nombre, :email)"),
+                {"nombre": nombre, "email": email}
+            )
+            conn.commit()
 
-        return RedirectResponse("/", status_code=303)
-
-    except Exception as e:
-        return HTMLResponse(f"Error REGISTRO: {str(e)}")
+    return RedirectResponse("/", status_code=303)
 
 # -------------------------
 # CHAT
 # -------------------------
-
 @app.get("/chat/{usuario}")
 async def chat(request: Request, usuario: str):
-    try:
-        usuario_actual = request.session.get("usuario", "Invitado")
+    usuario_actual = request.session.get("usuario", "Invitado")
 
-        # evitar chatear contigo mismo
-        if usuario == usuario_actual:
-            return RedirectResponse("/", status_code=303)
+    if usuario == usuario_actual:
+        return RedirectResponse("/", status_code=303)
 
-        usuarios = []
-        mensajes = []
+    usuarios = []
+    mensajes = []
 
-        if engine:
-            with engine.connect() as conn:
+    if engine:
+        with engine.connect() as conn:
 
-                # usuarios
-                result = conn.execute(text("SELECT id, nombre, email FROM usuarios"))
-                usuarios = result.mappings().all()  # 🔥 FIX
+            # usuarios
+            result = conn.execute(text("SELECT nombre FROM usuarios"))
+            usuarios = [row[0] for row in result.fetchall()]
 
-                # mensajes
-                result = conn.execute(text("""
-                    SELECT emisor, mensaje FROM mensajes
-                    WHERE (emisor = :u1 AND receptor = :u2)
-                       OR (emisor = :u2 AND receptor = :u1)
-                """), {"u1": usuario_actual, "u2": usuario})
+            # mensajes
+            result = conn.execute(text("""
+                SELECT emisor, mensaje FROM mensajes
+                WHERE (emisor = :u1 AND receptor = :u2)
+                   OR (emisor = :u2 AND receptor = :u1)
+            """), {"u1": usuario_actual, "u2": usuario})
 
-                mensajes = result.mappings().all()  # 🔥 FIX
+            mensajes = result.fetchall()
 
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "usuarios": usuarios,
-            "usuario_actual": usuario_actual,
-            "chat_con": usuario,
-            "mensajes": mensajes
-        })
-
-    except Exception as e:
-        return HTMLResponse(f"Error CHAT: {str(e)}")
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "usuarios": usuarios,
+        "usuario_actual": usuario_actual,
+        "chat_con": usuario,
+        "mensajes": mensajes
+    })
 
 # -------------------------
-# ENVIAR MENSAJE
+# MENSAJE
 # -------------------------
-
 @app.post("/mensaje")
 async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
-    try:
-        usuario_actual = request.session.get("usuario", "Invitado")
+    usuario_actual = request.session.get("usuario", "Invitado")
 
-        if engine:
-            with engine.connect() as conn:
-                conn.execute(text("""
-                    INSERT INTO mensajes (emisor, receptor, mensaje)
-                    VALUES (:emisor, :receptor, :mensaje)
-                """), {
-                    "emisor": usuario_actual,
-                    "receptor": receptor,
-                    "mensaje": mensaje
-                })
-                conn.commit()
+    if engine:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                INSERT INTO mensajes (emisor, receptor, mensaje)
+                VALUES (:emisor, :receptor, :mensaje)
+            """), {
+                "emisor": usuario_actual,
+                "receptor": receptor,
+                "mensaje": mensaje
+            })
+            conn.commit()
 
-        return RedirectResponse(f"/chat/{receptor}", status_code=303)
-
-    except Exception as e:
-        return HTMLResponse(f"Error MENSAJE: {str(e)}")
+    return RedirectResponse(f"/chat/{receptor}", status_code=303)
