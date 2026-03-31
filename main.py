@@ -33,7 +33,7 @@ if DATABASE_URL:
         print("ERROR DB:", e)
 
 # -------------------------
-# TEMPLATES (FIX TOTAL)
+# TEMPLATES (FIX JINJA)
 # -------------------------
 templates = Jinja2Templates(directory="templates")
 
@@ -116,9 +116,9 @@ async def home(request: Request):
                 usuarios = [row[0] for row in result.fetchall()]
 
         return templates.TemplateResponse(
-            name="index.html",
-            context={
-                "request": request,
+            "index.html",
+            request,
+            {
                 "usuarios": usuarios,
                 "usuario_actual": usuario_actual,
                 "chat_con": None,
@@ -180,9 +180,9 @@ async def chat(request: Request, usuario: str):
                 mensajes = result.fetchall()
 
         return templates.TemplateResponse(
-            name="index.html",
-            context={
-                "request": request,
+            "index.html",
+            request,
+            {
                 "usuarios": usuarios,
                 "usuario_actual": usuario_actual,
                 "chat_con": usuario,
