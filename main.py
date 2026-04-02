@@ -33,13 +33,18 @@ if DATABASE_URL:
         print("ERROR DB:", e)
 
 # -------------------------
-# TEMPLATES (FIX JINJA)
+# TEMPLATES
 # -------------------------
 templates = Jinja2Templates(directory="templates")
 
-# 🔥 FIX BUG JINJA + PYTHON 3.14
+# FIX para evitar bugs en algunos entornos
 templates.env.cache = None
 templates.env.auto_reload = True
+
+# 🔥 HELPER PARA RENDER (EVITA ERRORES FUTUROS)
+def render(template_name, request, context):
+    context["request"] = request
+    return templates.TemplateResponse(template_name, context)
 
 # -------------------------
 # ERROR HANDLER
@@ -115,16 +120,12 @@ async def home(request: Request):
                 result = conn.execute(text("SELECT nombre FROM usuarios"))
                 usuarios = [row[0] for row in result.fetchall()]
 
-        return templates.TemplateResponse(
-            "index.html",
-            request,
-            {
-                "usuarios": usuarios,
-                "usuario_actual": usuario_actual,
-                "chat_con": None,
-                "mensajes": []
-            }
-        )
+        return render("index.html", request, {
+            "usuarios": usuarios,
+            "usuario_actual": usuario_actual,
+            "chat_con": None,
+            "mensajes": []
+        })
 
     except:
         return mostrar_error()
@@ -156,6 +157,7 @@ async def chat(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
+        # 🔥 Evitar hablar contigo mismo
         if usuario == usuario_actual:
             return RedirectResponse("/", status_code=303)
 
@@ -179,16 +181,12 @@ async def chat(request: Request, usuario: str):
 
                 mensajes = result.fetchall()
 
-        return templates.TemplateResponse(
-            "index.html",
-            request,
-            {
-                "usuarios": usuarios,
-                "usuario_actual": usuario_actual,
-                "chat_con": usuario,
-                "mensajes": mensajes
-            }
-        )
+        return render("index.html", request, {
+            "usuarios": usuarios,
+            "usuario_actual": usuario_actual,
+            "chat_con": usuario,
+            "mensajes": mensajes
+        })
 
     except:
         return mostrar_error()
