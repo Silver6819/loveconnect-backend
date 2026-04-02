@@ -40,10 +40,10 @@ templates = Jinja2Templates(directory="templates")
 templates.env.cache = None
 templates.env.auto_reload = True
 
-# 🔥 HELPER CORRECTO
+# 🔥 HELPER CORREGIDO FINAL
 def render(template_name, request, context):
-    return templates.TemplateResponse(template_name, request, context)
-
+    context["request"] = request
+    return templates.TemplateResponse(template_name, context)
 # -------------------------
 # ERROR HANDLER
 # -------------------------
