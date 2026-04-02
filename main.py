@@ -37,14 +37,12 @@ if DATABASE_URL:
 # -------------------------
 templates = Jinja2Templates(directory="templates")
 
-# FIX para evitar bugs en algunos entornos
 templates.env.cache = None
 templates.env.auto_reload = True
 
-# 🔥 HELPER PARA RENDER (EVITA ERRORES FUTUROS)
+# 🔥 HELPER CORRECTO
 def render(template_name, request, context):
-    context["request"] = request
-    return templates.TemplateResponse(template_name, context)
+    return templates.TemplateResponse(template_name, request, context)
 
 # -------------------------
 # ERROR HANDLER
@@ -157,7 +155,6 @@ async def chat(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
-        # 🔥 Evitar hablar contigo mismo
         if usuario == usuario_actual:
             return RedirectResponse("/", status_code=303)
 
