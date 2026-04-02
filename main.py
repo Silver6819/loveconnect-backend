@@ -42,8 +42,7 @@ templates.env.auto_reload = True
 
 # 🔥 HELPER CORREGIDO FINAL
 def render(template_name, request, context):
-    context["request"] = request
-    return templates.TemplateResponse(template_name, context)
+    return templates.TemplateResponse(template_name, request, context)
 # -------------------------
 # ERROR HANDLER
 # -------------------------
