@@ -75,8 +75,11 @@ def startup():
                 )
             """))
 
+            # 🔥 NUEVO: FORZAR RECREACIÓN DE TABLA MENSAJES
+            conn.execute(text("DROP TABLE IF EXISTS mensajes"))
+
             conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS mensajes (
+                CREATE TABLE mensajes (
                     id SERIAL PRIMARY KEY,
                     emisor TEXT,
                     receptor TEXT,
@@ -108,7 +111,7 @@ async def set_usuario(request: Request, usuario: str = Form(...)):
         return mostrar_error()
 
 # -------------------------
-# LOGOUT 🔥 NUEVO
+# LOGOUT
 # -------------------------
 @app.get("/logout")
 async def logout(request: Request):
