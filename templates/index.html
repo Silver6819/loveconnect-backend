@@ -60,34 +60,54 @@
         {% endfor %}
     </div>
 
-    <!-- 🔥 FORM MODIFICADO -->
     <form id="form-chat">
         <input type="hidden" name="receptor" value="{{ chat_con }}" id="receptor">
         <input type="text" name="mensaje" placeholder="Escribe mensaje..." required id="mensaje">
         <button type="submit">Enviar</button>
     </form>
 
-    <!-- 🔥 AUTO-REFRESH -->
+    <!-- 🔥 AUTO-REFRESH OPTIMIZADO -->
     <script>
     const chatCon = "{{ chat_con }}";
+
+    let ultimoConteo = 0;
+    let intervalo = 3000;
 
     async function actualizarChat() {
         if (!chatCon) return;
 
-        const response = await fetch(`/mensajes_privados/${chatCon}`);
-        const data = await response.json();
+        try {
+            const response = await fetch(`/mensajes_privados/${chatCon}`);
+            const data = await response.json();
 
-        const chatBox = document.getElementById("chat-box");
-        chatBox.innerHTML = "";
+            const nuevosMensajes = data.mensajes;
 
-        data.mensajes.forEach(msg => {
-            chatBox.innerHTML += `<p><strong>${msg.emisor}:</strong> ${msg.mensaje}</p>`;
-        });
+            if (nuevosMensajes.length !== ultimoConteo) {
 
-        chatBox.scrollTop = chatBox.scrollHeight;
+                const chatBox = document.getElementById("chat-box");
+                chatBox.innerHTML = "";
+
+                nuevosMensajes.forEach(msg => {
+                    chatBox.innerHTML += `<p><strong>${msg.emisor}:</strong> ${msg.mensaje}</p>`;
+                });
+
+                chatBox.scrollTop = chatBox.scrollHeight;
+
+                ultimoConteo = nuevosMensajes.length;
+                intervalo = 2000;
+
+            } else {
+                intervalo = 5000;
+            }
+
+        } catch (error) {
+            console.log("Error actualizando chat");
+        }
+
+        setTimeout(actualizarChat, intervalo);
     }
 
-    setInterval(actualizarChat, 3000);
+    actualizarChat();
     </script>
 
     <!-- 🔥 ENVÍO SIN RECARGA -->
