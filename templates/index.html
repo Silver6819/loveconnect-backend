@@ -10,6 +10,11 @@
 
 <h3>Usuario actual: {{ usuario_actual }}</h3>
 
+<!-- 🔥 NUEVO BOTÓN LOGOUT -->
+<a href="/logout">
+    <button>Cerrar sesión</button>
+</a>
+
 <hr>
 
 <!-- LOGIN -->
@@ -50,7 +55,6 @@
 {% if chat_con %}
     <h3>Chat con {{ chat_con }}</h3>
 
-    <!-- 🔥 CAMBIO: ID + scroll -->
     <div id="chat-box" style="border:1px solid black; padding:10px; height:200px; overflow-y:auto;">
         {% for m in mensajes %}
             <p><strong>{{ m[0] }}:</strong> {{ m[1] }}</p>
@@ -63,7 +67,6 @@
         <button type="submit">Enviar</button>
     </form>
 
-    <!-- 🔥 NUEVO: AUTO-REFRESH -->
     <script>
     const chatCon = "{{ chat_con }}";
 
@@ -83,7 +86,6 @@
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // cada 3 segundos
     setInterval(actualizarChat, 3000);
     </script>
 
