@@ -47,6 +47,7 @@ def render(template_name, request, context):
         template_name,
         context
     )
+
 # -------------------------
 # ERROR HANDLER
 # -------------------------
@@ -192,6 +193,34 @@ async def chat(request: Request, usuario: str):
         return mostrar_error()
 
 # -------------------------
+# MENSAJE
+# -------------------------
+@app.post("/mensaje")
+async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        if usuario_actual == "Invitado":
+            return RedirectResponse("/", status_code=303)
+
+        if engine:
+            with engine.connect() as conn:
+                conn.execute(text("""
+                    INSERT INTO mensajes (emisor, receptor, mensaje)
+                    VALUES (:emisor, :receptor, :mensaje)
+                """), {
+                    "emisor": usuario_actual,
+                    "receptor": receptor,
+                    "mensaje": mensaje
+                })
+                conn.commit()
+
+        return RedirectResponse(f"/chat/{receptor}", status_code=303)
+
+    except:
+        return mostrar_error()
+
+# -------------------------
 # API MENSAJES (AUTO-REFRESH)
 # -------------------------
 @app.get("/mensajes_privados/{usuario}")
@@ -222,46 +251,3 @@ async def obtener_mensajes_privados(request: Request, usuario: str):
 
     except:
         return {"mensajes": []}
-
-        mensajes = []
-
-        if engine:
-            with engine.connect() as conn:
-                result = conn.execute(text("""
-                    SELECT emisor, mensaje FROM mensajes
-                    WHERE (emisor = :u1 AND receptor = :u2)
-                       OR (emisor = :u2 AND receptor = :u1)
-                    ORDER BY id ASC
-                """), {"u1": usuario_actual, "u2": usuario})
-
-                mensajes = [
-                    {"emisor": row[0], "mensaje": row[1]}
-                    for row in result.fetchall()
-                ]
-
-        return {"mensajes": mensajes}
-
-    except:
-        return {"mensajes": []}
-    try:
-        usuario_actual = request.session.get("usuario", "Invitado")
-
-        if usuario_actual == "Invitado":
-            return RedirectResponse("/", status_code=303)
-
-        if engine:
-            with engine.connect() as conn:
-                conn.execute(text("""
-                    INSERT INTO mensajes (emisor, receptor, mensaje)
-                    VALUES (:emisor, :receptor, :mensaje)
-                """), {
-                    "emisor": usuario_actual,
-                    "receptor": receptor,
-                    "mensaje": mensaje
-                })
-                conn.commit()
-
-        return RedirectResponse(f"/chat/{receptor}", status_code=303)
-
-    except:
-        return mostrar_error()
