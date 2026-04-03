@@ -50,7 +50,8 @@
 {% if chat_con %}
     <h3>Chat con {{ chat_con }}</h3>
 
-    <div style="border:1px solid black; padding:10px;">
+    <!-- 🔥 CAMBIO: ID + scroll -->
+    <div id="chat-box" style="border:1px solid black; padding:10px; height:200px; overflow-y:auto;">
         {% for m in mensajes %}
             <p><strong>{{ m[0] }}:</strong> {{ m[1] }}</p>
         {% endfor %}
@@ -61,6 +62,31 @@
         <input type="text" name="mensaje" placeholder="Escribe mensaje..." required>
         <button type="submit">Enviar</button>
     </form>
+
+    <!-- 🔥 NUEVO: AUTO-REFRESH -->
+    <script>
+    const chatCon = "{{ chat_con }}";
+
+    async function actualizarChat() {
+        if (!chatCon) return;
+
+        const response = await fetch(`/mensajes_privados/${chatCon}`);
+        const data = await response.json();
+
+        const chatBox = document.getElementById("chat-box");
+        chatBox.innerHTML = "";
+
+        data.mensajes.forEach(msg => {
+            chatBox.innerHTML += `<p><strong>${msg.emisor}:</strong> ${msg.mensaje}</p>`;
+        });
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // cada 3 segundos
+    setInterval(actualizarChat, 3000);
+    </script>
+
 {% endif %}
 
 </body>
