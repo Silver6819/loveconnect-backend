@@ -192,35 +192,6 @@ async def chat(request: Request, usuario: str):
         return mostrar_error()
 
 # -------------------------
-# MENSAJE
-# -------------------------
-@app.post("/mensaje")
-async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
-    try:
-        usuario_actual = request.session.get("usuario", "Invitado")
-
-        if usuario_actual == "Invitado":
-            return RedirectResponse("/", status_code=303)
-
-        if engine:
-            with engine.connect() as conn:
-                conn.execute(text("""
-                    INSERT INTO mensajes (emisor, receptor, mensaje)
-                    VALUES (:emisor, :receptor, :mensaje)
-                """), {
-                    "emisor": usuario_actual,
-                    "receptor": receptor,
-                    "mensaje": mensaje
-                })
-                conn.commit()
-
-        return RedirectResponse(f"/chat/{receptor}", status_code=303)
-
-    except:
-        return mostrar_error()
-
-
-# -------------------------
 # API MENSAJES (AUTO-REFRESH)
 # -------------------------
 @app.get("/mensajes_privados/{usuario}")
