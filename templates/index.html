@@ -10,7 +10,6 @@
 
 <h3>Usuario actual: {{ usuario_actual }}</h3>
 
-<!-- 🔥 NUEVO BOTÓN LOGOUT -->
 <a href="/logout">
     <button>Cerrar sesión</button>
 </a>
@@ -61,12 +60,14 @@
         {% endfor %}
     </div>
 
-    <form action="/mensaje" method="post">
-        <input type="hidden" name="receptor" value="{{ chat_con }}">
-        <input type="text" name="mensaje" placeholder="Escribe mensaje..." required>
+    <!-- 🔥 FORM MODIFICADO -->
+    <form id="form-chat">
+        <input type="hidden" name="receptor" value="{{ chat_con }}" id="receptor">
+        <input type="text" name="mensaje" placeholder="Escribe mensaje..." required id="mensaje">
         <button type="submit">Enviar</button>
     </form>
 
+    <!-- 🔥 AUTO-REFRESH -->
     <script>
     const chatCon = "{{ chat_con }}";
 
@@ -87,6 +88,30 @@
     }
 
     setInterval(actualizarChat, 3000);
+    </script>
+
+    <!-- 🔥 ENVÍO SIN RECARGA -->
+    <script>
+    const form = document.getElementById("form-chat");
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const mensajeInput = document.getElementById("mensaje");
+        const receptor = document.getElementById("receptor").value;
+
+        const mensaje = mensajeInput.value;
+
+        await fetch("/mensaje", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: `receptor=${encodeURIComponent(receptor)}&mensaje=${encodeURIComponent(mensaje)}`
+        });
+
+        mensajeInput.value = "";
+    });
     </script>
 
 {% endif %}
