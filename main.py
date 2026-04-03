@@ -108,6 +108,14 @@ async def set_usuario(request: Request, usuario: str = Form(...)):
         return mostrar_error()
 
 # -------------------------
+# LOGOUT 🔥 NUEVO
+# -------------------------
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/", status_code=303)
+
+# -------------------------
 # HOME
 # -------------------------
 @app.get("/", response_class=HTMLResponse)
