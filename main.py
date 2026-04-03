@@ -75,11 +75,9 @@ def startup():
                 )
             """))
 
-            # 🔥 NUEVO: FORZAR RECREACIÓN DE TABLA MENSAJES
-            conn.execute(text("DROP TABLE IF EXISTS mensajes"))
-
+            # 🔥 SOLO SE MANTIENE ESTO (SIN DROP TABLE)
             conn.execute(text("""
-                CREATE TABLE mensajes (
+                CREATE TABLE IF NOT EXISTS mensajes (
                     id SERIAL PRIMARY KEY,
                     emisor TEXT,
                     receptor TEXT,
