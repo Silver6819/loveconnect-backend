@@ -9,14 +9,24 @@
             font-family: Arial;
         }
 
-        .chat-box {
-            border:1px solid black;
-            padding:10px;
-            height:300px;
-            overflow-y:auto;
-            display:flex;
-            flex-direction:column;
-        }
+        <!-- CHAT -->
+{% if chat_con %}
+    <h3>Chat con {{ chat_con }}</h3>
+
+    <div id="chat-box" class="chat-box">
+        {% for m in mensajes %}
+            <div class="mensaje {% if m[0] == usuario_actual %}mio{% else %}otro{% endif %}">
+                <strong>
+                    {% if m[0] == usuario_actual %}
+                        Tú:
+                    {% else %}
+                        {{ m[0] }}:
+                    {% endif %}
+                </strong>
+                {{ m[1] }}
+            </div>
+        {% endfor %}
+    </div>
 
         .mensaje {
             max-width: 60%;
