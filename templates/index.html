@@ -3,6 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <title>LoveConnect 💕</title>
+
+    <style>
+        body {
+            font-family: Arial;
+        }
+
+        .chat-box {
+            border:1px solid black;
+            padding:10px;
+            height:300px;
+            overflow-y:auto;
+            display:flex;
+            flex-direction:column;
+        }
+
+        .mensaje {
+            max-width: 60%;
+            padding:8px 12px;
+            margin:5px 0;
+            border-radius:10px;
+            word-wrap: break-word;
+        }
+
+        .mio {
+            background-color:#a0e7a0;
+            align-self:flex-end;
+            text-align:right;
+        }
+
+        .otro {
+            background-color:#f1f1f1;
+            align-self:flex-start;
+            text-align:left;
+        }
+    </style>
 </head>
 <body>
 
@@ -54,9 +89,11 @@
 {% if chat_con %}
     <h3>Chat con {{ chat_con }}</h3>
 
-    <div id="chat-box" style="border:1px solid black; padding:10px; height:200px; overflow-y:auto;">
+    <div id="chat-box" class="chat-box">
         {% for m in mensajes %}
-            <p><strong>{{ m[0] }}:</strong> {{ m[1] }}</p>
+            <div class="mensaje {% if m[0] == usuario_actual %}mio{% else %}otro{% endif %}">
+                <strong>{{ m[0] }}:</strong> {{ m[1] }}
+            </div>
         {% endfor %}
     </div>
 
@@ -66,9 +103,10 @@
         <button type="submit">Enviar</button>
     </form>
 
-    <!-- 🔥 AUTO-REFRESH OPTIMIZADO -->
+    <!-- AUTO-REFRESH OPTIMIZADO -->
     <script>
     const chatCon = "{{ chat_con }}";
+    const usuarioActual = "{{ usuario_actual }}";
 
     let ultimoConteo = 0;
     let intervalo = 3000;
@@ -88,7 +126,14 @@
                 chatBox.innerHTML = "";
 
                 nuevosMensajes.forEach(msg => {
-                    chatBox.innerHTML += `<p><strong>${msg.emisor}:</strong> ${msg.mensaje}</p>`;
+
+                    const clase = msg.emisor === usuarioActual ? "mio" : "otro";
+
+                    chatBox.innerHTML += `
+                        <div class="mensaje ${clase}">
+                            <strong>${msg.emisor}:</strong> ${msg.mensaje}
+                        </div>
+                    `;
                 });
 
                 chatBox.scrollTop = chatBox.scrollHeight;
@@ -110,7 +155,7 @@
     actualizarChat();
     </script>
 
-    <!-- 🔥 ENVÍO SIN RECARGA -->
+    <!-- ENVÍO SIN RECARGA -->
     <script>
     const form = document.getElementById("form-chat");
 
