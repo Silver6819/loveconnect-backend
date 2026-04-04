@@ -1,5 +1,6 @@
 import os
 import traceback
+from datetime import datetime  # 🔥 NUEVO
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -40,13 +41,25 @@ templates = Jinja2Templates(directory="templates")
 templates.env.cache = None
 templates.env.auto_reload = True
 
-# 🔥 HELPER CORREGIDO FINAL
 def render(template_name, request, context):
     return templates.TemplateResponse(
         request,
         template_name,
         context
     )
+
+# -------------------------
+# 🔥 FUNCIÓN NUEVA
+# -------------------------
+def actualizar_actividad(usuario):
+    if engine:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                UPDATE usuarios
+                SET ultima_actividad = NOW()
+                WHERE nombre = :usuario
+            """), {"usuario": usuario})
+            conn.commit()
 
 # -------------------------
 # ERROR HANDLER
@@ -71,11 +84,11 @@ def startup():
                 CREATE TABLE IF NOT EXISTS usuarios (
                     id SERIAL PRIMARY KEY,
                     nombre TEXT,
-                    email TEXT UNIQUE
+                    email TEXT UNIQUE,
+                    ultima_actividad TIMESTAMP
                 )
             """))
 
-            # 🔥 SOLO SE MANTIENE ESTO (SIN DROP TABLE)
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS mensajes (
                     id SERIAL PRIMARY KEY,
@@ -124,12 +137,24 @@ async def home(request: Request):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
+        if usuario_actual != "Invitado":  # 🔥 NUEVO
+            actualizar_actividad(usuario_actual)
+
         usuarios = []
 
         if engine:
             with engine.connect() as conn:
-                result = conn.execute(text("SELECT nombre FROM usuarios"))
-                usuarios = [row[0] for row in result.fetchall()]
+                result = conn.execute(text("""
+                    SELECT nombre,
+                    CASE 
+                        WHEN ultima_actividad > NOW() - INTERVAL '10 seconds'
+                        THEN true
+                        ELSE false
+                    END as en_linea
+                    FROM usuarios
+                """))
+
+                usuarios = [{"nombre": row[0], "online": row[1]} for row in result.fetchall()]
 
         return render("index.html", request, {
             "usuarios": usuarios,
@@ -168,6 +193,9 @@ async def chat(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
+        if usuario_actual != "Invitado":  # 🔥 NUEVO
+            actualizar_actividad(usuario_actual)
+
         if usuario == usuario_actual:
             return RedirectResponse("/", status_code=303)
 
@@ -180,8 +208,17 @@ async def chat(request: Request, usuario: str):
         if engine:
             with engine.connect() as conn:
 
-                result = conn.execute(text("SELECT nombre FROM usuarios"))
-                usuarios = [row[0] for row in result.fetchall()]
+                result = conn.execute(text("""
+                    SELECT nombre,
+                    CASE 
+                        WHEN ultima_actividad > NOW() - INTERVAL '10 seconds'
+                        THEN true
+                        ELSE false
+                    END as en_linea
+                    FROM usuarios
+                """))
+
+                usuarios = [{"nombre": row[0], "online": row[1]} for row in result.fetchall()]
 
                 result = conn.execute(text("""
                     SELECT emisor, mensaje FROM mensajes
@@ -208,6 +245,9 @@ async def chat(request: Request, usuario: str):
 async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
+
+        if usuario_actual != "Invitado":  # 🔥 NUEVO
+            actualizar_actividad(usuario_actual)
 
         if usuario_actual == "Invitado":
             return RedirectResponse("/", status_code=303)
@@ -236,6 +276,9 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
 async def obtener_mensajes_privados(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario")
+
+        if usuario_actual and usuario_actual != "Invitado":  # 🔥 NUEVO
+            actualizar_actividad(usuario_actual)
 
         if not usuario_actual or usuario_actual == "Invitado":
             return {"mensajes": []}
