@@ -89,6 +89,12 @@ def startup():
                 )
             """))
 
+            # 🔥 FIX AUTOMÁTICO (NO ROMPE NADA)
+            conn.execute(text("""
+                ALTER TABLE usuarios
+                ADD COLUMN IF NOT EXISTS ultima_actividad TIMESTAMP;
+            """))
+
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS mensajes (
                     id SERIAL PRIMARY KEY,
@@ -137,7 +143,7 @@ async def home(request: Request):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
-        if usuario_actual != "Invitado":  # 🔥 NUEVO
+        if usuario_actual != "Invitado":
             actualizar_actividad(usuario_actual)
 
         usuarios = []
@@ -193,7 +199,7 @@ async def chat(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
-        if usuario_actual != "Invitado":  # 🔥 NUEVO
+        if usuario_actual != "Invitado":
             actualizar_actividad(usuario_actual)
 
         if usuario == usuario_actual:
@@ -226,7 +232,10 @@ async def chat(request: Request, usuario: str):
                        OR (emisor = :u2 AND receptor = :u1)
                 """), {"u1": usuario_actual, "u2": usuario})
 
-                mensajes = result.fetchall()
+                mensajes = [
+                    {"emisor": row[0], "mensaje": row[1]}
+                    for row in result.fetchall()
+                ]
 
         return render("index.html", request, {
             "usuarios": usuarios,
@@ -246,7 +255,7 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
-        if usuario_actual != "Invitado":  # 🔥 NUEVO
+        if usuario_actual != "Invitado":
             actualizar_actividad(usuario_actual)
 
         if usuario_actual == "Invitado":
@@ -277,7 +286,7 @@ async def obtener_mensajes_privados(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario")
 
-        if usuario_actual and usuario_actual != "Invitado":  # 🔥 NUEVO
+        if usuario_actual and usuario_actual != "Invitado":
             actualizar_actividad(usuario_actual)
 
         if not usuario_actual or usuario_actual == "Invitado":
