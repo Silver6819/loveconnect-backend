@@ -74,10 +74,15 @@
 
 <ul>
 {% for user in usuarios %}
-    {% if user != usuario_actual %}
+    {% if user.nombre != usuario_actual %}
         <li>
-            {{ user }}
-            <a href="/chat/{{ user }}">💬 Chatear</a>
+            {{ user.nombre }}
+            {% if user.online %}
+                🟢
+            {% else %}
+                ⚪
+            {% endif %}
+            <a href="/chat/{{ user.nombre }}">💬 Chatear</a>
         </li>
     {% endif %}
 {% endfor %}
