@@ -49,7 +49,7 @@ def render(template_name, request, context):
     )
 
 # -------------------------
-# 🔥 FUNCIÓN NUEVA
+# FUNCIÓN ACTIVIDAD
 # -------------------------
 def actualizar_actividad(usuario):
     if engine:
@@ -85,13 +85,20 @@ def startup():
                     id SERIAL PRIMARY KEY,
                     nombre TEXT,
                     email TEXT UNIQUE,
-                    ultima_actividad TIMESTAMP
+                    ultima_actividad TIMESTAMP,
+                    premium BOOLEAN DEFAULT FALSE
                 )
             """))
 
             conn.execute(text("""
                 ALTER TABLE usuarios
                 ADD COLUMN IF NOT EXISTS ultima_actividad TIMESTAMP;
+            """))
+
+            # 🔥 NUEVO PREMIUM
+            conn.execute(text("""
+                ALTER TABLE usuarios
+                ADD COLUMN IF NOT EXISTS premium BOOLEAN DEFAULT FALSE;
             """))
 
             conn.execute(text("""
@@ -146,9 +153,11 @@ async def home(request: Request):
             actualizar_actividad(usuario_actual)
 
         usuarios = []
+        es_premium = False  # 🔥 NUEVO
 
         if engine:
             with engine.connect() as conn:
+
                 result = conn.execute(text("""
                     SELECT nombre,
                     CASE 
@@ -161,18 +170,28 @@ async def home(request: Request):
 
                 usuarios = [{"nombre": row[0], "online": row[1]} for row in result.fetchall()]
 
+                # 🔥 OBTENER PREMIUM
+                if usuario_actual != "Invitado":
+                    result = conn.execute(text("""
+                        SELECT premium FROM usuarios WHERE nombre = :usuario
+                    """), {"usuario": usuario_actual}).fetchone()
+
+                    if result:
+                        es_premium = result[0]
+
         return render("index.html", request, {
             "usuarios": usuarios,
             "usuario_actual": usuario_actual,
             "chat_con": None,
-            "mensajes": []
+            "mensajes": [],
+            "es_premium": es_premium  # 🔥 NUEVO
         })
 
     except:
         return mostrar_error()
 
 # -------------------------
-# 🔥 NUEVO: CHAT GLOBAL
+# CHAT GLOBAL
 # -------------------------
 @app.get("/global")
 async def chat_global(request: Request):
@@ -184,6 +203,7 @@ async def chat_global(request: Request):
 
         usuarios = []
         mensajes = []
+        es_premium = False  # 🔥 NUEVO
 
         if engine:
             with engine.connect() as conn:
@@ -211,11 +231,21 @@ async def chat_global(request: Request):
                     for row in result.fetchall()
                 ]
 
+                # 🔥 OBTENER PREMIUM
+                if usuario_actual != "Invitado":
+                    result = conn.execute(text("""
+                        SELECT premium FROM usuarios WHERE nombre = :usuario
+                    """), {"usuario": usuario_actual}).fetchone()
+
+                    if result:
+                        es_premium = result[0]
+
         return render("index.html", request, {
             "usuarios": usuarios,
             "usuario_actual": usuario_actual,
             "chat_con": "GLOBAL",
-            "mensajes": mensajes
+            "mensajes": mensajes,
+            "es_premium": es_premium  # 🔥 NUEVO
         })
 
     except:
@@ -240,6 +270,7 @@ async def chat(request: Request, usuario: str):
 
         usuarios = []
         mensajes = []
+        es_premium = False  # 🔥 NUEVO
 
         if engine:
             with engine.connect() as conn:
@@ -267,11 +298,20 @@ async def chat(request: Request, usuario: str):
                     for row in result.fetchall()
                 ]
 
+                # 🔥 OBTENER PREMIUM
+                result = conn.execute(text("""
+                    SELECT premium FROM usuarios WHERE nombre = :usuario
+                """), {"usuario": usuario_actual}).fetchone()
+
+                if result:
+                    es_premium = result[0]
+
         return render("index.html", request, {
             "usuarios": usuarios,
             "usuario_actual": usuario_actual,
             "chat_con": usuario,
-            "mensajes": mensajes
+            "mensajes": mensajes,
+            "es_premium": es_premium  # 🔥 NUEVO
         })
 
     except:
@@ -347,7 +387,7 @@ async def obtener_mensajes_privados(request: Request, usuario: str):
         return {"mensajes": []}
 
 # -------------------------
-# 🔥 API GLOBAL
+# API GLOBAL
 # -------------------------
 @app.get("/mensajes_global")
 async def obtener_mensajes_global(request: Request):
