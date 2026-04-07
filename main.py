@@ -1,6 +1,6 @@
 import os
 import traceback
-from datetime import datetime  # 🔥 NUEVO
+from datetime import datetime
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -89,7 +89,6 @@ def startup():
                 )
             """))
 
-            # 🔥 FIX AUTOMÁTICO (NO ROMPE NADA)
             conn.execute(text("""
                 ALTER TABLE usuarios
                 ADD COLUMN IF NOT EXISTS ultima_actividad TIMESTAMP;
@@ -173,26 +172,57 @@ async def home(request: Request):
         return mostrar_error()
 
 # -------------------------
-# REGISTRO
+# 🔥 NUEVO: CHAT GLOBAL
 # -------------------------
-@app.post("/registro")
-async def registro(nombre: str = Form(...), email: str = Form(...)):
+@app.get("/global")
+async def chat_global(request: Request):
     try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        if usuario_actual != "Invitado":
+            actualizar_actividad(usuario_actual)
+
+        usuarios = []
+        mensajes = []
+
         if engine:
             with engine.connect() as conn:
-                conn.execute(
-                    text("INSERT INTO usuarios (nombre, email) VALUES (:nombre, :email)"),
-                    {"nombre": nombre, "email": email}
-                )
-                conn.commit()
 
-        return RedirectResponse("/", status_code=303)
+                result = conn.execute(text("""
+                    SELECT nombre,
+                    CASE 
+                        WHEN ultima_actividad > NOW() - INTERVAL '10 seconds'
+                        THEN true
+                        ELSE false
+                    END as en_linea
+                    FROM usuarios
+                """))
+
+                usuarios = [{"nombre": row[0], "online": row[1]} for row in result.fetchall()]
+
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje FROM mensajes
+                    WHERE receptor = 'GLOBAL'
+                    ORDER BY id ASC
+                """))
+
+                mensajes = [
+                    {"emisor": row[0], "mensaje": row[1]}
+                    for row in result.fetchall()
+                ]
+
+        return render("index.html", request, {
+            "usuarios": usuarios,
+            "usuario_actual": usuario_actual,
+            "chat_con": "GLOBAL",
+            "mensajes": mensajes
+        })
 
     except:
         return mostrar_error()
 
 # -------------------------
-# CHAT
+# CHAT PRIVADO
 # -------------------------
 @app.get("/chat/{usuario}")
 async def chat(request: Request, usuario: str):
@@ -273,13 +303,16 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
                 })
                 conn.commit()
 
+        if receptor == "GLOBAL":
+            return RedirectResponse("/global", status_code=303)
+
         return RedirectResponse(f"/chat/{receptor}", status_code=303)
 
     except:
         return mostrar_error()
 
 # -------------------------
-# API MENSAJES (AUTO-REFRESH)
+# API PRIVADOS
 # -------------------------
 @app.get("/mensajes_privados/{usuario}")
 async def obtener_mensajes_privados(request: Request, usuario: str):
@@ -302,6 +335,37 @@ async def obtener_mensajes_privados(request: Request, usuario: str):
                        OR (emisor = :u2 AND receptor = :u1)
                     ORDER BY id ASC
                 """), {"u1": usuario_actual, "u2": usuario})
+
+                mensajes = [
+                    {"emisor": row[0], "mensaje": row[1]}
+                    for row in result.fetchall()
+                ]
+
+        return {"mensajes": mensajes}
+
+    except:
+        return {"mensajes": []}
+
+# -------------------------
+# 🔥 API GLOBAL
+# -------------------------
+@app.get("/mensajes_global")
+async def obtener_mensajes_global(request: Request):
+    try:
+        usuario_actual = request.session.get("usuario")
+
+        if usuario_actual and usuario_actual != "Invitado":
+            actualizar_actividad(usuario_actual)
+
+        mensajes = []
+
+        if engine:
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje FROM mensajes
+                    WHERE receptor = 'GLOBAL'
+                    ORDER BY id ASC
+                """))
 
                 mensajes = [
                     {"emisor": row[0], "mensaje": row[1]}
