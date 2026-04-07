@@ -120,7 +120,7 @@
     const chatCon = "{{ chat_con }}";
     const usuarioActual = "{{ usuario_actual }}";
 
-    let ultimoConteo = 0;
+    let ultimoConteo = document.querySelectorAll("#chat-box .mensaje").length; // 🔥 FIX
     let intervalo = 3000;
 
     async function actualizarChat() {
