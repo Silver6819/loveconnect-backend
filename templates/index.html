@@ -51,6 +51,13 @@
 
 <hr>
 
+<!-- 🔥 BOTÓN GLOBAL -->
+<a href="/global">
+    <button>🌍 Chat Global</button>
+</a>
+
+<hr>
+
 <!-- LOGIN -->
 <form action="/set_usuario" method="post">
     <input type="text" name="usuario" placeholder="Tu nombre" required>
@@ -92,7 +99,13 @@
 
 <!-- CHAT -->
 {% if chat_con %}
-    <h3>Chat con {{ chat_con }}</h3>
+    <h3>
+        {% if chat_con == "GLOBAL" %}
+            🌍 Chat Global
+        {% else %}
+            Chat con {{ chat_con }}
+        {% endif %}
+    </h3>
 
     <div id="chat-box" class="chat-box">
         {% for m in mensajes %}
@@ -115,19 +128,28 @@
         <button type="submit">Enviar</button>
     </form>
 
-    <!-- AUTO-REFRESH OPTIMIZADO -->
+    <!-- AUTO-REFRESH GLOBAL + PRIVADO -->
     <script>
     const chatCon = "{{ chat_con }}";
     const usuarioActual = "{{ usuario_actual }}";
 
-    let ultimoConteo = document.querySelectorAll("#chat-box .mensaje").length; // 🔥 FIX
+    let ultimoConteo = document.querySelectorAll("#chat-box .mensaje").length;
     let intervalo = 3000;
 
     async function actualizarChat() {
         if (!chatCon) return;
 
         try {
-            const response = await fetch(`/mensajes_privados/${chatCon}`);
+
+            let url = "";
+
+            if (chatCon === "GLOBAL") {
+                url = "/mensajes_global";
+            } else {
+                url = `/mensajes_privados/${chatCon}`;
+            }
+
+            const response = await fetch(url);
             const data = await response.json();
 
             const nuevosMensajes = data.mensajes;
