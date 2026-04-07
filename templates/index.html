@@ -45,6 +45,13 @@
 
 <h3>Usuario actual: {{ usuario_actual }}</h3>
 
+<!-- 🔥 NUEVO: ESTADO PREMIUM -->
+{% if es_premium %}
+    <p>⭐ Usuario Premium</p>
+{% else %}
+    <p>Usuario Gratis</p>
+{% endif %}
+
 <a href="/logout">
     <button>Cerrar sesión</button>
 </a>
