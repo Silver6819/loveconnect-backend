@@ -45,11 +45,19 @@
 
 <h3>Usuario actual: {{ usuario_actual }}</h3>
 
-<!-- 🔥 NUEVO: ESTADO PREMIUM -->
+<!-- 🔥 ESTADO PREMIUM -->
 {% if es_premium %}
     <p>⭐ Usuario Premium</p>
 {% else %}
     <p>Usuario Gratis</p>
+{% endif %}
+
+<!-- 🔥 BOTÓN PAYPAL -->
+{% if not es_premium %}
+    <p>Obtén acceso a funciones premium 🚀</p>
+    <a href="https://www.paypal.com/paypalme/Silver676/5" target="_blank">
+        <button>⭐ Ser Premium ($5)</button>
+    </a>
 {% endif %}
 
 <a href="/logout">
