@@ -10,6 +10,11 @@ from starlette.middleware.sessions import SessionMiddleware
 app = FastAPI()
 
 # -------------------------
+# ESCRIBIENDO (typing) 🔥 NUEVO
+# -------------------------
+usuarios_escribiendo = {}
+
+# -------------------------
 # SESIONES
 # -------------------------
 app.add_middleware(SessionMiddleware, secret_key="supersecreto")
@@ -437,3 +442,39 @@ async def obtener_mensajes_global(request: Request):
 
     except:
         return {"mensajes": []}
+
+# -------------------------
+# TYPING STATUS 🔥 NUEVO
+# -------------------------
+@app.post("/typing")
+async def typing(request: Request, receptor: str = Form(...)):
+    try:
+        usuario_actual = request.session.get("usuario")
+
+        if not usuario_actual or usuario_actual == "Invitado":
+            return {"ok": False}
+
+        usuarios_escribiendo[(usuario_actual, receptor)] = True
+
+        return {"ok": True}
+
+    except:
+        return {"ok": False}
+
+
+@app.get("/typing_status/{usuario}")
+async def typing_status(request: Request, usuario: str):
+    try:
+        usuario_actual = request.session.get("usuario")
+
+        if not usuario_actual:
+            return {"typing": False}
+
+        estado = usuarios_escribiendo.get((usuario, usuario_actual), False)
+
+        usuarios_escribiendo[(usuario, usuario_actual)] = False
+
+        return {"typing": estado}
+
+    except:
+        return {"typing": False}
