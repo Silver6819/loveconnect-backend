@@ -10,7 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 app = FastAPI()
 
 # -------------------------
-# ESCRIBIENDO (typing) 🔥 NUEVO
+# ESCRIBIENDO (typing)
 # -------------------------
 usuarios_escribiendo = {}
 
@@ -179,7 +179,7 @@ async def home(request: Request):
             actualizar_actividad(usuario_actual)
 
         usuarios = []
-        es_premium = False  # 🔥 NUEVO
+        es_premium = False
 
         if engine:
             with engine.connect() as conn:
@@ -196,7 +196,6 @@ async def home(request: Request):
 
                 usuarios = [{"nombre": row[0], "online": row[1]} for row in result.fetchall()]
 
-                # 🔥 OBTENER PREMIUM
                 if usuario_actual != "Invitado":
                     result = conn.execute(text("""
                         SELECT premium FROM usuarios WHERE nombre = :usuario
@@ -210,7 +209,7 @@ async def home(request: Request):
             "usuario_actual": usuario_actual,
             "chat_con": None,
             "mensajes": [],
-            "es_premium": es_premium  # 🔥 NUEVO
+            "es_premium": es_premium
         })
 
     except:
@@ -229,7 +228,7 @@ async def chat_global(request: Request):
 
         usuarios = []
         mensajes = []
-        es_premium = False  # 🔥 NUEVO
+        es_premium = False
 
         if engine:
             with engine.connect() as conn:
@@ -257,7 +256,6 @@ async def chat_global(request: Request):
                     for row in result.fetchall()
                 ]
 
-                # 🔥 OBTENER PREMIUM
                 if usuario_actual != "Invitado":
                     result = conn.execute(text("""
                         SELECT premium FROM usuarios WHERE nombre = :usuario
@@ -271,7 +269,7 @@ async def chat_global(request: Request):
             "usuario_actual": usuario_actual,
             "chat_con": "GLOBAL",
             "mensajes": mensajes,
-            "es_premium": es_premium  # 🔥 NUEVO
+            "es_premium": es_premium
         })
 
     except:
@@ -296,7 +294,7 @@ async def chat(request: Request, usuario: str):
 
         usuarios = []
         mensajes = []
-        es_premium = False  # 🔥 NUEVO
+        es_premium = False
 
         if engine:
             with engine.connect() as conn:
@@ -324,7 +322,6 @@ async def chat(request: Request, usuario: str):
                     for row in result.fetchall()
                 ]
 
-                # 🔥 OBTENER PREMIUM
                 result = conn.execute(text("""
                     SELECT premium FROM usuarios WHERE nombre = :usuario
                 """), {"usuario": usuario_actual}).fetchone()
@@ -337,7 +334,7 @@ async def chat(request: Request, usuario: str):
             "usuario_actual": usuario_actual,
             "chat_con": usuario,
             "mensajes": mensajes,
-            "es_premium": es_premium  # 🔥 NUEVO
+            "es_premium": es_premium
         })
 
     except:
@@ -444,7 +441,7 @@ async def obtener_mensajes_global(request: Request):
         return {"mensajes": []}
 
 # -------------------------
-# TYPING STATUS 🔥 NUEVO
+# TYPING STATUS (ajuste)
 # -------------------------
 @app.post("/typing")
 async def typing(request: Request, receptor: str = Form(...)):
@@ -452,6 +449,10 @@ async def typing(request: Request, receptor: str = Form(...)):
         usuario_actual = request.session.get("usuario")
 
         if not usuario_actual or usuario_actual == "Invitado":
+            return {"ok": False}
+
+        # 🔥 evitar auto-typing
+        if usuario_actual == receptor:
             return {"ok": False}
 
         usuarios_escribiendo[(usuario_actual, receptor)] = True
@@ -468,6 +469,10 @@ async def typing_status(request: Request, usuario: str):
         usuario_actual = request.session.get("usuario")
 
         if not usuario_actual:
+            return {"typing": False}
+
+        # 🔥 evitar auto-typing
+        if usuario == usuario_actual:
             return {"typing": False}
 
         estado = usuarios_escribiendo.get((usuario, usuario_actual), False)
