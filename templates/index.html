@@ -130,7 +130,7 @@
         {% endfor %}
     </div>
 
-    <!-- 🔥 NUEVO: INDICADOR ESCRIBIENDO -->
+    <!-- 🔥 INDICADOR ESCRIBIENDO -->
     <p id="typing-indicator" style="font-style: italic; color: gray;"></p>
 
     <form id="form-chat">
@@ -139,11 +139,20 @@
         <button type="submit">Enviar</button>
     </form>
 
+    <!-- 🔔 PERMISOS DE NOTIFICACIÓN -->
+    <script>
+    if ("Notification" in window) {
+        Notification.requestPermission();
+    }
+    </script>
+
+    <!-- AUTO-REFRESH -->
     <script>
     const chatCon = "{{ chat_con }}";
     const usuarioActual = "{{ usuario_actual }}";
 
     let ultimoConteo = document.querySelectorAll("#chat-box .mensaje").length;
+    let ultimoMensajeTexto = "";
     let intervalo = 3000;
 
     async function actualizarChat() {
@@ -165,6 +174,19 @@
             const nuevosMensajes = data.mensajes;
 
             if (nuevosMensajes.length !== ultimoConteo) {
+
+                const ultimoMensaje = nuevosMensajes[nuevosMensajes.length - 1];
+
+                // 🔔 NOTIFICACIÓN
+                if (
+                    ultimoMensaje &&
+                    ultimoMensaje.emisor !== usuarioActual &&
+                    Notification.permission === "granted"
+                ) {
+                    new Notification(ultimoMensaje.emisor, {
+                        body: ultimoMensaje.mensaje
+                    });
+                }
 
                 const chatBox = document.getElementById("chat-box");
                 chatBox.innerHTML = "";
@@ -199,7 +221,7 @@
     actualizarChat();
     </script>
 
-    <!-- 🔥 NUEVO: DETECTAR ESCRITURA -->
+    <!-- DETECTAR ESCRITURA -->
     <script>
     const mensajeInput = document.getElementById("mensaje");
 
@@ -218,7 +240,7 @@
     });
     </script>
 
-    <!-- 🔥 NUEVO: MOSTRAR "ESCRIBIENDO..." -->
+    <!-- MOSTRAR "ESCRIBIENDO..." -->
     <script>
     async function revisarTyping() {
 
