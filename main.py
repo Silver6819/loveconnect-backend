@@ -129,7 +129,28 @@ def test():
 async def set_usuario(request: Request, usuario: str = Form(...)):
     try:
         request.session["usuario"] = usuario
+
+        if engine:
+            with engine.connect() as conn:
+
+                # Verificar si existe
+                result = conn.execute(text("""
+                    SELECT * FROM usuarios WHERE nombre = :usuario
+                """), {"usuario": usuario}).fetchone()
+
+                # Si no existe, lo creamos
+                if not result:
+                    conn.execute(text("""
+                        INSERT INTO usuarios (nombre, email, ultima_actividad)
+                        VALUES (:nombre, :email, NOW())
+                    """), {
+                        "nombre": usuario,
+                        "email": f"{usuario}@temp.com"
+                    })
+                    conn.commit()
+
         return RedirectResponse("/", status_code=303)
+
     except:
         return mostrar_error()
 
