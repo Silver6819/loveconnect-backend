@@ -45,14 +45,12 @@
 
 <h3>Usuario actual: {{ usuario_actual }}</h3>
 
-<!-- 🔥 ESTADO PREMIUM -->
 {% if es_premium %}
     <p>⭐ Usuario Premium</p>
 {% else %}
     <p>Usuario Gratis</p>
 {% endif %}
 
-<!-- 🔥 BOTÓN PAYPAL -->
 {% if not es_premium %}
     <p>Obtén acceso a funciones premium 🚀</p>
     <a href="https://www.paypal.com/paypalme/Silver676/5" target="_blank">
@@ -66,14 +64,12 @@
 
 <hr>
 
-<!-- 🔥 BOTÓN GLOBAL -->
 <a href="/global">
     <button>🌍 Chat Global</button>
 </a>
 
 <hr>
 
-<!-- LOGIN -->
 <form action="/set_usuario" method="post">
     <input type="text" name="usuario" placeholder="Tu nombre" required>
     <button type="submit">Entrar</button>
@@ -81,7 +77,6 @@
 
 <hr>
 
-<!-- REGISTRO -->
 <h3>Registrarse</h3>
 <form action="/registro" method="post">
     <input type="text" name="nombre" placeholder="Nombre" required>
@@ -91,7 +86,6 @@
 
 <hr>
 
-<!-- USUARIOS -->
 <h3>Usuarios 💕</h3>
 
 <ul>
@@ -112,7 +106,6 @@
 
 <hr>
 
-<!-- CHAT -->
 {% if chat_con %}
     <h3>
         {% if chat_con == "GLOBAL" %}
@@ -137,13 +130,15 @@
         {% endfor %}
     </div>
 
+    <!-- 🔥 NUEVO: INDICADOR ESCRIBIENDO -->
+    <p id="typing-indicator" style="font-style: italic; color: gray;"></p>
+
     <form id="form-chat">
         <input type="hidden" name="receptor" value="{{ chat_con }}" id="receptor">
         <input type="text" name="mensaje" placeholder="Escribe mensaje..." required id="mensaje">
         <button type="submit">Enviar</button>
     </form>
 
-    <!-- AUTO-REFRESH GLOBAL + PRIVADO -->
     <script>
     const chatCon = "{{ chat_con }}";
     const usuarioActual = "{{ usuario_actual }}";
@@ -202,6 +197,51 @@
     }
 
     actualizarChat();
+    </script>
+
+    <!-- 🔥 NUEVO: DETECTAR ESCRITURA -->
+    <script>
+    const mensajeInput = document.getElementById("mensaje");
+
+    mensajeInput.addEventListener("input", async () => {
+
+        const receptor = document.getElementById("receptor").value;
+
+        await fetch("/typing", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: `receptor=${encodeURIComponent(receptor)}`
+        });
+
+    });
+    </script>
+
+    <!-- 🔥 NUEVO: MOSTRAR "ESCRIBIENDO..." -->
+    <script>
+    async function revisarTyping() {
+
+        if (chatCon === "GLOBAL") return;
+
+        try {
+            const response = await fetch(`/typing_status/${chatCon}`);
+            const data = await response.json();
+
+            const indicador = document.getElementById("typing-indicator");
+
+            if (data.typing) {
+                indicador.innerText = chatCon + " está escribiendo...";
+            } else {
+                indicador.innerText = "";
+            }
+
+        } catch (e) {}
+
+        setTimeout(revisarTyping, 2000);
+    }
+
+    revisarTyping();
     </script>
 
     <!-- ENVÍO SIN RECARGA -->
