@@ -1,3 +1,14 @@
+import os
+import traceback
+from datetime import datetime
+from fastapi import FastAPI, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy import create_engine, text
+from starlette.middleware.sessions import SessionMiddleware
+
+app = FastAPI()
+
 # 🔥 IMPORT NUEVO
 from fastapi import Body
 
