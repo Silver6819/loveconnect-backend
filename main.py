@@ -9,10 +9,235 @@ from starlette.middleware.sessions import SessionMiddleware
 
 app = FastAPI()
 
-# 🔥 IMPORT NUEVO
-from fastapi import Body
+# -------------------------
+# ESCRIBIENDO (typing)
+# -------------------------
+usuarios_escribiendo = {}
 
-# (todo tu código queda EXACTAMENTE igual arriba)
+# -------------------------
+# SESIONES
+# -------------------------
+app.add_middleware(SessionMiddleware, secret_key="supersecreto")
+
+# -------------------------
+# BASE DE DATOS
+# -------------------------
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
+
+engine = None
+
+if DATABASE_URL:
+    try:
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args={"sslmode": "require"}
+        )
+    except Exception as e:
+        print("ERROR DB:", e)
+
+# -------------------------
+# TEMPLATES
+# -------------------------
+templates = Jinja2Templates(directory="templates")
+
+templates.env.cache = None
+templates.env.auto_reload = True
+
+def render(template_name, request, context):
+    return templates.TemplateResponse(
+        request,
+        template_name,
+        context
+    )
+
+# -------------------------
+# FUNCIÓN ACTIVIDAD
+# -------------------------
+def actualizar_actividad(usuario):
+    if engine:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                UPDATE usuarios
+                SET ultima_actividad = NOW()
+                WHERE nombre = :usuario
+            """), {"usuario": usuario})
+            conn.commit()
+
+# -------------------------
+# ERROR HANDLER
+# -------------------------
+def mostrar_error():
+    return HTMLResponse(f"""
+    <h1>💥 ERROR DETECTADO</h1>
+    <pre>{traceback.format_exc()}</pre>
+    """)
+
+# -------------------------
+# STARTUP
+# -------------------------
+@app.on_event("startup")
+def startup():
+    try:
+        if not engine:
+            return
+
+        with engine.connect() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id SERIAL PRIMARY KEY,
+                    nombre TEXT,
+                    email TEXT UNIQUE,
+                    ultima_actividad TIMESTAMP,
+                    premium BOOLEAN DEFAULT FALSE
+                )
+            """))
+
+            conn.execute(text("""
+                ALTER TABLE usuarios
+                ADD COLUMN IF NOT EXISTS ultima_actividad TIMESTAMP;
+            """))
+
+            conn.execute(text("""
+                ALTER TABLE usuarios
+                ADD COLUMN IF NOT EXISTS premium BOOLEAN DEFAULT FALSE;
+            """))
+
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS mensajes (
+                    id SERIAL PRIMARY KEY,
+                    emisor TEXT,
+                    receptor TEXT,
+                    mensaje TEXT
+                )
+            """))
+
+            conn.commit()
+
+    except:
+        print("ERROR STARTUP")
+
+# -------------------------
+# TEST
+# -------------------------
+@app.get("/test")
+def test():
+    return {"status": "ok"}
+
+# -------------------------
+# LOGIN
+# -------------------------
+@app.post("/set_usuario")
+async def set_usuario(request: Request, usuario: str = Form(...)):
+    try:
+        request.session["usuario"] = usuario
+
+        if engine:
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT * FROM usuarios WHERE nombre = :usuario
+                """), {"usuario": usuario}).fetchone()
+
+                if not result:
+                    conn.execute(text("""
+                        INSERT INTO usuarios (nombre, email, ultima_actividad)
+                        VALUES (:nombre, :email, NOW())
+                    """), {
+                        "nombre": usuario,
+                        "email": f"{usuario}@temp.com"
+                    })
+                    conn.commit()
+
+        return RedirectResponse("/", status_code=303)
+
+    except:
+        return mostrar_error()
+
+# -------------------------
+# LOGOUT
+# -------------------------
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/", status_code=303)
+
+# -------------------------
+# HOME
+# -------------------------
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        if usuario_actual != "Invitado":
+            actualizar_actividad(usuario_actual)
+
+        usuarios = []
+        es_premium = False
+
+        if engine:
+            with engine.connect() as conn:
+
+                result = conn.execute(text("""
+                    SELECT nombre,
+                    CASE 
+                        WHEN ultima_actividad > NOW() - INTERVAL '10 seconds'
+                        THEN true
+                        ELSE false
+                    END as en_linea
+                    FROM usuarios
+                """))
+
+                usuarios = [{"nombre": row[0], "online": row[1]} for row in result.fetchall()]
+
+                if usuario_actual != "Invitado":
+                    result = conn.execute(text("""
+                        SELECT premium FROM usuarios WHERE nombre = :usuario
+                    """), {"usuario": usuario_actual}).fetchone()
+
+                    if result:
+                        es_premium = result[0]
+
+        return render("index.html", request, {
+            "usuarios": usuarios,
+            "usuario_actual": usuario_actual,
+            "chat_con": None,
+            "mensajes": [],
+            "es_premium": es_premium
+        })
+
+    except:
+        return mostrar_error()
+
+# -------------------------
+# MENSAJE
+# -------------------------
+@app.post("/mensaje")
+async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        if usuario_actual != "Invitado":
+            actualizar_actividad(usuario_actual)
+
+        if engine:
+            with engine.connect() as conn:
+                conn.execute(text("""
+                    INSERT INTO mensajes (emisor, receptor, mensaje)
+                    VALUES (:emisor, :receptor, :mensaje)
+                """), {
+                    "emisor": usuario_actual,
+                    "receptor": receptor,
+                    "mensaje": mensaje
+                })
+                conn.commit()
+
+        return {"ok": True}
+
+    except:
+        return {"ok": False}
 
 # -------------------------
 # 🔔 NOTIFICACIONES GLOBALES
@@ -43,9 +268,9 @@ async def notificaciones(request: Request):
 
         return {"nuevos": nuevos}
 
-    except:
+    except Exception as e:
+        print("ERROR NOTIFICACIONES:", e)
         return {"nuevos": []}
-
 
 # -------------------------
 # 💰 PAYPAL IPN AUTOMÁTICO
@@ -55,12 +280,9 @@ async def paypal_ipn(request: Request):
     try:
         form = await request.form()
 
-        # 🔥 Datos que manda PayPal
         payment_status = form.get("payment_status")
-        usuario = form.get("custom")  # viene del botón
-        receiver_email = form.get("receiver_email")
+        usuario = form.get("custom")
 
-        # 🔥 VALIDACIONES BÁSICAS
         if payment_status == "Completed" and usuario:
 
             if engine:
