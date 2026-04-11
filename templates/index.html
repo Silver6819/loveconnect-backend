@@ -53,9 +53,22 @@
 
 {% if not es_premium %}
     <p>Obtén acceso a funciones premium 🚀</p>
-    <a href="https://www.paypal.com/paypalme/Silver676/5" target="_blank">
+
+    <!-- 🔥 NUEVO BOTÓN PAYPAL AUTOMÁTICO -->
+    <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+        <input type="hidden" name="cmd" value="_xclick">
+        <input type="hidden" name="business" value="Silver676">
+        <input type="hidden" name="item_name" value="LoveConnect Premium">
+        <input type="hidden" name="amount" value="5.00">
+        <input type="hidden" name="currency_code" value="USD">
+
+        <input type="hidden" name="custom" value="{{ usuario_actual }}">
+
+        <input type="hidden" name="notify_url" value="https://loveconnect-dzja.onrender.com/paypal_ipn">
+
         <button>⭐ Ser Premium ($5)</button>
-    </a>
+    </form>
+
 {% endif %}
 
 <a href="/logout">
@@ -130,7 +143,6 @@
         {% endfor %}
     </div>
 
-    <!-- 🔥 INDICADOR ESCRIBIENDO -->
     <p id="typing-indicator" style="font-style: italic; color: gray;"></p>
 
     <form id="form-chat">
@@ -139,27 +151,23 @@
         <button type="submit">Enviar</button>
     </form>
 
-    <!-- 🔔 PERMISOS DE NOTIFICACIÓN -->
     <script>
     if ("Notification" in window) {
         Notification.requestPermission();
     }
     </script>
 
-    <!-- AUTO-REFRESH -->
     <script>
     const chatCon = "{{ chat_con }}";
     const usuarioActual = "{{ usuario_actual }}";
 
     let ultimoConteo = document.querySelectorAll("#chat-box .mensaje").length;
-    let ultimoMensajeTexto = "";
     let intervalo = 3000;
 
     async function actualizarChat() {
         if (!chatCon) return;
 
         try {
-
             let url = "";
 
             if (chatCon === "GLOBAL") {
@@ -177,7 +185,6 @@
 
                 const ultimoMensaje = nuevosMensajes[nuevosMensajes.length - 1];
 
-                // 🔔 NOTIFICACIÓN
                 if (
                     ultimoMensaje &&
                     ultimoMensaje.emisor !== usuarioActual &&
@@ -192,7 +199,6 @@
                 chatBox.innerHTML = "";
 
                 nuevosMensajes.forEach(msg => {
-
                     const clase = msg.emisor === usuarioActual ? "mio" : "otro";
 
                     chatBox.innerHTML += `
@@ -221,12 +227,10 @@
     actualizarChat();
     </script>
 
-    <!-- DETECTAR ESCRITURA -->
     <script>
     const mensajeInput = document.getElementById("mensaje");
 
     mensajeInput.addEventListener("input", async () => {
-
         const receptor = document.getElementById("receptor").value;
 
         await fetch("/typing", {
@@ -236,11 +240,9 @@
             },
             body: `receptor=${encodeURIComponent(receptor)}`
         });
-
     });
     </script>
 
-    <!-- MOSTRAR "ESCRIBIENDO..." -->
     <script>
     async function revisarTyping() {
 
@@ -266,7 +268,6 @@
     revisarTyping();
     </script>
 
-    <!-- ENVÍO SIN RECARGA -->
     <script>
     const form = document.getElementById("form-chat");
 
