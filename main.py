@@ -105,7 +105,12 @@ def startup():
                 ADD COLUMN IF NOT EXISTS premium BOOLEAN DEFAULT FALSE;
             """))
 
-            # ✅ TABLA MENSAJES (CORREGIDO)
+            # 🔥 NUEVO: último mensaje visto
+            conn.execute(text("""
+                ALTER TABLE usuarios
+                ADD COLUMN IF NOT EXISTS ultimo_mensaje_visto INTEGER DEFAULT 0;
+            """))
+
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS mensajes (
                     id SERIAL PRIMARY KEY,
@@ -115,7 +120,6 @@ def startup():
                 )
             """))
 
-            # ✅ COLUMNA FECHA (CORRECTA)
             conn.execute(text("""
                 ALTER TABLE mensajes
                 ADD COLUMN IF NOT EXISTS fecha TIMESTAMP DEFAULT NOW();
@@ -293,7 +297,7 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
         return {"ok": False}
 
 # -------------------------
-# 🔔 NOTIFICACIONES
+# 🔔 NOTIFICACIONES (MEJORADAS)
 # -------------------------
 @app.get("/notificaciones")
 async def notificaciones(request: Request):
@@ -307,17 +311,46 @@ async def notificaciones(request: Request):
 
         if engine:
             with engine.connect() as conn:
+
                 result = conn.execute(text("""
-                    SELECT emisor, mensaje FROM mensajes
+                    SELECT ultimo_mensaje_visto 
+                    FROM usuarios 
+                    WHERE nombre = :usuario
+                """), {"usuario": usuario_actual}).fetchone()
+
+                ultimo_visto = result[0] if result else 0
+
+                result = conn.execute(text("""
+                    SELECT id, emisor, mensaje 
+                    FROM mensajes
                     WHERE receptor = :usuario
-                    ORDER BY fecha DESC
+                    AND id > :ultimo_visto
+                    ORDER BY id ASC
                     LIMIT 5
-                """), {"usuario": usuario_actual})
+                """), {
+                    "usuario": usuario_actual,
+                    "ultimo_visto": ultimo_visto
+                })
+
+                rows = result.fetchall()
 
                 nuevos = [
-                    {"emisor": row[0], "mensaje": row[1]}
-                    for row in result.fetchall()
+                    {"id": row[0], "emisor": row[1], "mensaje": row[2]}
+                    for row in rows
                 ]
+
+                if rows:
+                    ultimo_id = rows[-1][0]
+
+                    conn.execute(text("""
+                        UPDATE usuarios
+                        SET ultimo_mensaje_visto = :ultimo
+                        WHERE nombre = :usuario
+                    """), {
+                        "ultimo": ultimo_id,
+                        "usuario": usuario_actual
+                    })
+                    conn.commit()
 
         return {"nuevos": nuevos}
 
