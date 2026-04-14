@@ -43,6 +43,22 @@
 
 <h1>💕 LoveConnect</h1>
 
+<!-- 🔔 NUEVO: NOTIFICACIONES -->
+<div id="noti-container" style="position:relative; display:inline-block; margin-bottom:10px;">
+    🔔
+    <span id="noti-badge" style="
+        display:none;
+        position:absolute;
+        top:-8px;
+        right:-10px;
+        background:red;
+        color:white;
+        font-size:12px;
+        padding:2px 6px;
+        border-radius:50%;
+    ">0</span>
+</div>
+
 <h3>Usuario actual: {{ usuario_actual }}</h3>
 
 {% if es_premium %}
@@ -54,21 +70,16 @@
 {% if not es_premium %}
     <p>Obtén acceso a funciones premium 🚀</p>
 
-    <!-- 🔥 NUEVO BOTÓN PAYPAL AUTOMÁTICO -->
     <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
         <input type="hidden" name="cmd" value="_xclick">
         <input type="hidden" name="business" value="Silver676">
         <input type="hidden" name="item_name" value="LoveConnect Premium">
         <input type="hidden" name="amount" value="5.00">
         <input type="hidden" name="currency_code" value="USD">
-
         <input type="hidden" name="custom" value="{{ usuario_actual }}">
-
         <input type="hidden" name="notify_url" value="https://loveconnect-dzja.onrender.com/paypal_ipn">
-
         <button>⭐ Ser Premium ($5)</button>
     </form>
-
 {% endif %}
 
 <a href="/logout">
@@ -292,6 +303,31 @@
     </script>
 
 {% endif %}
+
+<!-- 🔥 NUEVO: SCRIPT DE NOTIFICACIONES -->
+<script>
+async function revisarNotificaciones() {
+    try {
+        const res = await fetch("/notificaciones");
+        const data = await res.json();
+
+        const badge = document.getElementById("noti-badge");
+
+        if (data.nuevos && data.nuevos.length > 0) {
+            badge.style.display = "inline-block";
+            badge.innerText = data.nuevos.length;
+        } else {
+            badge.style.display = "none";
+        }
+
+    } catch (e) {
+        console.log("Error notificaciones", e);
+    }
+}
+
+setInterval(revisarNotificaciones, 3000);
+revisarNotificaciones();
+</script>
 
 </body>
 </html>
