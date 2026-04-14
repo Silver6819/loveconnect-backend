@@ -112,7 +112,10 @@ def startup():
                     receptor TEXT,
                     mensaje TEXT
                 )
-            """))
+                conn.execute(text("""
+    ALTER TABLE mensajes
+    ADD COLUMN IF NOT EXISTS fecha TIMESTAMP DEFAULT NOW();
+"""))
 
             conn.commit()
 
