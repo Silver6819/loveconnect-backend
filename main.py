@@ -105,6 +105,7 @@ def startup():
                 ADD COLUMN IF NOT EXISTS premium BOOLEAN DEFAULT FALSE;
             """))
 
+            # ✅ TABLA MENSAJES (CORREGIDO)
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS mensajes (
                     id SERIAL PRIMARY KEY,
@@ -112,10 +113,13 @@ def startup():
                     receptor TEXT,
                     mensaje TEXT
                 )
-                conn.execute(text("""
-    ALTER TABLE mensajes
-    ADD COLUMN IF NOT EXISTS fecha TIMESTAMP DEFAULT NOW();
-"""))
+            """))
+
+            # ✅ COLUMNA FECHA (CORRECTA)
+            conn.execute(text("""
+                ALTER TABLE mensajes
+                ADD COLUMN IF NOT EXISTS fecha TIMESTAMP DEFAULT NOW();
+            """))
 
             conn.commit()
 
@@ -215,9 +219,6 @@ async def home(request: Request):
         return mostrar_error()
 
 # -------------------------
-# MENSAJE
-# -------------------------
-# -------------------------
 # CHAT PRIVADO
 # -------------------------
 @app.get("/chat/{usuario}", response_class=HTMLResponse)
@@ -237,7 +238,7 @@ async def chat(request: Request, usuario: str):
                     FROM mensajes
                     WHERE (emisor = :yo AND receptor = :otro)
                        OR (emisor = :otro AND receptor = :yo)
-                    ORDER BY id ASC
+                    ORDER BY fecha ASC
                 """), {
                     "yo": usuario_actual,
                     "otro": usuario
@@ -262,6 +263,10 @@ async def chat(request: Request, usuario: str):
 
     except:
         return mostrar_error()
+
+# -------------------------
+# MENSAJE
+# -------------------------
 @app.post("/mensaje")
 async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
     try:
@@ -288,7 +293,7 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
         return {"ok": False}
 
 # -------------------------
-# 🔔 NOTIFICACIONES GLOBALES
+# 🔔 NOTIFICACIONES
 # -------------------------
 @app.get("/notificaciones")
 async def notificaciones(request: Request):
@@ -305,7 +310,7 @@ async def notificaciones(request: Request):
                 result = conn.execute(text("""
                     SELECT emisor, mensaje FROM mensajes
                     WHERE receptor = :usuario
-                    ORDER BY id DESC
+                    ORDER BY fecha DESC
                     LIMIT 5
                 """), {"usuario": usuario_actual})
 
@@ -321,7 +326,7 @@ async def notificaciones(request: Request):
         return {"nuevos": []}
 
 # -------------------------
-# 💰 PAYPAL IPN AUTOMÁTICO
+# 💰 PAYPAL
 # -------------------------
 @app.post("/paypal_ipn")
 async def paypal_ipn(request: Request):
