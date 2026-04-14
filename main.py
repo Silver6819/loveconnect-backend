@@ -214,6 +214,51 @@ async def home(request: Request):
 # -------------------------
 # MENSAJE
 # -------------------------
+# -------------------------
+# CHAT PRIVADO
+# -------------------------
+@app.get("/chat/{usuario}", response_class=HTMLResponse)
+async def chat(request: Request, usuario: str):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        if usuario_actual != "Invitado":
+            actualizar_actividad(usuario_actual)
+
+        mensajes = []
+
+        if engine:
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT emisor, receptor, mensaje
+                    FROM mensajes
+                    WHERE (emisor = :yo AND receptor = :otro)
+                       OR (emisor = :otro AND receptor = :yo)
+                    ORDER BY id ASC
+                """), {
+                    "yo": usuario_actual,
+                    "otro": usuario
+                })
+
+                mensajes = [
+                    {
+                        "emisor": row[0],
+                        "receptor": row[1],
+                        "mensaje": row[2]
+                    }
+                    for row in result.fetchall()
+                ]
+
+        return render("index.html", request, {
+            "usuarios": [],
+            "usuario_actual": usuario_actual,
+            "chat_con": usuario,
+            "mensajes": mensajes,
+            "es_premium": False
+        })
+
+    except:
+        return mostrar_error()
 @app.post("/mensaje")
 async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
     try:
