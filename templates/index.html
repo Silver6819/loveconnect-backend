@@ -7,6 +7,9 @@
     <style>
         body {
             font-family: Arial;
+            margin: 0;
+            padding: 10px;
+            overflow-x: hidden;
         }
 
         .chat-box {
@@ -14,17 +17,21 @@
             padding:8px;
             height:300px;
             overflow-y:auto;
+            overflow-x:hidden;
             display:flex;
             flex-direction:column;
             background:#e5ddd5;
+            width:100%;
+            box-sizing:border-box;
         }
 
         .mensaje {
-            max-width: 45%;
+            max-width: 80%;
             padding:6px 10px;
             margin:3px 0;
             border-radius:12px;
             word-wrap: break-word;
+            word-break: break-word;
             font-size: 13px;
         }
 
@@ -38,6 +45,17 @@
             background-color:#ffffff;
             align-self:flex-start;
             text-align:left;
+        }
+
+        .barra {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .barra button {
+            padding: 8px;
+            flex: 1;
         }
     </style>
 </head>
@@ -64,35 +82,33 @@
 <h3>Usuario actual: {{ usuario_actual }}</h3>
 
 {% if es_premium %}
-    <p>⭐ Usuario Premium</p>
+<p>⭐ Usuario Premium</p>
 {% else %}
-    <p>Usuario Gratis</p>
+<p>Usuario Gratis</p>
 {% endif %}
 
 {% if not es_premium %}
-    <p>Obtén acceso a funciones premium 🚀</p>
-
-    <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
-        <input type="hidden" name="cmd" value="_xclick">
-        <input type="hidden" name="business" value="mr6874823@gmail.com">
-        <input type="hidden" name="item_name" value="LoveConnect Premium">
-        <input type="hidden" name="amount" value="5.00">
-        <input type="hidden" name="currency_code" value="USD">
-        <input type="hidden" name="custom" value="{{ usuario_actual }}">
-        <input type="hidden" name="notify_url" value="https://loveconnect-dzja.onrender.com/paypal_ipn">
-        <button style="padding:8px 15px;">⭐ Ser Premium ($5)</button>
-    </form>
+<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
+    <input type="hidden" name="cmd" value="_xclick">
+    <input type="hidden" name="business" value="mr6874823@gmail.com">
+    <input type="hidden" name="item_name" value="LoveConnect Premium">
+    <input type="hidden" name="amount" value="5.00">
+    <input type="hidden" name="currency_code" value="USD">
+    <input type="hidden" name="custom" value="{{ usuario_actual }}">
+    <input type="hidden" name="notify_url" value="https://loveconnect-dzja.onrender.com/paypal_ipn">
+    <button>⭐ Ser Premium ($5)</button>
+</form>
 {% endif %}
 
-<a href="/logout">
-    <button>Cerrar sesión</button>
-</a>
+<a href="/logout"><button>Cerrar sesión</button></a>
 
 <hr>
 
-<a href="/global">
-    <button>🌍 Chat Global</button>
-</a>
+<!-- 🔥 BARRA SIMPLE (base para luego mejorar) -->
+<div class="barra">
+    <a href="/"><button>💬 Privado</button></a>
+    <a href="/global"><button>🌍 Global</button></a>
+</div>
 
 <hr>
 
@@ -103,29 +119,16 @@
 
 <hr>
 
-<h3>Registrarse</h3>
-<form action="/registro" method="post">
-    <input type="text" name="nombre" placeholder="Nombre" required>
-    <input type="email" name="email" placeholder="Email" required>
-    <button type="submit">Registrar</button>
-</form>
-
-<hr>
-
 <h3>Usuarios 💕</h3>
 
 <ul>
 {% for user in usuarios %}
     {% if user.nombre != usuario_actual %}
-        <li>
-            {{ user.nombre }}
-            {% if user.online %}
-                🟢
-            {% else %}
-                ⚪
-            {% endif %}
-            <a href="/chat/{{ user.nombre }}">💬 Chatear</a>
-        </li>
+    <li>
+        {{ user.nombre }}
+        {% if user.online %} 🟢 {% else %} ⚪ {% endif %}
+        <a href="/chat/{{ user.nombre }}">💬 Chatear</a>
+    </li>
     {% endif %}
 {% endfor %}
 </ul>
@@ -133,203 +136,81 @@
 <hr>
 
 {% if chat_con %}
-    <h3>
-        {% if chat_con == "GLOBAL" %}
-            🌍 Chat Global
-        {% else %}
-            Chat con {{ chat_con }}
-        {% endif %}
-    </h3>
+<h3>
+    {% if chat_con == "GLOBAL" %}
+        🌍 Chat Global
+    {% else %}
+        Chat con {{ chat_con }}
+    {% endif %}
+</h3>
 
-    <div id="chat-box" class="chat-box">
-        {% for m in mensajes %}
-            <div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
-                <strong>
-                    {% if m.emisor == usuario_actual %}
-                        Tú:
-                    {% else %}
-                        {{ m.emisor }}:
-                    {% endif %}
-                </strong>
-                {{ m.mensaje }}
-            </div>
-        {% endfor %}
+<div id="chat-box" class="chat-box">
+    {% for m in mensajes %}
+    <div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
+        <strong>{{ m.emisor }}:</strong> {{ m.mensaje }}
     </div>
+    {% endfor %}
+</div>
 
-    <p id="typing-indicator" style="font-style: italic; color: gray;"></p>
+<form id="form-chat">
+    <input type="hidden" name="receptor" value="{{ chat_con }}" id="receptor">
+    <input type="text" name="mensaje" placeholder="Escribe mensaje..." required id="mensaje">
+    <button type="submit">Enviar</button>
+</form>
 
-    <form id="form-chat">
-        <input type="hidden" name="receptor" value="{{ chat_con }}" id="receptor">
-        <input type="text" name="mensaje" placeholder="Escribe mensaje..." required id="mensaje">
-        <button type="submit">Enviar</button>
-    </form>
-
-    <script>
-    if ("Notification" in window) {
-        Notification.requestPermission();
-    }
-    </script>
-
-    <script>
-    const chatCon = "{{ chat_con }}";
-    const usuarioActual = "{{ usuario_actual }}";
-
-    let ultimoConteo = document.querySelectorAll("#chat-box .mensaje").length;
-    let intervalo = 3000;
-
-    async function actualizarChat() {
-        if (!chatCon) return;
-
-        try {
-            let url = "";
-
-            if (chatCon === "GLOBAL") {
-                url = "/mensajes_global";
-            } else {
-                url = `/mensajes_privados/${chatCon}`;
-            }
-
-            const response = await fetch(url);
-            const data = await response.json();
-
-            const nuevosMensajes = data.mensajes;
-
-            if (nuevosMensajes.length !== ultimoConteo) {
-
-                const ultimoMensaje = nuevosMensajes[nuevosMensajes.length - 1];
-
-                if (
-                    ultimoMensaje &&
-                    ultimoMensaje.emisor !== usuarioActual &&
-                    Notification.permission === "granted"
-                ) {
-                    new Notification(ultimoMensaje.emisor, {
-                        body: ultimoMensaje.mensaje
-                    });
-                }
-
-                const chatBox = document.getElementById("chat-box");
-                chatBox.innerHTML = "";
-
-                nuevosMensajes.forEach(msg => {
-                    const clase = msg.emisor === usuarioActual ? "mio" : "otro";
-
-                    chatBox.innerHTML += `
-                        <div class="mensaje ${clase}">
-                            <strong>${msg.emisor === usuarioActual ? "Tú" : msg.emisor}:</strong> ${msg.mensaje}
-                        </div>
-                    `;
-                });
-
-                chatBox.scrollTop = chatBox.scrollHeight;
-
-                ultimoConteo = nuevosMensajes.length;
-                intervalo = 2000;
-
-            } else {
-                intervalo = 5000;
-            }
-
-        } catch (error) {
-            console.log("Error actualizando chat");
-        }
-
-        setTimeout(actualizarChat, intervalo);
-    }
-
-    actualizarChat();
-    </script>
-
-    <script>
-    const mensajeInput = document.getElementById("mensaje");
-
-    mensajeInput.addEventListener("input", async () => {
-        const receptor = document.getElementById("receptor").value;
-
-        await fetch("/typing", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded"
-            },
-            body: `receptor=${encodeURIComponent(receptor)}`
-        });
-    });
-    </script>
-
-    <script>
-    async function revisarTyping() {
-
-        if (chatCon === "GLOBAL") return;
-
-        try {
-            const response = await fetch(`/typing_status/${chatCon}`);
-            const data = await response.json();
-
-            const indicador = document.getElementById("typing-indicator");
-
-            if (data.typing) {
-                indicador.innerText = chatCon + " está escribiendo...";
-            } else {
-                indicador.innerText = "";
-            }
-
-        } catch (e) {}
-
-        setTimeout(revisarTyping, 2000);
-    }
-
-    revisarTyping();
-    </script>
-
-    <script>
-    const form = document.getElementById("form-chat");
-
-    form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const mensajeInput = document.getElementById("mensaje");
-        const receptor = document.getElementById("receptor").value;
-
-        const mensaje = mensajeInput.value;
-
-        await fetch("/mensaje", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded"
-            },
-            body: `receptor=${encodeURIComponent(receptor)}&mensaje=${encodeURIComponent(mensaje)}`
-        });
-
-        mensajeInput.value = "";
-    });
-    </script>
-
-{% endif %}
-
-<!-- 🔔 SCRIPT NOTIFICACIONES -->
 <script>
-async function revisarNotificaciones() {
-    try {
-        const res = await fetch("/notificaciones");
-        const data = await res.json();
+const chatCon = "{{ chat_con }}";
+const usuarioActual = "{{ usuario_actual }}";
 
-        const badge = document.getElementById("noti-badge");
+let ultimoConteo = document.querySelectorAll("#chat-box .mensaje").length;
 
-        if (data.nuevos && data.nuevos.length > 0) {
-            badge.style.display = "inline-block";
-            badge.innerText = data.nuevos.length;
-        } else {
-            badge.style.display = "none";
-        }
+async function actualizarChat() {
+    if (!chatCon) return;
 
-    } catch (e) {
-        console.log("Error notificaciones", e);
-    }
+    let url = chatCon === "GLOBAL"
+        ? "/mensajes_global"
+        : `/mensajes_privados/${chatCon}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const chatBox = document.getElementById("chat-box");
+    chatBox.innerHTML = "";
+
+    data.mensajes.forEach(msg => {
+        const clase = msg.emisor === usuarioActual ? "mio" : "otro";
+        chatBox.innerHTML += `
+            <div class="mensaje ${clase}">
+                <strong>${msg.emisor}:</strong> ${msg.mensaje}
+            </div>
+        `;
+    });
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+    setTimeout(actualizarChat, 2000);
 }
 
-setInterval(revisarNotificaciones, 3000);
-revisarNotificaciones();
+actualizarChat();
+
+document.getElementById("form-chat").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const mensajeInput = document.getElementById("mensaje");
+    const receptor = document.getElementById("receptor").value;
+
+    await fetch("/mensaje", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: `receptor=${receptor}&mensaje=${mensajeInput.value}`
+    });
+
+    mensajeInput.value = "";
+});
 </script>
+
+{% endif %}
 
 </body>
 </html>
