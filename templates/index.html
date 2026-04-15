@@ -12,6 +12,37 @@
             overflow-x: hidden;
         }
 
+        /* 🔥 BARRA PRO */
+        .barra-pro {
+            display: flex;
+            justify-content: space-around;
+            background: #ffffff;
+            padding: 8px 5px;
+            border-bottom: 1px solid #ccc;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .btn-barra {
+            background: none;
+            border: none;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #555;
+        }
+
+        .btn-barra span {
+            font-size: 11px;
+        }
+
+        .btn-barra.activo {
+            color: green;
+            font-weight: bold;
+        }
+
         .chat-box {
             border:1px solid black;
             padding:8px;
@@ -45,17 +76,6 @@
             background-color:#ffffff;
             align-self:flex-start;
             text-align:left;
-        }
-
-        .barra {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .barra button {
-            padding: 8px;
-            flex: 1;
         }
     </style>
 </head>
@@ -104,10 +124,28 @@
 
 <hr>
 
-<!-- 🔥 BARRA SIMPLE (base para luego mejorar) -->
-<div class="barra">
-    <a href="/"><button>💬 Privado</button></a>
-    <a href="/global"><button>🌍 Global</button></a>
+<!-- 🔥 BARRA PRO -->
+<div class="barra-pro">
+
+    <a href="/">
+        <button class="btn-barra {% if not chat_con %}activo{% endif %}">
+            💬
+            <span>Privado</span>
+        </button>
+    </a>
+
+    <a href="/global">
+        <button class="btn-barra {% if chat_con == 'GLOBAL' %}activo{% endif %}">
+            🌍
+            <span>Global</span>
+        </button>
+    </a>
+
+    <button class="btn-barra" onclick="alert('Próximamente búsqueda de match 🔍')">
+        🔍
+        <span>Buscar</span>
+    </button>
+
 </div>
 
 <hr>
@@ -161,8 +199,6 @@
 <script>
 const chatCon = "{{ chat_con }}";
 const usuarioActual = "{{ usuario_actual }}";
-
-let ultimoConteo = document.querySelectorAll("#chat-box .mensaje").length;
 
 async function actualizarChat() {
     if (!chatCon) return;
