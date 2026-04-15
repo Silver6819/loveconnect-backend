@@ -164,6 +164,25 @@ async def logout(request: Request):
     return RedirectResponse("/", status_code=303)
 
 # -------------------------
+# FUNCIÓN USUARIOS (REUTILIZABLE)
+# -------------------------
+def obtener_usuarios():
+    usuarios = []
+    if engine:
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT nombre,
+                CASE 
+                    WHEN ultima_actividad > NOW() - INTERVAL '10 seconds'
+                    THEN true
+                    ELSE false
+                END as en_linea
+                FROM usuarios
+            """))
+            usuarios = [{"nombre": row[0], "online": row[1]} for row in result.fetchall()]
+    return usuarios
+
+# -------------------------
 # HOME
 # -------------------------
 @app.get("/", response_class=HTMLResponse)
@@ -174,31 +193,17 @@ async def home(request: Request):
         if usuario_actual != "Invitado":
             actualizar_actividad(usuario_actual)
 
-        usuarios = []
+        usuarios = obtener_usuarios()
         es_premium = False
 
-        if engine:
+        if engine and usuario_actual != "Invitado":
             with engine.connect() as conn:
-
                 result = conn.execute(text("""
-                    SELECT nombre,
-                    CASE 
-                        WHEN ultima_actividad > NOW() - INTERVAL '10 seconds'
-                        THEN true
-                        ELSE false
-                    END as en_linea
-                    FROM usuarios
-                """))
+                    SELECT premium FROM usuarios WHERE nombre = :usuario
+                """), {"usuario": usuario_actual}).fetchone()
 
-                usuarios = [{"nombre": row[0], "online": row[1]} for row in result.fetchall()]
-
-                if usuario_actual != "Invitado":
-                    result = conn.execute(text("""
-                        SELECT premium FROM usuarios WHERE nombre = :usuario
-                    """), {"usuario": usuario_actual}).fetchone()
-
-                    if result:
-                        es_premium = result[0]
+                if result:
+                    es_premium = result[0]
 
         return render("index.html", request, {
             "usuarios": usuarios,
@@ -223,6 +228,7 @@ async def chat(request: Request, usuario: str):
             actualizar_actividad(usuario_actual)
 
         mensajes = []
+        usuarios = obtener_usuarios()
 
         if engine:
             with engine.connect() as conn:
@@ -247,7 +253,7 @@ async def chat(request: Request, usuario: str):
                 ]
 
         return render("index.html", request, {
-            "usuarios": [],
+            "usuarios": usuarios,
             "usuario_actual": usuario_actual,
             "chat_con": usuario,
             "mensajes": mensajes,
@@ -269,6 +275,7 @@ async def global_chat(request: Request):
             actualizar_actividad(usuario_actual)
 
         mensajes = []
+        usuarios = obtener_usuarios()
 
         if engine:
             with engine.connect() as conn:
@@ -289,7 +296,7 @@ async def global_chat(request: Request):
                 ]
 
         return render("index.html", request, {
-            "usuarios": [],
+            "usuarios": usuarios,
             "usuario_actual": usuario_actual,
             "chat_con": "GLOBAL",
             "mensajes": mensajes,
@@ -310,7 +317,6 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
         if usuario_actual != "Invitado":
             actualizar_actividad(usuario_actual)
 
-        # 🔥 FIX GLOBAL
         if receptor == "GLOBAL":
             receptor = "GLOBAL"
 
@@ -332,7 +338,40 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
         return {"ok": False}
 
 # -------------------------
-# 🌍 MENSAJES GLOBAL (REFRESH)
+# 🔄 REFRESH PRIVADO
+# -------------------------
+@app.get("/mensajes_privados/{usuario}")
+async def mensajes_privados(request: Request, usuario: str):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        mensajes = []
+
+        if engine:
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE (emisor = :yo AND receptor = :otro)
+                       OR (emisor = :otro AND receptor = :yo)
+                    ORDER BY fecha ASC
+                """), {
+                    "yo": usuario_actual,
+                    "otro": usuario
+                })
+
+                mensajes = [
+                    {"emisor": row[0], "mensaje": row[1]}
+                    for row in result.fetchall()
+                ]
+
+        return {"mensajes": mensajes}
+
+    except:
+        return {"mensajes": []}
+
+# -------------------------
+# 🌍 REFRESH GLOBAL
 # -------------------------
 @app.get("/mensajes_global")
 async def mensajes_global():
@@ -420,7 +459,7 @@ async def notificaciones(request: Request):
         return {"nuevos": []}
 
 # -------------------------
-# 💰 PAYPAL REAL
+# 💰 PAYPAL
 # -------------------------
 PAYPAL_VERIFY_URL = "https://ipnpb.paypal.com/cgi-bin/webscr"
 
