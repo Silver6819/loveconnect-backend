@@ -44,16 +44,11 @@ if DATABASE_URL:
 # TEMPLATES
 # -------------------------
 templates = Jinja2Templates(directory="templates")
-
 templates.env.cache = None
 templates.env.auto_reload = True
 
 def render(template_name, request, context):
-    return templates.TemplateResponse(
-        request,
-        template_name,
-        context
-    )
+    return templates.TemplateResponse(request, template_name, context)
 
 # -------------------------
 # FUNCIÓN ACTIVIDAD
@@ -130,13 +125,6 @@ def startup():
 
     except:
         print("ERROR STARTUP")
-
-# -------------------------
-# TEST
-# -------------------------
-@app.get("/test")
-def test():
-    return {"status": "ok"}
 
 # -------------------------
 # LOGIN
@@ -270,6 +258,48 @@ async def chat(request: Request, usuario: str):
         return mostrar_error()
 
 # -------------------------
+# 🌍 CHAT GLOBAL
+# -------------------------
+@app.get("/global", response_class=HTMLResponse)
+async def global_chat(request: Request):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        if usuario_actual != "Invitado":
+            actualizar_actividad(usuario_actual)
+
+        mensajes = []
+
+        if engine:
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE receptor = 'GLOBAL'
+                    ORDER BY fecha ASC
+                """))
+
+                mensajes = [
+                    {
+                        "emisor": row[0],
+                        "receptor": "GLOBAL",
+                        "mensaje": row[1]
+                    }
+                    for row in result.fetchall()
+                ]
+
+        return render("index.html", request, {
+            "usuarios": [],
+            "usuario_actual": usuario_actual,
+            "chat_con": "GLOBAL",
+            "mensajes": mensajes,
+            "es_premium": False
+        })
+
+    except:
+        return mostrar_error()
+
+# -------------------------
 # MENSAJE
 # -------------------------
 @app.post("/mensaje")
@@ -279,6 +309,10 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
 
         if usuario_actual != "Invitado":
             actualizar_actividad(usuario_actual)
+
+        # 🔥 FIX GLOBAL
+        if receptor == "GLOBAL":
+            receptor = "GLOBAL"
 
         if engine:
             with engine.connect() as conn:
@@ -296,6 +330,33 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
 
     except:
         return {"ok": False}
+
+# -------------------------
+# 🌍 MENSAJES GLOBAL (REFRESH)
+# -------------------------
+@app.get("/mensajes_global")
+async def mensajes_global():
+    try:
+        mensajes = []
+
+        if engine:
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE receptor = 'GLOBAL'
+                    ORDER BY fecha ASC
+                """))
+
+                mensajes = [
+                    {"emisor": row[0], "mensaje": row[1]}
+                    for row in result.fetchall()
+                ]
+
+        return {"mensajes": mensajes}
+
+    except:
+        return {"mensajes": []}
 
 # -------------------------
 # 🔔 NOTIFICACIONES
@@ -355,12 +416,11 @@ async def notificaciones(request: Request):
 
         return {"nuevos": nuevos}
 
-    except Exception as e:
-        print("ERROR NOTIFICACIONES:", e)
+    except:
         return {"nuevos": []}
 
 # -------------------------
-# 💰 PAYPAL REAL (ESTABLE)
+# 💰 PAYPAL REAL
 # -------------------------
 PAYPAL_VERIFY_URL = "https://ipnpb.paypal.com/cgi-bin/webscr"
 
@@ -380,20 +440,15 @@ async def paypal_ipn(request: Request):
             verification = response.read().decode()
 
         if verification != "VERIFIED":
-            print("IPN NO VERIFICADO")
             return {"ok": False}
 
-        payment_status = data.get("payment_status")
-        usuario = data.get("custom")
-        receiver_email = data.get("receiver_email")
-
-        if receiver_email != "mr6874823@gmail.com":
-            print("Correo PayPal no coincide")
+        if data.get("receiver_email") != "mr6874823@gmail.com":
             return {"ok": False}
 
-        if payment_status == "Completed" and usuario:
+        if data.get("payment_status") == "Completed":
+            usuario = data.get("custom")
 
-            if engine:
+            if engine and usuario:
                 with engine.connect() as conn:
                     conn.execute(text("""
                         UPDATE usuarios
@@ -402,10 +457,7 @@ async def paypal_ipn(request: Request):
                     """), {"usuario": usuario})
                     conn.commit()
 
-            print(f"{usuario} ahora es PREMIUM 💎")
-
         return {"ok": True}
 
-    except Exception as e:
-        print("ERROR PAYPAL:", e)
+    except:
         return {"ok": False}
