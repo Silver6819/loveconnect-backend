@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, text
 from starlette.middleware.sessions import SessionMiddleware
 import urllib.parse
 import urllib.request
-import base64  # 📷 NUEVO
+import base64
 
 app = FastAPI()
 
@@ -150,7 +150,7 @@ except:
 
 # -------------------------
 
-# 📷 GUARDAR FOTO (NUEVO)
+# 📷 FOTO
 
 # -------------------------
 
@@ -177,7 +177,6 @@ usuario_actual = request.session.get("usuario", "Invitado")
     with open(ruta, "wb") as f:
         f.write(imagen_bytes)
 
-    # 🔥 guardar como mensaje (tipo WhatsApp)
     if engine:
         with engine.connect() as conn:
             conn.execute(text("""
@@ -190,7 +189,7 @@ usuario_actual = request.session.get("usuario", "Invitado")
             })
             conn.commit()
 
-    return {"ok": True, "ruta": ruta}
+    return {"ok": True}
 
 except:
     return {"ok": False}
@@ -279,18 +278,100 @@ usuario_actual = request.session.get("usuario", "Invitado")
         actualizar_actividad(usuario_actual)
 
     usuarios = obtener_usuarios()
-    es_premium = False
 
     return render("index.html", request, {
         "usuarios": usuarios,
         "usuario_actual": usuario_actual,
         "chat_con": None,
         "mensajes": [],
-        "es_premium": es_premium
+        "es_premium": False
     })
 
 except:
     return mostrar_error()
 ```
 
-# (TODO lo demás queda EXACTAMENTE igual que tu código)
+# -------------------------
+
+# CHAT PRIVADO
+
+# -------------------------
+
+@app.get("/chat/{usuario}", response_class=HTMLResponse)
+async def chat(request: Request, usuario: str):
+try:
+usuario_actual = request.session.get("usuario", "Invitado")
+
+```
+    if usuario_actual != "Invitado":
+        actualizar_actividad(usuario_actual)
+
+    mensajes = []
+    usuarios = obtener_usuarios()
+
+    if engine:
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT emisor, receptor, mensaje
+                FROM mensajes
+                WHERE (emisor = :yo AND receptor = :otro)
+                   OR (emisor = :otro AND receptor = :yo)
+                ORDER BY fecha ASC
+            """), {
+                "yo": usuario_actual,
+                "otro": usuario
+            })
+
+            mensajes = [
+                {"emisor": row[0], "receptor": row[1], "mensaje": row[2]}
+                for row in result.fetchall()
+            ]
+
+    return render("index.html", request, {
+        "usuarios": usuarios,
+        "usuario_actual": usuario_actual,
+        "chat_con": usuario,
+        "mensajes": mensajes,
+        "es_premium": False
+    })
+
+except:
+    return mostrar_error()
+```
+
+# -------------------------
+
+# MENSAJES PRIVADOS
+
+# -------------------------
+
+@app.get("/mensajes_privados/{usuario}")
+async def mensajes_privados(request: Request, usuario: str):
+try:
+usuario_actual = request.session.get("usuario", "Invitado")
+mensajes = []
+
+```
+    if engine:
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT emisor, mensaje
+                FROM mensajes
+                WHERE (emisor = :yo AND receptor = :otro)
+                   OR (emisor = :otro AND receptor = :yo)
+                ORDER BY fecha ASC
+            """), {
+                "yo": usuario_actual,
+                "otro": usuario
+            })
+
+            mensajes = [
+                {"emisor": row[0], "mensaje": row[1]}
+                for row in result.fetchall()
+            ]
+
+    return {"mensajes": mensajes}
+
+except:
+    return {"mensajes": []}
+```
