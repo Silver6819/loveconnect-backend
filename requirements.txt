@@ -6,4 +6,3 @@ psycopg2-binary
 python-multipart
 itsdangerous
 gunicorn
-httpx
