@@ -1,89 +1,94 @@
 <!DOCTYPE html>
+
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>LoveConnect 💕</title>
 
-    <style>
-        body {
-            font-family: Arial;
-            margin: 0;
-            padding: 10px;
-            overflow-x: hidden;
-        }
+```
+<style>
+    body {
+        font-family: Arial;
+        margin: 0;
+        padding: 10px;
+        overflow-x: hidden;
+    }
 
-        /* 🔥 BARRA PRO */
-        .barra-pro {
-            display: flex;
-            justify-content: space-around;
-            background: #ffffff;
-            padding: 8px 5px;
-            border-bottom: 1px solid #ccc;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
+    /* 🔥 BARRA PRO */
+    .barra-pro {
+        display: flex;
+        justify-content: space-around;
+        background: #ffffff;
+        padding: 8px 5px;
+        border-bottom: 1px solid #ccc;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
 
-        .btn-barra {
-            background: none;
-            border: none;
-            font-size: 14px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            color: #555;
-        }
+    .btn-barra {
+        background: none;
+        border: none;
+        font-size: 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        color: #555;
+    }
 
-        .btn-barra span {
-            font-size: 11px;
-        }
+    .btn-barra span {
+        font-size: 11px;
+    }
 
-        .btn-barra.activo {
-            color: green;
-            font-weight: bold;
-        }
+    .btn-barra.activo {
+        color: green;
+        font-weight: bold;
+    }
 
-        .chat-box {
-            border:1px solid black;
-            padding:8px;
-            height:300px;
-            overflow-y:auto;
-            overflow-x:hidden;
-            display:flex;
-            flex-direction:column;
-            background:#e5ddd5;
-            width:100%;
-            box-sizing:border-box;
-        }
+    .chat-box {
+        border:1px solid black;
+        padding:8px;
+        height:300px;
+        overflow-y:auto;
+        overflow-x:hidden;
+        display:flex;
+        flex-direction:column;
+        background:#e5ddd5;
+        width:100%;
+        box-sizing:border-box;
+    }
 
-        .mensaje {
-            max-width: 80%;
-            padding:6px 10px;
-            margin:3px 0;
-            border-radius:12px;
-            word-wrap: break-word;
-            word-break: break-word;
-            font-size: 13px;
-        }
+    .mensaje {
+        max-width: 80%;
+        padding:6px 10px;
+        margin:3px 0;
+        border-radius:12px;
+        word-wrap: break-word;
+        word-break: break-word;
+        font-size: 13px;
+    }
 
-        .mio {
-            background-color:#dcf8c6;
-            align-self:flex-end;
-            text-align:right;
-        }
+    .mio {
+        background-color:#dcf8c6;
+        align-self:flex-end;
+        text-align:right;
+    }
 
-        .otro {
-            background-color:#ffffff;
-            align-self:flex-start;
-            text-align:left;
-        }
-    </style>
+    .otro {
+        background-color:#ffffff;
+        align-self:flex-start;
+        text-align:left;
+    }
+</style>
+```
+
 </head>
 <body>
 
 <h1>💕 LoveConnect</h1>
 
 <!-- 🔔 NOTIFICACIONES -->
+
 <div id="noti-container" style="position:relative; display:inline-block; margin-bottom:10px;">
     🔔
     <span id="noti-badge" style="
@@ -102,12 +107,14 @@
 <h3>Usuario actual: {{ usuario_actual }}</h3>
 
 {% if es_premium %}
+
 <p>⭐ Usuario Premium</p>
 {% else %}
 <p>Usuario Gratis</p>
 {% endif %}
 
 {% if not es_premium %}
+
 <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
     <input type="hidden" name="cmd" value="_xclick">
     <input type="hidden" name="business" value="mr6874823@gmail.com">
@@ -125,26 +132,29 @@
 <hr>
 
 <!-- 🔥 BARRA PRO -->
+
 <div class="barra-pro">
 
-    <a href="/">
-        <button class="btn-barra {% if not chat_con %}activo{% endif %}">
-            💬
-            <span>Privado</span>
-        </button>
-    </a>
-
-    <a href="/global">
-        <button class="btn-barra {% if chat_con == 'GLOBAL' %}activo{% endif %}">
-            🌍
-            <span>Global</span>
-        </button>
-    </a>
-
-    <button class="btn-barra" onclick="alert('Próximamente búsqueda de match 🔍')">
-        🔍
-        <span>Buscar</span>
+```
+<a href="/">
+    <button class="btn-barra {% if not chat_con %}activo{% endif %}">
+        💬
+        <span>Privado</span>
     </button>
+</a>
+
+<a href="/global">
+    <button class="btn-barra {% if chat_con == 'GLOBAL' %}activo{% endif %}">
+        🌍
+        <span>Global</span>
+    </button>
+</a>
+
+<button class="btn-barra" onclick="alert('Próximamente búsqueda de match 🔍')">
+    🔍
+    <span>Buscar</span>
+</button>
+```
 
 </div>
 
@@ -174,6 +184,7 @@
 <hr>
 
 {% if chat_con %}
+
 <h3>
     {% if chat_con == "GLOBAL" %}
         🌍 Chat Global
@@ -195,6 +206,16 @@
     <input type="text" name="mensaje" placeholder="Escribe mensaje..." required id="mensaje">
     <button type="submit">Enviar</button>
 </form>
+
+<!-- 📷 CÁMARA (NUEVO) -->
+
+<div style="margin-top:10px;">
+    <video id="video" width="250" autoplay style="border-radius:10px;"></video>
+    <br>
+    <button onclick="iniciarCamara()">Activar cámara</button>
+    <button onclick="tomarFoto()">Tomar foto</button>
+    <canvas id="canvas" style="display:none;"></canvas>
+</div>
 
 <script>
 const chatCon = "{{ chat_con }}";
@@ -244,6 +265,47 @@ document.getElementById("form-chat").addEventListener("submit", async (e) => {
 
     mensajeInput.value = "";
 });
+
+
+// 📷 FUNCIONES DE CÁMARA (NUEVO)
+let stream = null;
+
+async function iniciarCamara() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        document.getElementById("video").srcObject = stream;
+    } catch (error) {
+        alert("Error al acceder a la cámara");
+        console.error(error);
+    }
+}
+
+function tomarFoto() {
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const context = canvas.getContext("2d");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const imagen = canvas.toDataURL("image/png");
+
+    enviarFoto(imagen);
+}
+
+async function enviarFoto(imagen) {
+    await fetch("/enviar_foto", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ imagen: imagen })
+    });
+
+    alert("Foto enviada 📷");
+}
 </script>
 
 {% endif %}
