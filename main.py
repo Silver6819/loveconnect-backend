@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, text
 from starlette.middleware.sessions import SessionMiddleware
+import httpx  # 🔥 NUEVO
 
 app = FastAPI()
 
@@ -105,7 +106,6 @@ def startup():
                 ADD COLUMN IF NOT EXISTS premium BOOLEAN DEFAULT FALSE;
             """))
 
-            # 🔥 NUEVO: último mensaje visto
             conn.execute(text("""
                 ALTER TABLE usuarios
                 ADD COLUMN IF NOT EXISTS ultimo_mensaje_visto INTEGER DEFAULT 0;
@@ -297,7 +297,7 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
         return {"ok": False}
 
 # -------------------------
-# 🔔 NOTIFICACIONES (MEJORADAS)
+# 🔔 NOTIFICACIONES
 # -------------------------
 @app.get("/notificaciones")
 async def notificaciones(request: Request):
@@ -359,15 +359,33 @@ async def notificaciones(request: Request):
         return {"nuevos": []}
 
 # -------------------------
-# 💰 PAYPAL
+# 💰 PAYPAL REAL (VALIDADO)
 # -------------------------
+PAYPAL_VERIFY_URL = "https://ipnpb.paypal.com/cgi-bin/webscr"
+
 @app.post("/paypal_ipn")
 async def paypal_ipn(request: Request):
     try:
         form = await request.form()
+        data = dict(form)
 
-        payment_status = form.get("payment_status")
-        usuario = form.get("custom")
+        verify_data = {"cmd": "_notify-validate"}
+        verify_data.update(data)
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(PAYPAL_VERIFY_URL, data=verify_data)
+
+        if response.text != "VERIFIED":
+            print("IPN NO VERIFICADO")
+            return {"ok": False}
+
+        payment_status = data.get("payment_status")
+        usuario = data.get("custom")
+        receiver_email = data.get("receiver_email")
+
+        if receiver_email != "mr6874823@gmail.com":
+            print("Correo PayPal no coincide")
+            return {"ok": False}
 
         if payment_status == "Completed" and usuario:
 
@@ -379,6 +397,8 @@ async def paypal_ipn(request: Request):
                         WHERE nombre = :usuario
                     """), {"usuario": usuario})
                     conn.commit()
+
+            print(f"{usuario} ahora es PREMIUM 💎")
 
         return {"ok": True}
 
