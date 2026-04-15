@@ -6,7 +6,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, text
 from starlette.middleware.sessions import SessionMiddleware
-import httpx  # 🔥 NUEVO
+import urllib.parse
+import urllib.request
 
 app = FastAPI()
 
@@ -359,7 +360,7 @@ async def notificaciones(request: Request):
         return {"nuevos": []}
 
 # -------------------------
-# 💰 PAYPAL REAL (VALIDADO)
+# 💰 PAYPAL REAL (ESTABLE)
 # -------------------------
 PAYPAL_VERIFY_URL = "https://ipnpb.paypal.com/cgi-bin/webscr"
 
@@ -372,10 +373,13 @@ async def paypal_ipn(request: Request):
         verify_data = {"cmd": "_notify-validate"}
         verify_data.update(data)
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(PAYPAL_VERIFY_URL, data=verify_data)
+        encoded = urllib.parse.urlencode(verify_data).encode()
+        req = urllib.request.Request(PAYPAL_VERIFY_URL, data=encoded)
 
-        if response.text != "VERIFIED":
+        with urllib.request.urlopen(req) as response:
+            verification = response.read().decode()
+
+        if verification != "VERIFIED":
             print("IPN NO VERIFICADO")
             return {"ok": False}
 
