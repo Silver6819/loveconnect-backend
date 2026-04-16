@@ -99,6 +99,41 @@
         color: green;
         font-weight: bold;
     }
+
+    .chat-box {
+        border:1px solid black;
+        padding:8px;
+        height:300px;
+        overflow-y:auto;
+        overflow-x:hidden;
+        display:flex;
+        flex-direction:column;
+        background:#e5ddd5;
+        width:100%;
+        box-sizing:border-box;
+    }
+
+    .mensaje {
+        max-width: 80%;
+        padding:6px 10px;
+        margin:3px 0;
+        border-radius:12px;
+        word-wrap: break-word;
+        word-break: break-word;
+        font-size: 13px;
+    }
+
+    .mio {
+        background-color:#dcf8c6;
+        align-self:flex-end;
+        text-align:right;
+    }
+
+    .otro {
+        background-color:#ffffff;
+        align-self:flex-start;
+        text-align:left;
+    }
 </style>
 
 </head>
@@ -118,7 +153,6 @@
 
 <hr>
 
-<!-- 🔥 BARRA PRO (SIN JINJA EN CLASS) -->
 <div class="barra-pro">
 
 <a href="/">
@@ -180,17 +214,17 @@
 
 <h3>Chat con {{ chat_con }}</h3>
 
-<div id="chat-box">
-{% for m in mensajes %}
-    <div>
+<div id="chat-box" class="chat-box">
+    {% for m in mensajes %}
+    <div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
         <strong>{{ m.emisor }}:</strong> {{ m.mensaje }}
     </div>
-{% endfor %}
+    {% endfor %}
 </div>
 
-<form method="post" action="/mensaje">
-    <input type="hidden" name="receptor" value="{{ chat_con }}">
-    <input type="text" name="mensaje" required>
+<form id="form-chat">
+    <input type="hidden" name="receptor" value="{{ chat_con }}" id="receptor">
+    <input type="text" name="mensaje" placeholder="Escribe mensaje..." required id="mensaje">
     <button type="submit">Enviar</button>
 </form>
 
