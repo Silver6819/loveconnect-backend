@@ -36,8 +36,8 @@ templates = Jinja2Templates(directory="templates")
 # 🔥 FIX REAL AQUÍ
 def render(request, template_name, context):
     return templates.TemplateResponse(
-        template_name,
-        {"request": request, **context}
+        name=template_name,
+        context={"request": request, **context}
     )
 
 # ERROR
