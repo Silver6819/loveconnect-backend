@@ -33,13 +33,8 @@ if DATABASE_URL:
 # TEMPLATES
 templates = Jinja2Templates(directory="templates")
 
-# 🔥 FIX REAL AQUÍ
 def render(request, template_name, context):
-    return templates.TemplateResponse(
-        request,
-        template_name,
-        context
-    )
+    return templates.TemplateResponse(request, template_name, context)
 
 # ERROR
 def mostrar_error():
@@ -70,8 +65,20 @@ def startup():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     try:
+        usuarios = []
+
+        if engine:
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT DISTINCT emisor FROM mensajes
+                    UNION
+                    SELECT DISTINCT receptor FROM mensajes
+                """))
+
+                usuarios = [{"nombre": r[0], "online": True} for r in result.fetchall() if r[0]]
+
         return render(request, "index.html", {
-            "usuarios": [],
+            "usuarios": usuarios,
             "usuario_actual": request.session.get("usuario", "Invitado"),
             "chat_con": None,
             "mensajes": [],
@@ -108,8 +115,21 @@ async def chat(request: Request, usuario: str):
 
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
+        # 🔥 USUARIOS REALES TAMBIÉN AQUÍ
+        usuarios = []
+
+        if engine:
+            with engine.connect() as conn:
+                result_users = conn.execute(text("""
+                    SELECT DISTINCT emisor FROM mensajes
+                    UNION
+                    SELECT DISTINCT receptor FROM mensajes
+                """))
+
+                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall() if r[0]]
+
         return render(request, "index.html", {
-            "usuarios": [],
+            "usuarios": usuarios,
             "usuario_actual": usuario_actual,
             "chat_con": usuario,
             "mensajes": mensajes,
