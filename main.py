@@ -37,8 +37,7 @@ app.add_middleware(SessionMiddleware, secret_key="supersecreto")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
-
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
 engine = None
 
 if DATABASE_URL:
