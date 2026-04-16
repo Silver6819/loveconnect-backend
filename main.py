@@ -33,8 +33,9 @@ if DATABASE_URL:
 # TEMPLATES
 templates = Jinja2Templates(directory="templates")
 
-def render(template_name, request, context):
-    context["request"] = request  # 🔥 FIX CLAVE
+# 🔥 FIX REAL AQUÍ
+def render(request, template_name, context):
+    context.update({"request": request})
     return templates.TemplateResponse(template_name, context)
 
 # ERROR
@@ -66,7 +67,7 @@ def startup():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     try:
-        return render("index.html", request, {
+        return render(request, "index.html", {
             "usuarios": [],
             "usuario_actual": request.session.get("usuario", "Invitado"),
             "chat_con": None,
@@ -104,7 +105,7 @@ async def chat(request: Request, usuario: str):
 
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
-        return render("index.html", request, {
+        return render(request, "index.html", {
             "usuarios": [],
             "usuario_actual": usuario_actual,
             "chat_con": usuario,
@@ -155,7 +156,7 @@ async def mensajes_privados(request: Request, usuario: str):
     except:
         return mostrar_error()
 
-# 📷 FOTO
+# FOTO
 @app.post("/enviar_foto")
 async def enviar_foto(request: Request, data: dict = Body(...)):
     try:
