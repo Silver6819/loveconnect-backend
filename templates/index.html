@@ -10,10 +10,9 @@
         margin: 0;
         padding: 10px;
         overflow-x: hidden;
-        padding-bottom: 60px; /* espacio para barra inferior */
+        padding-bottom: 60px;
     }
 
-    /* 🔥 BARRA PRO */
     .barra-pro {
         display: flex;
         justify-content: space-around;
@@ -44,7 +43,6 @@
         font-weight: bold;
     }
 
-    /* 📱 LISTA TIPO WHATSAPP */
     .chat-list {
         width: 100%;
     }
@@ -82,7 +80,6 @@
         color: gray;
     }
 
-    /* 🔻 BARRA INFERIOR */
     .bottom-nav {
         position: fixed;
         bottom: 0;
@@ -148,7 +145,6 @@
 
 <h1>💕 LoveConnect</h1>
 
-<!-- 🔔 NOTIFICACIONES -->
 <div id="noti-container" style="position:relative; display:inline-block; margin-bottom:10px;">
     🔔
     <span id="noti-badge" style="
@@ -189,18 +185,17 @@
 
 <hr>
 
-<!-- 🔥 BARRA PRO -->
 <div class="barra-pro">
 
 <a href="/">
-    <button class="btn-barra {% if not chat_con %}activo{% endif %}">
+    <button class="btn-barra {{ 'activo' if not chat_con else '' }}">
         💬
         <span>Privado</span>
     </button>
 </a>
 
 <a href="/global">
-    <button class="btn-barra {% if chat_con == 'GLOBAL' %}activo{% endif %}">
+    <button class="btn-barra {{ 'activo' if chat_con == 'GLOBAL' else '' }}">
         🌍
         <span>Global</span>
     </button>
@@ -224,7 +219,6 @@
 
 <h3>Usuarios 💕</h3>
 
-<!-- 🔥 NUEVA LISTA TIPO WHATSAPP -->
 <div class="chat-list">
 {% for user in usuarios %}
     {% if user.nombre != usuario_actual %}
@@ -247,7 +241,6 @@
 {% endfor %}
 </div>
 
-<!-- 🔹 LISTA ORIGINAL (NO BORRADA) -->
 <ul>
 {% for user in usuarios %}
     {% if user.nombre != usuario_actual %}
@@ -286,7 +279,6 @@
     <button type="submit">Enviar</button>
 </form>
 
-<!-- 📷 CÁMARA -->
 <div style="margin-top:10px;">
     <video id="video" width="250" autoplay style="border-radius:10px;"></video>
     <br>
@@ -344,7 +336,6 @@ document.getElementById("form-chat").addEventListener("submit", async (e) => {
     mensajeInput.value = "";
 });
 
-// 📷 CÁMARA
 let stream = null;
 
 async function iniciarCamara() {
@@ -386,14 +377,13 @@ async function enviarFoto(imagen) {
 
 {% endif %}
 
-<!-- 🔻 BARRA INFERIOR -->
 <div class="bottom-nav">
 
-    <a href="/" class="nav-item {% if not chat_con %}activo{% endif %}">
+    <a href="/" class="nav-item {{ 'activo' if not chat_con else '' }}">
         💬 <br>Chats
     </a>
 
-    <a href="/global" class="nav-item {% if chat_con == 'GLOBAL' %}activo{% endif %}">
+    <a href="/global" class="nav-item {{ 'activo' if chat_con == 'GLOBAL' else '' }}">
         🌍 <br>Global
     </a>
 
