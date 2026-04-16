@@ -28,7 +28,7 @@ if DATABASE_URL:
 templates = Jinja2Templates(directory="templates")
 
 def render(request, template_name, context):
-    return templates.TemplateResponse(request, template_name, context)
+    return templates.TemplateResponse(template_name, context)
 
 def mostrar_error():
     return HTMLResponse(f"<pre>{traceback.format_exc()}</pre>")
@@ -41,7 +41,6 @@ def startup():
             return
 
         with engine.connect() as conn:
-            # MENSAJES
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS mensajes (
                     id SERIAL PRIMARY KEY,
@@ -52,7 +51,6 @@ def startup():
                 )
             """))
 
-            # 👥 USUARIOS (NUEVO)
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS usuarios (
                     id SERIAL PRIMARY KEY,
@@ -114,7 +112,6 @@ async def chat(request: Request, usuario: str):
 
         if engine:
             with engine.connect() as conn:
-                # mensajes
                 result = conn.execute(text("""
                     SELECT emisor, mensaje
                     FROM mensajes
@@ -125,7 +122,6 @@ async def chat(request: Request, usuario: str):
 
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
-                # usuarios
                 result_users = conn.execute(text("SELECT nombre FROM usuarios"))
                 usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
 
@@ -139,7 +135,7 @@ async def chat(request: Request, usuario: str):
     except:
         return mostrar_error()
 
-# 📩 ENVIAR MENSAJE
+# 📩 MENSAJES
 @app.post("/mensaje")
 async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
     try:
@@ -180,7 +176,7 @@ async def mensajes_privados(request: Request, usuario: str):
     except:
         return mostrar_error()
 
-# 📸 FOTO (FIX RECEPTOR)
+# 📸 FOTO ORIGINAL
 @app.post("/enviar_foto")
 async def enviar_foto(request: Request, data: dict = Body(...)):
     try:
@@ -216,5 +212,14 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
                 conn.commit()
 
         return {"ok": True}
+    except:
+        return mostrar_error()
+
+# 📸 COMPATIBILIDAD FASE 3 (NUEVO ENDPOINT)
+@app.post("/enviar_imagen")
+async def enviar_imagen(request: Request, data: dict = Body(...)):
+    try:
+        # reutiliza el mismo sistema
+        return await enviar_foto(request, data)
     except:
         return mostrar_error()
