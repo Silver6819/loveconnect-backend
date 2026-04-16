@@ -230,5 +230,31 @@
 
 {% endif %}
 
+<!-- 🚀 FASE 3: PREPARACIÓN PARA IMÁGENES CON RECEPTOR -->
+<script>
+    const chatCon = "{{ chat_con }}";
+
+    // 📸 FUNCIÓN LISTA PARA ENVÍO DE IMÁGENES (FASE 3 BASE)
+    function enviarImagen(imagen) {
+        fetch("/enviar_imagen", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                imagen: imagen,
+                receptor: chatCon
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log("Imagen enviada:", data);
+        })
+        .catch(err => {
+            console.error("Error enviando imagen:", err);
+        });
+    }
+</script>
+
 </body>
 </html>
