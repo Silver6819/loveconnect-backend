@@ -10,10 +10,8 @@ import base64
 
 app = FastAPI()
 
-# SESIONES
 app.add_middleware(SessionMiddleware, secret_key="supersecreto")
 
-# BASE DE DATOS
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
@@ -23,24 +21,19 @@ engine = None
 
 if DATABASE_URL:
     try:
-        engine = create_engine(
-            DATABASE_URL,
-            connect_args={"sslmode": "require"}
-        )
+        engine = create_engine(DATABASE_URL, connect_args={"sslmode": "require"})
     except Exception as e:
         print("ERROR DB:", e)
 
-# TEMPLATES
 templates = Jinja2Templates(directory="templates")
 
 def render(request, template_name, context):
     return templates.TemplateResponse(request, template_name, context)
 
-# ERROR
 def mostrar_error():
     return HTMLResponse(f"<pre>{traceback.format_exc()}</pre>")
 
-# STARTUP
+# 🚀 STARTUP
 @app.on_event("startup")
 def startup():
     try:
@@ -48,6 +41,7 @@ def startup():
             return
 
         with engine.connect() as conn:
+            # MENSAJES
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS mensajes (
                     id SERIAL PRIMARY KEY,
@@ -57,11 +51,20 @@ def startup():
                     fecha TIMESTAMP DEFAULT NOW()
                 )
             """))
+
+            # 👥 USUARIOS (NUEVO)
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id SERIAL PRIMARY KEY,
+                    nombre TEXT UNIQUE
+                )
+            """))
+
             conn.commit()
     except:
         print(traceback.format_exc())
 
-# HOME
+# 🏠 HOME
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     try:
@@ -69,13 +72,8 @@ async def home(request: Request):
 
         if engine:
             with engine.connect() as conn:
-                result = conn.execute(text("""
-                    SELECT DISTINCT emisor FROM mensajes
-                    UNION
-                    SELECT DISTINCT receptor FROM mensajes
-                """))
-
-                usuarios = [{"nombre": r[0], "online": True} for r in result.fetchall() if r[0]]
+                result = conn.execute(text("SELECT nombre FROM usuarios"))
+                usuarios = [{"nombre": r[0], "online": True} for r in result.fetchall()]
 
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -87,24 +85,36 @@ async def home(request: Request):
     except:
         return mostrar_error()
 
-# LOGIN
+# 🔐 LOGIN / REGISTRO
 @app.post("/set_usuario")
 async def set_usuario(request: Request, usuario: str = Form(...)):
     try:
         request.session["usuario"] = usuario
+
+        if engine:
+            with engine.connect() as conn:
+                conn.execute(text("""
+                    INSERT INTO usuarios (nombre)
+                    VALUES (:nombre)
+                    ON CONFLICT (nombre) DO NOTHING
+                """), {"nombre": usuario})
+                conn.commit()
+
         return RedirectResponse("/", status_code=303)
     except:
         return mostrar_error()
 
-# CHAT
+# 💬 CHAT
 @app.get("/chat/{usuario}", response_class=HTMLResponse)
 async def chat(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
         mensajes = []
+        usuarios = []
 
         if engine:
             with engine.connect() as conn:
+                # mensajes
                 result = conn.execute(text("""
                     SELECT emisor, mensaje
                     FROM mensajes
@@ -115,18 +125,9 @@ async def chat(request: Request, usuario: str):
 
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
-        # 🔥 USUARIOS REALES TAMBIÉN AQUÍ
-        usuarios = []
-
-        if engine:
-            with engine.connect() as conn:
-                result_users = conn.execute(text("""
-                    SELECT DISTINCT emisor FROM mensajes
-                    UNION
-                    SELECT DISTINCT receptor FROM mensajes
-                """))
-
-                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall() if r[0]]
+                # usuarios
+                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
+                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
 
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -138,7 +139,7 @@ async def chat(request: Request, usuario: str):
     except:
         return mostrar_error()
 
-# ENVIAR MENSAJE
+# 📩 ENVIAR MENSAJE
 @app.post("/mensaje")
 async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
     try:
@@ -156,7 +157,7 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
     except:
         return mostrar_error()
 
-# REFRESH
+# 🔄 REFRESH
 @app.get("/mensajes_privados/{usuario}")
 async def mensajes_privados(request: Request, usuario: str):
     try:
@@ -179,7 +180,7 @@ async def mensajes_privados(request: Request, usuario: str):
     except:
         return mostrar_error()
 
-# FOTO
+# 📸 FOTO (FIX RECEPTOR)
 @app.post("/enviar_foto")
 async def enviar_foto(request: Request, data: dict = Body(...)):
     try:
@@ -188,7 +189,7 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
         imagen = data.get("imagen")
         receptor = data.get("receptor")
 
-        if not imagen:
+        if not imagen or not receptor:
             return {"ok": False}
 
         imagen = imagen.split(",")[1]
