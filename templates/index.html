@@ -56,10 +56,6 @@
         border-bottom: 1px solid #ddd;
     }
 
-    .chat-item:hover {
-        background-color: #f5f5f5;
-    }
-
     .chat-avatar {
         width: 45px;
         height: 45px;
@@ -103,62 +99,12 @@
         color: green;
         font-weight: bold;
     }
-
-    .chat-box {
-        border:1px solid black;
-        padding:8px;
-        height:300px;
-        overflow-y:auto;
-        overflow-x:hidden;
-        display:flex;
-        flex-direction:column;
-        background:#e5ddd5;
-        width:100%;
-        box-sizing:border-box;
-    }
-
-    .mensaje {
-        max-width: 80%;
-        padding:6px 10px;
-        margin:3px 0;
-        border-radius:12px;
-        word-wrap: break-word;
-        word-break: break-word;
-        font-size: 13px;
-    }
-
-    .mio {
-        background-color:#dcf8c6;
-        align-self:flex-end;
-        text-align:right;
-    }
-
-    .otro {
-        background-color:#ffffff;
-        align-self:flex-start;
-        text-align:left;
-    }
 </style>
 
 </head>
 <body>
 
 <h1>💕 LoveConnect</h1>
-
-<div id="noti-container" style="position:relative; display:inline-block; margin-bottom:10px;">
-    🔔
-    <span id="noti-badge" style="
-        display:none;
-        position:absolute;
-        top:-8px;
-        right:-10px;
-        background:red;
-        color:white;
-        font-size:12px;
-        padding:2px 6px;
-        border-radius:50%;
-    ">0</span>
-</div>
 
 <h3>Usuario actual: {{ usuario_actual }}</h3>
 
@@ -168,40 +114,28 @@
 <p>Usuario Gratis</p>
 {% endif %}
 
-{% if not es_premium %}
-<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
-    <input type="hidden" name="cmd" value="_xclick">
-    <input type="hidden" name="business" value="mr6874823@gmail.com">
-    <input type="hidden" name="item_name" value="LoveConnect Premium">
-    <input type="hidden" name="amount" value="5.00">
-    <input type="hidden" name="currency_code" value="USD">
-    <input type="hidden" name="custom" value="{{ usuario_actual }}">
-    <input type="hidden" name="notify_url" value="https://loveconnect-dzja.onrender.com/paypal_ipn">
-    <button>⭐ Ser Premium ($5)</button>
-</form>
-{% endif %}
-
 <a href="/logout"><button>Cerrar sesión</button></a>
 
 <hr>
 
+<!-- 🔥 BARRA PRO (SIN JINJA EN CLASS) -->
 <div class="barra-pro">
 
 <a href="/">
-    <button class="btn-barra {{ 'activo' if not chat_con else '' }}">
+    <button class="btn-barra">
         💬
         <span>Privado</span>
     </button>
 </a>
 
 <a href="/global">
-    <button class="btn-barra {{ 'activo' if chat_con == 'GLOBAL' else '' }}">
+    <button class="btn-barra">
         🌍
         <span>Global</span>
     </button>
 </a>
 
-<button class="btn-barra" onclick="alert('Próximamente búsqueda de match 🔍')">
+<button class="btn-barra">
     🔍
     <span>Buscar</span>
 </button>
@@ -229,7 +163,6 @@
         <div class="chat-info">
             <div class="chat-name">
                 {{ user.nombre }}
-                {% if user.online %} 🟢 {% else %} ⚪ {% endif %}
             </div>
             <div class="chat-last">
                 Toca para chatear 💬
@@ -241,157 +174,27 @@
 {% endfor %}
 </div>
 
-<ul>
-{% for user in usuarios %}
-    {% if user.nombre != usuario_actual %}
-    <li>
-        {{ user.nombre }}
-        {% if user.online %} 🟢 {% else %} ⚪ {% endif %}
-        <a href="/chat/{{ user.nombre }}">💬 Chatear</a>
-    </li>
-    {% endif %}
-{% endfor %}
-</ul>
-
 <hr>
 
 {% if chat_con %}
 
-<h3>
-    {% if chat_con == "GLOBAL" %}
-        🌍 Chat Global
-    {% else %}
-        Chat con {{ chat_con }}
-    {% endif %}
-</h3>
+<h3>Chat con {{ chat_con }}</h3>
 
-<div id="chat-box" class="chat-box">
-    {% for m in mensajes %}
-    <div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
+<div id="chat-box">
+{% for m in mensajes %}
+    <div>
         <strong>{{ m.emisor }}:</strong> {{ m.mensaje }}
     </div>
-    {% endfor %}
+{% endfor %}
 </div>
 
-<form id="form-chat">
-    <input type="hidden" name="receptor" value="{{ chat_con }}" id="receptor">
-    <input type="text" name="mensaje" placeholder="Escribe mensaje..." required id="mensaje">
+<form method="post" action="/mensaje">
+    <input type="hidden" name="receptor" value="{{ chat_con }}">
+    <input type="text" name="mensaje" required>
     <button type="submit">Enviar</button>
 </form>
 
-<div style="margin-top:10px;">
-    <video id="video" width="250" autoplay style="border-radius:10px;"></video>
-    <br>
-    <button onclick="iniciarCamara()">Activar cámara</button>
-    <button onclick="tomarFoto()">Tomar foto</button>
-    <canvas id="canvas" style="display:none;"></canvas>
-</div>
-
-<script>
-const chatCon = "{{ chat_con }}";
-const usuarioActual = "{{ usuario_actual }}";
-
-async function actualizarChat() {
-    if (!chatCon) return;
-
-    let url = chatCon === "GLOBAL"
-        ? "/mensajes_global"
-        : `/mensajes_privados/${chatCon}`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    const chatBox = document.getElementById("chat-box");
-    chatBox.innerHTML = "";
-
-    data.mensajes.forEach(msg => {
-        const clase = msg.emisor === usuarioActual ? "mio" : "otro";
-        chatBox.innerHTML += `
-            <div class="mensaje ${clase}">
-                <strong>${msg.emisor}:</strong> ${msg.mensaje}
-            </div>
-        `;
-    });
-
-    chatBox.scrollTop = chatBox.scrollHeight;
-    setTimeout(actualizarChat, 2000);
-}
-
-actualizarChat();
-
-document.getElementById("form-chat").addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const mensajeInput = document.getElementById("mensaje");
-    const receptor = document.getElementById("receptor").value;
-
-    await fetch("/mensaje", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: `receptor=${receptor}&mensaje=${mensajeInput.value}`
-    });
-
-    mensajeInput.value = "";
-});
-
-let stream = null;
-
-async function iniciarCamara() {
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        document.getElementById("video").srcObject = stream;
-    } catch (error) {
-        alert("Error al acceder a la cámara");
-    }
-}
-
-function tomarFoto() {
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const context = canvas.getContext("2d");
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const imagen = canvas.toDataURL("image/png");
-
-    enviarFoto(imagen);
-}
-
-async function enviarFoto(imagen) {
-    await fetch("/enviar_foto", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ imagen: imagen })
-    });
-
-    alert("Foto enviada 📷");
-}
-</script>
-
 {% endif %}
-
-<div class="bottom-nav">
-
-    <a href="/" class="nav-item {{ 'activo' if not chat_con else '' }}">
-        💬 <br>Chats
-    </a>
-
-    <a href="/global" class="nav-item {{ 'activo' if chat_con == 'GLOBAL' else '' }}">
-        🌍 <br>Global
-    </a>
-
-    <a href="#" class="nav-item">
-        📞 <br>Llamadas
-    </a>
-
-</div>
 
 </body>
 </html>
