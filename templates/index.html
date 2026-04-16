@@ -1,17 +1,16 @@
 <!DOCTYPE html>
-
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>LoveConnect 💕</title>
 
-```
 <style>
     body {
         font-family: Arial;
         margin: 0;
         padding: 10px;
         overflow-x: hidden;
+        padding-bottom: 60px; /* espacio para barra inferior */
     }
 
     /* 🔥 BARRA PRO */
@@ -41,6 +40,69 @@
     }
 
     .btn-barra.activo {
+        color: green;
+        font-weight: bold;
+    }
+
+    /* 📱 LISTA TIPO WHATSAPP */
+    .chat-list {
+        width: 100%;
+    }
+
+    .chat-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        text-decoration: none;
+        color: black;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .chat-item:hover {
+        background-color: #f5f5f5;
+    }
+
+    .chat-avatar {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        margin-right: 10px;
+    }
+
+    .chat-info {
+        flex: 1;
+    }
+
+    .chat-name {
+        font-weight: bold;
+    }
+
+    .chat-last {
+        font-size: 12px;
+        color: gray;
+    }
+
+    /* 🔻 BARRA INFERIOR */
+    .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: white;
+        display: flex;
+        justify-content: space-around;
+        padding: 8px 0;
+        border-top: 1px solid #ccc;
+    }
+
+    .nav-item {
+        text-decoration: none;
+        color: gray;
+        font-size: 13px;
+        text-align: center;
+    }
+
+    .nav-item.activo {
         color: green;
         font-weight: bold;
     }
@@ -80,7 +142,6 @@
         text-align:left;
     }
 </style>
-```
 
 </head>
 <body>
@@ -88,7 +149,6 @@
 <h1>💕 LoveConnect</h1>
 
 <!-- 🔔 NOTIFICACIONES -->
-
 <div id="noti-container" style="position:relative; display:inline-block; margin-bottom:10px;">
     🔔
     <span id="noti-badge" style="
@@ -107,14 +167,12 @@
 <h3>Usuario actual: {{ usuario_actual }}</h3>
 
 {% if es_premium %}
-
 <p>⭐ Usuario Premium</p>
 {% else %}
 <p>Usuario Gratis</p>
 {% endif %}
 
 {% if not es_premium %}
-
 <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank">
     <input type="hidden" name="cmd" value="_xclick">
     <input type="hidden" name="business" value="mr6874823@gmail.com">
@@ -132,10 +190,8 @@
 <hr>
 
 <!-- 🔥 BARRA PRO -->
-
 <div class="barra-pro">
 
-```
 <a href="/">
     <button class="btn-barra {% if not chat_con %}activo{% endif %}">
         💬
@@ -154,7 +210,6 @@
     🔍
     <span>Buscar</span>
 </button>
-```
 
 </div>
 
@@ -169,6 +224,30 @@
 
 <h3>Usuarios 💕</h3>
 
+<!-- 🔥 NUEVA LISTA TIPO WHATSAPP -->
+<div class="chat-list">
+{% for user in usuarios %}
+    {% if user.nombre != usuario_actual %}
+    <a href="/chat/{{ user.nombre }}" class="chat-item">
+
+        <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" class="chat-avatar">
+
+        <div class="chat-info">
+            <div class="chat-name">
+                {{ user.nombre }}
+                {% if user.online %} 🟢 {% else %} ⚪ {% endif %}
+            </div>
+            <div class="chat-last">
+                Toca para chatear 💬
+            </div>
+        </div>
+
+    </a>
+    {% endif %}
+{% endfor %}
+</div>
+
+<!-- 🔹 LISTA ORIGINAL (NO BORRADA) -->
 <ul>
 {% for user in usuarios %}
     {% if user.nombre != usuario_actual %}
@@ -207,8 +286,7 @@
     <button type="submit">Enviar</button>
 </form>
 
-<!-- 📷 CÁMARA (NUEVO) -->
-
+<!-- 📷 CÁMARA -->
 <div style="margin-top:10px;">
     <video id="video" width="250" autoplay style="border-radius:10px;"></video>
     <br>
@@ -266,8 +344,7 @@ document.getElementById("form-chat").addEventListener("submit", async (e) => {
     mensajeInput.value = "";
 });
 
-
-// 📷 FUNCIONES DE CÁMARA (NUEVO)
+// 📷 CÁMARA
 let stream = null;
 
 async function iniciarCamara() {
@@ -276,7 +353,6 @@ async function iniciarCamara() {
         document.getElementById("video").srcObject = stream;
     } catch (error) {
         alert("Error al acceder a la cámara");
-        console.error(error);
     }
 }
 
@@ -309,6 +385,23 @@ async function enviarFoto(imagen) {
 </script>
 
 {% endif %}
+
+<!-- 🔻 BARRA INFERIOR -->
+<div class="bottom-nav">
+
+    <a href="/" class="nav-item {% if not chat_con %}activo{% endif %}">
+        💬 <br>Chats
+    </a>
+
+    <a href="/global" class="nav-item {% if chat_con == 'GLOBAL' %}activo{% endif %}">
+        🌍 <br>Global
+    </a>
+
+    <a href="#" class="nav-item">
+        📞 <br>Llamadas
+    </a>
+
+</div>
 
 </body>
 </html>
