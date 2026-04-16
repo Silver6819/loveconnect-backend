@@ -34,6 +34,7 @@ if DATABASE_URL:
 templates = Jinja2Templates(directory="templates")
 
 def render(template_name, request, context):
+    context["request"] = request  # 🔥 FIX CLAVE
     return templates.TemplateResponse(template_name, context)
 
 # ERROR
