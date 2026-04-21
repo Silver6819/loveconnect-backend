@@ -217,7 +217,15 @@
 <div id="chat-box" class="chat-box">
     {% for m in mensajes %}
     <div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
-        <strong>{{ m.emisor }}:</strong> {{ m.mensaje }}
+        <strong>{{ m.emisor }}:</strong>
+
+        {% if "[FOTO]" in m.mensaje %}
+            <br>
+            <img src="/{{ m.mensaje.replace('[FOTO]', '') }}" 
+                 style="max-width:150px; border-radius:10px; margin-top:5px;">
+        {% else %}
+            {{ m.mensaje }}
+        {% endif %}
     </div>
     {% endfor %}
 </div>
@@ -234,7 +242,6 @@
 <script>
     const chatCon = "{{ chat_con }}";
 
-    // 📸 FUNCIÓN LISTA PARA ENVÍO DE IMÁGENES (FASE 3 BASE)
     function enviarImagen(imagen) {
         fetch("/enviar_imagen", {
             method: "POST",
