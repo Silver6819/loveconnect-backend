@@ -76,30 +76,6 @@
         color: gray;
     }
 
-    .bottom-nav {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        background: white;
-        display: flex;
-        justify-content: space-around;
-        padding: 8px 0;
-        border-top: 1px solid #ccc;
-    }
-
-    .nav-item {
-        text-decoration: none;
-        color: gray;
-        font-size: 13px;
-        text-align: center;
-    }
-
-    .nav-item.activo {
-        color: green;
-        font-weight: bold;
-    }
-
     .chat-box {
         border:1px solid black;
         padding:8px;
@@ -232,6 +208,10 @@
 
 <form id="form-chat">
     <input type="hidden" name="receptor" value="{{ chat_con }}" id="receptor">
+
+    <!-- 📸 INPUT IMAGEN -->
+    <input type="file" id="input-imagen" accept="image/*" style="margin-bottom:5px;">
+
     <input type="text" name="mensaje" placeholder="Escribe mensaje..." required id="mensaje">
     <button type="submit">Enviar</button>
 </form>
@@ -287,6 +267,37 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
     };
+
+    // 📸 ENVÍO DE IMÁGENES
+    const inputImagen = document.getElementById("input-imagen");
+
+    inputImagen.addEventListener("change", function () {
+        const file = inputImagen.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+            const base64 = e.target.result;
+
+            fetch("/enviar_imagen", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    imagen: base64,
+                    receptor: chatCon
+                })
+            })
+            .then(res => res.json())
+            .then(() => {
+                inputImagen.value = "";
+            });
+        };
+
+        reader.readAsDataURL(file);
+    });
 </script>
 
 </body>
