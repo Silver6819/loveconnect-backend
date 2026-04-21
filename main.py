@@ -27,22 +27,18 @@ if DATABASE_URL:
 
 templates = Jinja2Templates(directory="templates")
 
-# ✅ FIX DEFINITIVO AQUÍ (VERSIÓN COMPATIBLE)
+# ✅ FIX FINAL PARA TU VERSIÓN
 def render(request, template_name, context):
-    try:
-        if not isinstance(context, dict):
-            context = dict(context)
+    if not isinstance(context, dict):
+        context = dict(context)
 
-        context["request"] = request
+    context["request"] = request
 
-        return templates.TemplateResponse(
-            name=template_name,
-            context=context
-        )
-    except Exception:
-        print("ERROR EN RENDER:")
-        print(traceback.format_exc())
-        raise
+    return templates.TemplateResponse(
+        template_name,
+        context,
+        request
+    )
 
 def mostrar_error():
     return HTMLResponse(f"<pre>{traceback.format_exc()}</pre>")
