@@ -27,23 +27,20 @@ if DATABASE_URL:
 
 templates = Jinja2Templates(directory="templates")
 
-# ✅ FIX FINAL PARA TU VERSIÓN
+# ✅ FIX FINAL DEFINITIVO
 def render(request, template_name, context):
     if not isinstance(context, dict):
         context = dict(context)
 
-    context["request"] = request
-
     return templates.TemplateResponse(
+        request,
         template_name,
-        context,
-        request
+        context
     )
 
 def mostrar_error():
     return HTMLResponse(f"<pre>{traceback.format_exc()}</pre>")
 
-# 🚀 STARTUP
 @app.on_event("startup")
 def startup():
     try:
@@ -72,7 +69,6 @@ def startup():
     except:
         print(traceback.format_exc())
 
-# 🏠 HOME
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     try:
@@ -93,7 +89,6 @@ async def home(request: Request):
     except:
         return mostrar_error()
 
-# 🔐 LOGIN / REGISTRO
 @app.post("/set_usuario")
 async def set_usuario(request: Request, usuario: str = Form(...)):
     try:
@@ -112,7 +107,6 @@ async def set_usuario(request: Request, usuario: str = Form(...)):
     except:
         return mostrar_error()
 
-# 💬 CHAT
 @app.get("/chat/{usuario}", response_class=HTMLResponse)
 async def chat(request: Request, usuario: str):
     try:
@@ -145,7 +139,6 @@ async def chat(request: Request, usuario: str):
     except:
         return mostrar_error()
 
-# 📩 MENSAJES
 @app.post("/mensaje")
 async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
     try:
@@ -163,7 +156,6 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
     except:
         return mostrar_error()
 
-# 🔄 REFRESH
 @app.get("/mensajes_privados/{usuario}")
 async def mensajes_privados(request: Request, usuario: str):
     try:
@@ -186,7 +178,6 @@ async def mensajes_privados(request: Request, usuario: str):
     except:
         return mostrar_error()
 
-# 📸 FOTO ORIGINAL
 @app.post("/enviar_foto")
 async def enviar_foto(request: Request, data: dict = Body(...)):
     try:
@@ -225,7 +216,6 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
     except:
         return mostrar_error()
 
-# 📸 COMPATIBILIDAD FASE 3
 @app.post("/enviar_imagen")
 async def enviar_imagen(request: Request, data: dict = Body(...)):
     try:
