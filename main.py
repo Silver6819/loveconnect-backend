@@ -27,10 +27,15 @@ if DATABASE_URL:
 
 templates = Jinja2Templates(directory="templates")
 
-# ✅ FIX AQUÍ
+# ✅ FIX DEFINITIVO AQUÍ
 def render(request, template_name, context):
+    # Asegura que siempre sea diccionario
+    if not isinstance(context, dict):
+        context = dict(context)
+
     context["request"] = request
-    return templates.TemplateResponse(template_name, context)
+
+    return templates.TemplateResponse(template_name, context=context)
 
 def mostrar_error():
     return HTMLResponse(f"<pre>{traceback.format_exc()}</pre>")
@@ -217,7 +222,7 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
     except:
         return mostrar_error()
 
-# 📸 COMPATIBILIDAD FASE 3 (NUEVO ENDPOINT)
+# 📸 COMPATIBILIDAD FASE 3
 @app.post("/enviar_imagen")
 async def enviar_imagen(request: Request, data: dict = Body(...)):
     try:
