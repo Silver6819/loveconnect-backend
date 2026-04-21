@@ -27,7 +27,9 @@ if DATABASE_URL:
 
 templates = Jinja2Templates(directory="templates")
 
+# ✅ FIX AQUÍ
 def render(request, template_name, context):
+    context["request"] = request
     return templates.TemplateResponse(template_name, context)
 
 def mostrar_error():
@@ -219,7 +221,6 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
 @app.post("/enviar_imagen")
 async def enviar_imagen(request: Request, data: dict = Body(...)):
     try:
-        # reutiliza el mismo sistema
         return await enviar_foto(request, data)
     except:
         return mostrar_error()
