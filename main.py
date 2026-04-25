@@ -156,6 +156,32 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
     except:
         return mostrar_error()
 
+# ✅ NUEVO: ENDPOINT HTML PARA AUTO REFRESH PRIVADO
+@app.get("/mensajes_privados_html/{usuario}", response_class=HTMLResponse)
+async def mensajes_privados_html(request: Request, usuario: str):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+        mensajes = []
+
+        if engine:
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE (emisor = :yo AND receptor = :otro)
+                       OR (emisor = :otro AND receptor = :yo)
+                    ORDER BY fecha ASC
+                """), {"yo": usuario_actual, "otro": usuario})
+
+                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+
+        return render(request, "private_messages.html", {
+            "mensajes": mensajes,
+            "usuario_actual": usuario_actual
+        })
+    except:
+        return mostrar_error()
+
 @app.get("/mensajes_privados/{usuario}")
 async def mensajes_privados(request: Request, usuario: str):
     try:
@@ -175,6 +201,29 @@ async def mensajes_privados(request: Request, usuario: str):
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
         return {"mensajes": mensajes}
+    except:
+        return mostrar_error()
+
+# ✅ NUEVO: GLOBAL (usa receptor = 'GLOBAL')
+@app.get("/mensajes_globales_html", response_class=HTMLResponse)
+async def mensajes_globales_html(request: Request):
+    try:
+        mensajes = []
+
+        if engine:
+            with engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE receptor = 'GLOBAL'
+                    ORDER BY fecha ASC
+                """))
+
+                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+
+        return render(request, "global_messages.html", {
+            "mensajes": mensajes
+        })
     except:
         return mostrar_error()
 
@@ -220,5 +269,14 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
 async def enviar_imagen(request: Request, data: dict = Body(...)):
     try:
         return await enviar_foto(request, data)
+    except:
+        return mostrar_error()
+
+# ✅ NUEVO: LOGOUT (SOLUCIONA EL ERROR)
+@app.get("/logout")
+async def logout(request: Request):
+    try:
+        request.session.clear()
+        return RedirectResponse(url="/", status_code=302)
     except:
         return mostrar_error()
