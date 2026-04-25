@@ -186,7 +186,6 @@
 
 <hr>
 
-<!-- 🔥 SIEMPRE MOSTRAR SI HAY CHAT (PRIVADO O GLOBAL) -->
 {% if chat_con is not none %}
 
 <h3>
@@ -200,7 +199,7 @@
 <div id="chat-box" class="chat-box"></div>
 
 <form id="form-chat">
-    <input type="hidden" name="receptor" value="{{ chat_con }}" id="receptor">
+    <input type="hidden" id="receptor">
 
     <input type="file" id="input-imagen" accept="image/*" style="margin-bottom:5px;">
 
@@ -214,11 +213,19 @@
 const chatCon = "{{ chat_con }}";
 const chatBox = document.getElementById("chat-box");
 
+// ✅ asignar receptor correctamente
+const receptorInput = document.getElementById("receptor");
+if (receptorInput && chatCon) {
+    receptorInput.value = chatCon;
+}
+
+// 🔽 detectar si está abajo
 function estaAbajo() {
     if (!chatBox) return true;
     return chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 20;
 }
 
+// 🎨 render mensaje
 function renderMensaje(m) {
     let clase = m.emisor === "{{ usuario_actual }}" ? "mio" : "otro";
 
@@ -227,7 +234,7 @@ function renderMensaje(m) {
         return `
             <div class="mensaje ${clase}">
                 <strong>${m.emisor}:</strong><br>
-                <img src="/${ruta}" style="max-width:150px; border-radius:10px; margin-top:5px;">
+                <img src="/${ruta}" style="max-width:150px; border-radius:10px;">
             </div>
         `;
     } else {
@@ -239,8 +246,9 @@ function renderMensaje(m) {
     }
 }
 
+// 🔄 cargar mensajes
 function cargarMensajes() {
-    if (!chatCon || !chatBox) return;
+    if (!chatBox || chatCon === "" || chatCon === "None") return;
 
     const abajo = estaAbajo();
 
@@ -263,13 +271,35 @@ function cargarMensajes() {
 
 setInterval(cargarMensajes, 2000);
 
-window.onload = () => {
-    if (chatBox) {
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-};
+// 🚀 envío mensaje
+const formChat = document.getElementById("form-chat");
 
-// 📸 IMÁGENES
+if (formChat) {
+    formChat.addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        const mensajeInput = document.getElementById("mensaje");
+        const mensaje = mensajeInput.value.trim();
+
+        if (!mensaje) return;
+
+        const formData = new FormData();
+        formData.append("receptor", chatCon);
+        formData.append("mensaje", mensaje);
+
+        fetch("/mensaje", {
+            method: "POST",
+            body: formData
+        })
+        .then(res => res.json())
+        .then(() => {
+            mensajeInput.value = "";
+            cargarMensajes(); // 🔥 refresco inmediato
+        });
+    });
+}
+
+// 📸 imágenes
 const inputImagen = document.getElementById("input-imagen");
 
 if (inputImagen) {
@@ -280,27 +310,24 @@ if (inputImagen) {
         const reader = new FileReader();
 
         reader.onload = function (e) {
-            const base64 = e.target.result;
-
             fetch("/enviar_imagen", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({
-                    imagen: base64,
+                    imagen: e.target.result,
                     receptor: chatCon
                 })
-            })
-            .then(res => res.json())
-            .then(() => {
-                inputImagen.value = "";
-            });
+            }).then(() => cargarMensajes());
         };
 
         reader.readAsDataURL(file);
     });
 }
+
+// scroll inicial
+window.onload = () => {
+    if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+};
 </script>
 
 </body>
