@@ -209,7 +209,6 @@
 <form id="form-chat">
     <input type="hidden" name="receptor" value="{{ chat_con }}" id="receptor">
 
-    <!-- 📸 INPUT IMAGEN -->
     <input type="file" id="input-imagen" accept="image/*" style="margin-bottom:5px;">
 
     <input type="text" name="mensaje" placeholder="Escribe mensaje..." required id="mensaje">
@@ -219,58 +218,75 @@
 {% endif %}
 
 <script>
-    const chatCon = "{{ chat_con }}";
-    const chatBox = document.getElementById("chat-box");
+const chatCon = "{{ chat_con }}";
+const chatBox = document.getElementById("chat-box");
 
-    function renderMensaje(m) {
-        let clase = m.emisor === "{{ usuario_actual }}" ? "mio" : "otro";
+// 🔥 Detecta si el usuario está abajo
+function estaAbajo() {
+    if (!chatBox) return true;
+    return chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 20;
+}
 
-        if (m.mensaje.includes("[FOTO]")) {
-            let ruta = m.mensaje.replace("[FOTO]", "");
-            return `
-                <div class="mensaje ${clase}">
-                    <strong>${m.emisor}:</strong><br>
-                    <img src="/${ruta}" style="max-width:150px; border-radius:10px; margin-top:5px;">
-                </div>
-            `;
-        } else {
-            return `
-                <div class="mensaje ${clase}">
-                    <strong>${m.emisor}:</strong> ${m.mensaje}
-                </div>
-            `;
-        }
+// 🔥 Render de mensaje
+function renderMensaje(m) {
+    let clase = m.emisor === "{{ usuario_actual }}" ? "mio" : "otro";
+
+    if (m.mensaje.includes("[FOTO]")) {
+        let ruta = m.mensaje.replace("[FOTO]", "");
+        return `
+            <div class="mensaje ${clase}">
+                <strong>${m.emisor}:</strong><br>
+                <img src="/${ruta}" style="max-width:150px; border-radius:10px; margin-top:5px;">
+            </div>
+        `;
+    } else {
+        return `
+            <div class="mensaje ${clase}">
+                <strong>${m.emisor}:</strong> ${m.mensaje}
+            </div>
+        `;
     }
+}
 
-    function cargarMensajes() {
-        if (!chatCon) return;
+// 🔄 Auto refresh INTELIGENTE
+function cargarMensajes() {
+    if (!chatCon) return;
 
-        fetch("/mensajes_privados/" + chatCon)
-        .then(res => res.json())
-        .then(data => {
-            if (!chatBox) return;
+    const abajo = estaAbajo();
 
-            chatBox.innerHTML = "";
+    fetch("/mensajes_privados/" + chatCon)
+    .then(res => res.json())
+    .then(data => {
+        if (!chatBox) return;
 
-            data.mensajes.forEach(m => {
-                chatBox.innerHTML += renderMensaje(m);
-            });
+        let html = "";
 
-            chatBox.scrollTop = chatBox.scrollHeight;
+        data.mensajes.forEach(m => {
+            html += renderMensaje(m);
         });
-    }
 
-    setInterval(cargarMensajes, 2000);
+        chatBox.innerHTML = html;
 
-    window.onload = () => {
-        if (chatBox) {
+        if (abajo) {
             chatBox.scrollTop = chatBox.scrollHeight;
         }
-    };
+    });
+}
 
-    // 📸 ENVÍO DE IMÁGENES
-    const inputImagen = document.getElementById("input-imagen");
+// ⏱️ Cada 2 segundos
+setInterval(cargarMensajes, 2000);
 
+// 📍 Scroll inicial
+window.onload = () => {
+    if (chatBox) {
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+};
+
+// 📸 ENVÍO DE IMÁGENES
+const inputImagen = document.getElementById("input-imagen");
+
+if (inputImagen) {
     inputImagen.addEventListener("change", function () {
         const file = inputImagen.files[0];
         if (!file) return;
@@ -298,6 +314,7 @@
 
         reader.readAsDataURL(file);
     });
+}
 </script>
 
 </body>
