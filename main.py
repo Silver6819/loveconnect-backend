@@ -27,7 +27,6 @@ if DATABASE_URL:
 
 templates = Jinja2Templates(directory="templates")
 
-# ✅ FIX FINAL DEFINITIVO
 def render(request, template_name, context):
     if not isinstance(context, dict):
         context = dict(context)
@@ -39,7 +38,7 @@ def render(request, template_name, context):
     )
 
 def mostrar_error():
-    return HTMLResponse(f"<pre>{traceback.format_exc()}</pre>")
+    return HTMLResponse("<h3>Error interno</h3><pre>" + traceback.format_exc() + "</pre>")
 
 @app.on_event("startup")
 def startup():
@@ -75,9 +74,12 @@ async def home(request: Request):
         usuarios = []
 
         if engine:
-            with engine.connect() as conn:
-                result = conn.execute(text("SELECT nombre FROM usuarios"))
-                usuarios = [{"nombre": r[0], "online": True} for r in result.fetchall()]
+            try:
+                with engine.connect() as conn:
+                    result = conn.execute(text("SELECT nombre FROM usuarios"))
+                    usuarios = [{"nombre": r[0], "online": True} for r in result.fetchall()]
+            except:
+                print("DB ERROR HOME:", traceback.format_exc())
 
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -95,13 +97,16 @@ async def set_usuario(request: Request, usuario: str = Form(...)):
         request.session["usuario"] = usuario
 
         if engine:
-            with engine.connect() as conn:
-                conn.execute(text("""
-                    INSERT INTO usuarios (nombre)
-                    VALUES (:nombre)
-                    ON CONFLICT (nombre) DO NOTHING
-                """), {"nombre": usuario})
-                conn.commit()
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("""
+                        INSERT INTO usuarios (nombre)
+                        VALUES (:nombre)
+                        ON CONFLICT (nombre) DO NOTHING
+                    """), {"nombre": usuario})
+                    conn.commit()
+            except:
+                print("DB ERROR SET USUARIO:", traceback.format_exc())
 
         return RedirectResponse("/", status_code=303)
     except:
@@ -115,19 +120,22 @@ async def chat(request: Request, usuario: str):
         usuarios = []
 
         if engine:
-            with engine.connect() as conn:
-                result = conn.execute(text("""
-                    SELECT emisor, mensaje
-                    FROM mensajes
-                    WHERE (emisor = :yo AND receptor = :otro)
-                       OR (emisor = :otro AND receptor = :yo)
-                    ORDER BY fecha ASC
-                """), {"yo": usuario_actual, "otro": usuario})
+            try:
+                with engine.connect() as conn:
+                    result = conn.execute(text("""
+                        SELECT emisor, mensaje
+                        FROM mensajes
+                        WHERE (emisor = :yo AND receptor = :otro)
+                           OR (emisor = :otro AND receptor = :yo)
+                        ORDER BY fecha ASC
+                    """), {"yo": usuario_actual, "otro": usuario})
 
-                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+                    mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
-                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
-                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+                    result_users = conn.execute(text("SELECT nombre FROM usuarios"))
+                    usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+            except:
+                print("DB ERROR CHAT:", traceback.format_exc())
 
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -145,18 +153,21 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
         usuario_actual = request.session.get("usuario", "Invitado")
 
         if engine:
-            with engine.connect() as conn:
-                conn.execute(text("""
-                    INSERT INTO mensajes (emisor, receptor, mensaje)
-                    VALUES (:e, :r, :m)
-                """), {"e": usuario_actual, "r": receptor, "m": mensaje})
-                conn.commit()
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("""
+                        INSERT INTO mensajes (emisor, receptor, mensaje)
+                        VALUES (:e, :r, :m)
+                    """), {"e": usuario_actual, "r": receptor, "m": mensaje})
+                    conn.commit()
+            except:
+                print("DB ERROR MENSAJE:", traceback.format_exc())
 
         return {"ok": True}
     except:
         return mostrar_error()
 
-# ✅ NUEVO: ENDPOINT HTML PARA AUTO REFRESH PRIVADO
+# 🔄 AUTO REFRESH PRIVADO (HTML)
 @app.get("/mensajes_privados_html/{usuario}", response_class=HTMLResponse)
 async def mensajes_privados_html(request: Request, usuario: str):
     try:
@@ -164,20 +175,49 @@ async def mensajes_privados_html(request: Request, usuario: str):
         mensajes = []
 
         if engine:
-            with engine.connect() as conn:
-                result = conn.execute(text("""
-                    SELECT emisor, mensaje
-                    FROM mensajes
-                    WHERE (emisor = :yo AND receptor = :otro)
-                       OR (emisor = :otro AND receptor = :yo)
-                    ORDER BY fecha ASC
-                """), {"yo": usuario_actual, "otro": usuario})
+            try:
+                with engine.connect() as conn:
+                    result = conn.execute(text("""
+                        SELECT emisor, mensaje
+                        FROM mensajes
+                        WHERE (emisor = :yo AND receptor = :otro)
+                           OR (emisor = :otro AND receptor = :yo)
+                        ORDER BY fecha ASC
+                    """), {"yo": usuario_actual, "otro": usuario})
 
-                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+                    mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+            except:
+                print("DB ERROR PRIVADO HTML:", traceback.format_exc())
 
         return render(request, "private_messages.html", {
             "mensajes": mensajes,
             "usuario_actual": usuario_actual
+        })
+    except:
+        return mostrar_error()
+
+# 🔄 AUTO REFRESH GLOBAL
+@app.get("/mensajes_globales_html", response_class=HTMLResponse)
+async def mensajes_globales_html(request: Request):
+    try:
+        mensajes = []
+
+        if engine:
+            try:
+                with engine.connect() as conn:
+                    result = conn.execute(text("""
+                        SELECT emisor, mensaje
+                        FROM mensajes
+                        WHERE receptor = 'GLOBAL'
+                        ORDER BY fecha ASC
+                    """))
+
+                    mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+            except:
+                print("DB ERROR GLOBAL:", traceback.format_exc())
+
+        return render(request, "global_messages.html", {
+            "mensajes": mensajes
         })
     except:
         return mostrar_error()
@@ -189,41 +229,21 @@ async def mensajes_privados(request: Request, usuario: str):
         mensajes = []
 
         if engine:
-            with engine.connect() as conn:
-                result = conn.execute(text("""
-                    SELECT emisor, mensaje
-                    FROM mensajes
-                    WHERE (emisor = :yo AND receptor = :otro)
-                       OR (emisor = :otro AND receptor = :yo)
-                    ORDER BY fecha ASC
-                """), {"yo": usuario_actual, "otro": usuario})
+            try:
+                with engine.connect() as conn:
+                    result = conn.execute(text("""
+                        SELECT emisor, mensaje
+                        FROM mensajes
+                        WHERE (emisor = :yo AND receptor = :otro)
+                           OR (emisor = :otro AND receptor = :yo)
+                        ORDER BY fecha ASC
+                    """), {"yo": usuario_actual, "otro": usuario})
 
-                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+                    mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+            except:
+                print("DB ERROR PRIVADO JSON:", traceback.format_exc())
 
         return {"mensajes": mensajes}
-    except:
-        return mostrar_error()
-
-# ✅ NUEVO: GLOBAL (usa receptor = 'GLOBAL')
-@app.get("/mensajes_globales_html", response_class=HTMLResponse)
-async def mensajes_globales_html(request: Request):
-    try:
-        mensajes = []
-
-        if engine:
-            with engine.connect() as conn:
-                result = conn.execute(text("""
-                    SELECT emisor, mensaje
-                    FROM mensajes
-                    WHERE receptor = 'GLOBAL'
-                    ORDER BY fecha ASC
-                """))
-
-                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
-
-        return render(request, "global_messages.html", {
-            "mensajes": mensajes
-        })
     except:
         return mostrar_error()
 
@@ -250,16 +270,19 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
             f.write(imagen_bytes)
 
         if engine:
-            with engine.connect() as conn:
-                conn.execute(text("""
-                    INSERT INTO mensajes (emisor, receptor, mensaje)
-                    VALUES (:e, :r, :m)
-                """), {
-                    "e": usuario_actual,
-                    "r": receptor,
-                    "m": f"[FOTO]{ruta}"
-                })
-                conn.commit()
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("""
+                        INSERT INTO mensajes (emisor, receptor, mensaje)
+                        VALUES (:e, :r, :m)
+                    """), {
+                        "e": usuario_actual,
+                        "r": receptor,
+                        "m": f"[FOTO]{ruta}"
+                    })
+                    conn.commit()
+            except:
+                print("DB ERROR FOTO:", traceback.format_exc())
 
         return {"ok": True}
     except:
@@ -272,7 +295,7 @@ async def enviar_imagen(request: Request, data: dict = Body(...)):
     except:
         return mostrar_error()
 
-# ✅ NUEVO: LOGOUT (SOLUCIONA EL ERROR)
+# 🚪 LOGOUT (ARREGLADO)
 @app.get("/logout")
 async def logout(request: Request):
     try:
