@@ -186,25 +186,18 @@
 
 <hr>
 
-{% if chat_con %}
+<!-- 🔥 SIEMPRE MOSTRAR SI HAY CHAT (PRIVADO O GLOBAL) -->
+{% if chat_con is not none %}
 
-<h3>Chat con {{ chat_con }}</h3>
+<h3>
+    {% if chat_con == "GLOBAL" %}
+        🌍 Chat Global
+    {% else %}
+        Chat con {{ chat_con }}
+    {% endif %}
+</h3>
 
-<div id="chat-box" class="chat-box">
-    {% for m in mensajes %}
-    <div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
-        <strong>{{ m.emisor }}:</strong>
-
-        {% if "[FOTO]" in m.mensaje %}
-            <br>
-            <img src="/{{ m.mensaje.replace('[FOTO]', '') }}" 
-                 style="max-width:150px; border-radius:10px; margin-top:5px;">
-        {% else %}
-            {{ m.mensaje }}
-        {% endif %}
-    </div>
-    {% endfor %}
-</div>
+<div id="chat-box" class="chat-box"></div>
 
 <form id="form-chat">
     <input type="hidden" name="receptor" value="{{ chat_con }}" id="receptor">
@@ -221,13 +214,11 @@
 const chatCon = "{{ chat_con }}";
 const chatBox = document.getElementById("chat-box");
 
-// 🔥 Detecta si el usuario está abajo
 function estaAbajo() {
     if (!chatBox) return true;
     return chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 20;
 }
 
-// 🔥 Render de mensaje
 function renderMensaje(m) {
     let clase = m.emisor === "{{ usuario_actual }}" ? "mio" : "otro";
 
@@ -248,17 +239,14 @@ function renderMensaje(m) {
     }
 }
 
-// 🔄 Auto refresh INTELIGENTE
 function cargarMensajes() {
-    if (!chatCon) return;
+    if (!chatCon || !chatBox) return;
 
     const abajo = estaAbajo();
 
     fetch("/mensajes_privados/" + chatCon)
     .then(res => res.json())
     .then(data => {
-        if (!chatBox) return;
-
         let html = "";
 
         data.mensajes.forEach(m => {
@@ -273,17 +261,15 @@ function cargarMensajes() {
     });
 }
 
-// ⏱️ Cada 2 segundos
 setInterval(cargarMensajes, 2000);
 
-// 📍 Scroll inicial
 window.onload = () => {
     if (chatBox) {
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 };
 
-// 📸 ENVÍO DE IMÁGENES
+// 📸 IMÁGENES
 const inputImagen = document.getElementById("input-imagen");
 
 if (inputImagen) {
