@@ -31,11 +31,7 @@ def render(request, template_name, context):
     if not isinstance(context, dict):
         context = dict(context)
 
-    return templates.TemplateResponse(
-        request,
-        template_name,
-        context
-    )
+    return templates.TemplateResponse(request, template_name, context)
 
 def mostrar_error():
     return HTMLResponse("<h3>Error interno</h3><pre>" + traceback.format_exc() + "</pre>")
@@ -147,6 +143,40 @@ async def chat(request: Request, usuario: str):
     except:
         return mostrar_error()
 
+@app.get("/global", response_class=HTMLResponse)
+async def global_chat(request: Request):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+        mensajes = []
+        usuarios = []
+
+        if engine:
+            try:
+                with engine.connect() as conn:
+                    result = conn.execute(text("""
+                        SELECT emisor, mensaje
+                        FROM mensajes
+                        WHERE receptor = 'GLOBAL'
+                        ORDER BY fecha ASC
+                    """))
+
+                    mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+
+                    result_users = conn.execute(text("SELECT nombre FROM usuarios"))
+                    usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+            except:
+                print("DB ERROR GLOBAL:", traceback.format_exc())
+
+        return render(request, "index.html", {
+            "usuarios": usuarios,
+            "usuario_actual": usuario_actual,
+            "chat_con": "GLOBAL",
+            "mensajes": mensajes,
+            "es_premium": False
+        })
+    except:
+        return mostrar_error()
+
 @app.post("/mensaje")
 async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
     try:
@@ -167,61 +197,6 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
     except:
         return mostrar_error()
 
-# 🔄 AUTO REFRESH PRIVADO (HTML)
-@app.get("/mensajes_privados_html/{usuario}", response_class=HTMLResponse)
-async def mensajes_privados_html(request: Request, usuario: str):
-    try:
-        usuario_actual = request.session.get("usuario", "Invitado")
-        mensajes = []
-
-        if engine:
-            try:
-                with engine.connect() as conn:
-                    result = conn.execute(text("""
-                        SELECT emisor, mensaje
-                        FROM mensajes
-                        WHERE (emisor = :yo AND receptor = :otro)
-                           OR (emisor = :otro AND receptor = :yo)
-                        ORDER BY fecha ASC
-                    """), {"yo": usuario_actual, "otro": usuario})
-
-                    mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
-            except:
-                print("DB ERROR PRIVADO HTML:", traceback.format_exc())
-
-        return render(request, "private_messages.html", {
-            "mensajes": mensajes,
-            "usuario_actual": usuario_actual
-        })
-    except:
-        return mostrar_error()
-
-# 🔄 AUTO REFRESH GLOBAL
-@app.get("/mensajes_globales_html", response_class=HTMLResponse)
-async def mensajes_globales_html(request: Request):
-    try:
-        mensajes = []
-
-        if engine:
-            try:
-                with engine.connect() as conn:
-                    result = conn.execute(text("""
-                        SELECT emisor, mensaje
-                        FROM mensajes
-                        WHERE receptor = 'GLOBAL'
-                        ORDER BY fecha ASC
-                    """))
-
-                    mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
-            except:
-                print("DB ERROR GLOBAL:", traceback.format_exc())
-
-        return render(request, "global_messages.html", {
-            "mensajes": mensajes
-        })
-    except:
-        return mostrar_error()
-
 @app.get("/mensajes_privados/{usuario}")
 async def mensajes_privados(request: Request, usuario: str):
     try:
@@ -231,17 +206,25 @@ async def mensajes_privados(request: Request, usuario: str):
         if engine:
             try:
                 with engine.connect() as conn:
-                    result = conn.execute(text("""
-                        SELECT emisor, mensaje
-                        FROM mensajes
-                        WHERE (emisor = :yo AND receptor = :otro)
-                           OR (emisor = :otro AND receptor = :yo)
-                        ORDER BY fecha ASC
-                    """), {"yo": usuario_actual, "otro": usuario})
+                    if usuario == "GLOBAL":
+                        result = conn.execute(text("""
+                            SELECT emisor, mensaje
+                            FROM mensajes
+                            WHERE receptor = 'GLOBAL'
+                            ORDER BY fecha ASC
+                        """))
+                    else:
+                        result = conn.execute(text("""
+                            SELECT emisor, mensaje
+                            FROM mensajes
+                            WHERE (emisor = :yo AND receptor = :otro)
+                               OR (emisor = :otro AND receptor = :yo)
+                            ORDER BY fecha ASC
+                        """), {"yo": usuario_actual, "otro": usuario})
 
                     mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
             except:
-                print("DB ERROR PRIVADO JSON:", traceback.format_exc())
+                print("DB ERROR MENSAJES:", traceback.format_exc())
 
         return {"mensajes": mensajes}
     except:
@@ -295,7 +278,6 @@ async def enviar_imagen(request: Request, data: dict = Body(...)):
     except:
         return mostrar_error()
 
-# 🚪 LOGOUT (ARREGLADO)
 @app.get("/logout")
 async def logout(request: Request):
     try:
