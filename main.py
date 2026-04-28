@@ -30,8 +30,7 @@ templates = Jinja2Templates(directory="templates")
 def render(request, template_name, context):
     if not isinstance(context, dict):
         context = dict(context)
-
-    return templates.TemplateResponse(request, template_name, context)
+    return templates.TemplateResponse(template_name, {**context, "request": request})
 
 def mostrar_error():
     return HTMLResponse("<h3>Error interno</h3><pre>" + traceback.format_exc() + "</pre>")
@@ -42,7 +41,7 @@ def startup():
         if not engine:
             return
 
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS mensajes (
                     id SERIAL PRIMARY KEY,
@@ -59,8 +58,6 @@ def startup():
                     nombre TEXT UNIQUE
                 )
             """))
-
-            conn.commit()
     except:
         print(traceback.format_exc())
 
@@ -70,12 +67,9 @@ async def home(request: Request):
         usuarios = []
 
         if engine:
-            try:
-                with engine.connect() as conn:
-                    result = conn.execute(text("SELECT nombre FROM usuarios"))
-                    usuarios = [{"nombre": r[0], "online": True} for r in result.fetchall()]
-            except:
-                print("DB ERROR HOME:", traceback.format_exc())
+            with engine.begin() as conn:
+                result = conn.execute(text("SELECT nombre FROM usuarios"))
+                usuarios = [{"nombre": r[0], "online": True} for r in result.fetchall()]
 
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -93,16 +87,12 @@ async def set_usuario(request: Request, usuario: str = Form(...)):
         request.session["usuario"] = usuario
 
         if engine:
-            try:
-                with engine.connect() as conn:
-                    conn.execute(text("""
-                        INSERT INTO usuarios (nombre)
-                        VALUES (:nombre)
-                        ON CONFLICT (nombre) DO NOTHING
-                    """), {"nombre": usuario})
-                    conn.commit()
-            except:
-                print("DB ERROR SET USUARIO:", traceback.format_exc())
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    INSERT INTO usuarios (nombre)
+                    VALUES (:nombre)
+                    ON CONFLICT (nombre) DO NOTHING
+                """), {"nombre": usuario})
 
         return RedirectResponse("/", status_code=303)
     except:
@@ -112,26 +102,20 @@ async def set_usuario(request: Request, usuario: str = Form(...)):
 async def chat(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
-        mensajes = []
-        usuarios = []
 
-        if engine:
-            try:
-                with engine.connect() as conn:
-                    result = conn.execute(text("""
-                        SELECT emisor, mensaje
-                        FROM mensajes
-                        WHERE (emisor = :yo AND receptor = :otro)
-                           OR (emisor = :otro AND receptor = :yo)
-                        ORDER BY fecha ASC
-                    """), {"yo": usuario_actual, "otro": usuario})
+        with engine.begin() as conn:
+            result = conn.execute(text("""
+                SELECT emisor, mensaje
+                FROM mensajes
+                WHERE (emisor = :yo AND receptor = :otro)
+                   OR (emisor = :otro AND receptor = :yo)
+                ORDER BY fecha ASC
+            """), {"yo": usuario_actual, "otro": usuario})
 
-                    mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+            mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
-                    result_users = conn.execute(text("SELECT nombre FROM usuarios"))
-                    usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
-            except:
-                print("DB ERROR CHAT:", traceback.format_exc())
+            result_users = conn.execute(text("SELECT nombre FROM usuarios"))
+            usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
 
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -147,25 +131,19 @@ async def chat(request: Request, usuario: str):
 async def global_chat(request: Request):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
-        mensajes = []
-        usuarios = []
 
-        if engine:
-            try:
-                with engine.connect() as conn:
-                    result = conn.execute(text("""
-                        SELECT emisor, mensaje
-                        FROM mensajes
-                        WHERE receptor = 'GLOBAL'
-                        ORDER BY fecha ASC
-                    """))
+        with engine.begin() as conn:
+            result = conn.execute(text("""
+                SELECT emisor, mensaje
+                FROM mensajes
+                WHERE receptor = 'GLOBAL'
+                ORDER BY fecha ASC
+            """))
 
-                    mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+            mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
-                    result_users = conn.execute(text("SELECT nombre FROM usuarios"))
-                    usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
-            except:
-                print("DB ERROR GLOBAL:", traceback.format_exc())
+            result_users = conn.execute(text("SELECT nombre FROM usuarios"))
+            usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
 
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -182,16 +160,15 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
+        if not mensaje.strip():
+            return {"ok": False}
+
         if engine:
-            try:
-                with engine.connect() as conn:
-                    conn.execute(text("""
-                        INSERT INTO mensajes (emisor, receptor, mensaje)
-                        VALUES (:e, :r, :m)
-                    """), {"e": usuario_actual, "r": receptor, "m": mensaje})
-                    conn.commit()
-            except:
-                print("DB ERROR MENSAJE:", traceback.format_exc())
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    INSERT INTO mensajes (emisor, receptor, mensaje)
+                    VALUES (:e, :r, :m)
+                """), {"e": usuario_actual, "r": receptor, "m": mensaje})
 
         return {"ok": True}
     except:
@@ -201,30 +178,25 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
 async def mensajes_privados(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
-        mensajes = []
 
-        if engine:
-            try:
-                with engine.connect() as conn:
-                    if usuario == "GLOBAL":
-                        result = conn.execute(text("""
-                            SELECT emisor, mensaje
-                            FROM mensajes
-                            WHERE receptor = 'GLOBAL'
-                            ORDER BY fecha ASC
-                        """))
-                    else:
-                        result = conn.execute(text("""
-                            SELECT emisor, mensaje
-                            FROM mensajes
-                            WHERE (emisor = :yo AND receptor = :otro)
-                               OR (emisor = :otro AND receptor = :yo)
-                            ORDER BY fecha ASC
-                        """), {"yo": usuario_actual, "otro": usuario})
+        with engine.begin() as conn:
+            if usuario == "GLOBAL":
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE receptor = 'GLOBAL'
+                    ORDER BY fecha ASC
+                """))
+            else:
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE (emisor = :yo AND receptor = :otro)
+                       OR (emisor = :otro AND receptor = :yo)
+                    ORDER BY fecha ASC
+                """), {"yo": usuario_actual, "otro": usuario})
 
-                    mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
-            except:
-                print("DB ERROR MENSAJES:", traceback.format_exc())
+            mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
         return {"mensajes": mensajes}
     except:
@@ -253,19 +225,15 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
             f.write(imagen_bytes)
 
         if engine:
-            try:
-                with engine.connect() as conn:
-                    conn.execute(text("""
-                        INSERT INTO mensajes (emisor, receptor, mensaje)
-                        VALUES (:e, :r, :m)
-                    """), {
-                        "e": usuario_actual,
-                        "r": receptor,
-                        "m": f"[FOTO]{ruta}"
-                    })
-                    conn.commit()
-            except:
-                print("DB ERROR FOTO:", traceback.format_exc())
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    INSERT INTO mensajes (emisor, receptor, mensaje)
+                    VALUES (:e, :r, :m)
+                """), {
+                    "e": usuario_actual,
+                    "r": receptor,
+                    "m": f"[FOTO]{ruta}"
+                })
 
         return {"ok": True}
     except:
@@ -273,15 +241,12 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
 
 @app.post("/enviar_imagen")
 async def enviar_imagen(request: Request, data: dict = Body(...)):
-    try:
-        return await enviar_foto(request, data)
-    except:
-        return mostrar_error()
+    return await enviar_foto(request, data)
 
 @app.get("/logout")
 async def logout(request: Request):
     try:
         request.session.clear()
-        return RedirectResponse(url="/", status_code=302)
+        return RedirectResponse(url="/", status_code=303)
     except:
         return mostrar_error()
