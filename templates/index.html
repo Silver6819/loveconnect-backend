@@ -5,151 +5,78 @@
     <title>LoveConnect 💕</title>
 
 <style>
-    body {
-        font-family: Arial;
-        margin: 0;
-        padding: 10px;
-        overflow-x: hidden;
-        padding-bottom: 60px;
-    }
+body {
+    font-family: Arial;
+    margin: 0;
+    padding: 10px;
+    overflow-x: hidden;
+    padding-bottom: 60px;
+}
 
-    .barra-pro {
-        display: flex;
-        justify-content: space-around;
-        background: #ffffff;
-        padding: 8px 5px;
-        border-bottom: 1px solid #ccc;
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-    }
+.barra-pro {
+    display: flex;
+    justify-content: space-around;
+    background: #ffffff;
+    padding: 8px 5px;
+    border-bottom: 1px solid #ccc;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
 
-    .btn-barra {
-        background: none;
-        border: none;
-        font-size: 14px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        color: #555;
-    }
+.btn-barra {
+    background: none;
+    border: none;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #555;
+}
 
-    .btn-barra span {
-        font-size: 11px;
-    }
+.chat-box {
+    border:1px solid black;
+    padding:8px;
+    height:300px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    background:#e5ddd5;
+}
 
-    .btn-barra.activo {
-        color: green;
-        font-weight: bold;
-    }
+.mensaje {
+    max-width: 80%;
+    padding:6px 10px;
+    margin:3px 0;
+    border-radius:12px;
+    word-wrap: break-word;
+    font-size: 13px;
+}
 
-    .chat-list {
-        width: 100%;
-    }
+.mio {
+    background-color:#dcf8c6;
+    align-self:flex-end;
+}
 
-    .chat-item {
-        display: flex;
-        align-items: center;
-        padding: 10px;
-        text-decoration: none;
-        color: black;
-        border-bottom: 1px solid #ddd;
-    }
-
-    .chat-avatar {
-        width: 45px;
-        height: 45px;
-        border-radius: 50%;
-        margin-right: 10px;
-    }
-
-    .chat-info {
-        flex: 1;
-    }
-
-    .chat-name {
-        font-weight: bold;
-    }
-
-    .chat-last {
-        font-size: 12px;
-        color: gray;
-    }
-
-    .chat-box {
-        border:1px solid black;
-        padding:8px;
-        height:300px;
-        overflow-y:auto;
-        overflow-x:hidden;
-        display:flex;
-        flex-direction:column;
-        background:#e5ddd5;
-        width:100%;
-        box-sizing:border-box;
-    }
-
-    .mensaje {
-        max-width: 80%;
-        padding:6px 10px;
-        margin:3px 0;
-        border-radius:12px;
-        word-wrap: break-word;
-        word-break: break-word;
-        font-size: 13px;
-    }
-
-    .mio {
-        background-color:#dcf8c6;
-        align-self:flex-end;
-        text-align:right;
-    }
-
-    .otro {
-        background-color:#ffffff;
-        align-self:flex-start;
-        text-align:left;
-    }
+.otro {
+    background-color:#ffffff;
+    align-self:flex-start;
+}
 </style>
 
 </head>
 <body>
 
 <h1>💕 LoveConnect</h1>
-
 <h3>Usuario actual: {{ usuario_actual }}</h3>
-
-{% if es_premium %}
-<p>⭐ Usuario Premium</p>
-{% else %}
-<p>Usuario Gratis</p>
-{% endif %}
 
 <a href="/logout"><button>Cerrar sesión</button></a>
 
 <hr>
 
 <div class="barra-pro">
-
-<a href="/">
-    <button class="btn-barra">
-        💬
-        <span>Privado</span>
-    </button>
-</a>
-
-<a href="/global">
-    <button class="btn-barra">
-        🌍
-        <span>Global</span>
-    </button>
-</a>
-
-<button class="btn-barra">
-    🔍
-    <span>Buscar</span>
-</button>
-
+<a href="/"><button class="btn-barra">💬<span>Privado</span></button></a>
+<a href="/global"><button class="btn-barra">🌍<span>Global</span></button></a>
 </div>
 
 <hr>
@@ -163,48 +90,30 @@
 
 <h3>Usuarios 💕</h3>
 
-<div class="chat-list">
 {% for user in usuarios %}
-    {% if user.nombre != usuario_actual %}
-    <a href="/chat/{{ user.nombre }}" class="chat-item">
-
-        <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" class="chat-avatar">
-
-        <div class="chat-info">
-            <div class="chat-name">
-                {{ user.nombre }}
-            </div>
-            <div class="chat-last">
-                Toca para chatear 💬
-            </div>
-        </div>
-
-    </a>
-    {% endif %}
+{% if user.nombre != usuario_actual %}
+<a href="/chat/{{ user.nombre }}">{{ user.nombre }}</a><br>
+{% endif %}
 {% endfor %}
-</div>
 
 <hr>
 
 {% if chat_con is not none %}
 
 <h3>
-    {% if chat_con == "GLOBAL" %}
-        🌍 Chat Global
-    {% else %}
-        Chat con {{ chat_con }}
-    {% endif %}
+{% if chat_con == "GLOBAL" %}
+🌍 Chat Global
+{% else %}
+Chat con {{ chat_con }}
+{% endif %}
 </h3>
 
 <div id="chat-box" class="chat-box"></div>
 
 <form id="form-chat">
-    <input type="hidden" id="receptor">
-
-    <input type="file" id="input-imagen" accept="image/*" style="margin-bottom:5px;">
-
-    <input type="text" name="mensaje" placeholder="Escribe mensaje..." required id="mensaje">
-    <button type="submit">Enviar</button>
+<input type="file" id="input-imagen" accept="image/*">
+<input type="text" id="mensaje" placeholder="Mensaje">
+<button type="submit">Enviar</button>
 </form>
 
 {% endif %}
@@ -213,121 +122,77 @@
 const chatCon = "{{ chat_con }}";
 const chatBox = document.getElementById("chat-box");
 
-// ✅ asignar receptor correctamente
-const receptorInput = document.getElementById("receptor");
-if (receptorInput && chatCon) {
-    receptorInput.value = chatCon;
-}
-
-// 🔽 detectar si está abajo
-function estaAbajo() {
-    if (!chatBox) return true;
-    return chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 20;
-}
-
-// 🎨 render mensaje
+// 🎨 render
 function renderMensaje(m) {
     let clase = m.emisor === "{{ usuario_actual }}" ? "mio" : "otro";
 
     if (m.mensaje.includes("[FOTO]")) {
         let ruta = m.mensaje.replace("[FOTO]", "");
-        return `
-            <div class="mensaje ${clase}">
-                <strong>${m.emisor}:</strong><br>
-                <img src="/${ruta}" style="max-width:150px; border-radius:10px;">
-            </div>
-        `;
-    } else {
-        return `
-            <div class="mensaje ${clase}">
-                <strong>${m.emisor}:</strong> ${m.mensaje}
-            </div>
-        `;
+        return `<div class="mensaje ${clase}">
+        <strong>${m.emisor}:</strong><br>
+        <img src="/${ruta}" style="max-width:150px;">
+        </div>`;
     }
+
+    return `<div class="mensaje ${clase}">
+    <strong>${m.emisor}:</strong> ${m.mensaje}
+    </div>`;
 }
 
-// 🔄 cargar mensajes
+// 🔄 cargar
 function cargarMensajes() {
-    if (!chatBox || chatCon === "" || chatCon === "None") return;
-
-    const abajo = estaAbajo();
+    if (!chatBox || !chatCon || chatCon === "None") return;
 
     fetch("/mensajes_privados/" + chatCon)
-    .then(res => res.json())
+    .then(r => r.json())
     .then(data => {
-        let html = "";
-
-        data.mensajes.forEach(m => {
-            html += renderMensaje(m);
-        });
-
-        chatBox.innerHTML = html;
-
-        if (abajo) {
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
+        chatBox.innerHTML = data.mensajes.map(renderMensaje).join("");
+        chatBox.scrollTop = chatBox.scrollHeight;
     });
 }
 
-setInterval(cargarMensajes, 2000);
+// 🚀 enviar
+document.getElementById("form-chat")?.addEventListener("submit", e => {
+    e.preventDefault();
 
-// 🚀 envío mensaje
-const formChat = document.getElementById("form-chat");
+    let mensaje = document.getElementById("mensaje").value;
 
-if (formChat) {
-    formChat.addEventListener("submit", function(e) {
-        e.preventDefault();
+    fetch("/mensaje", {
+        method: "POST",
+        body: new FormData(Object.assign(new FormData(), {
+            receptor: chatCon,
+            mensaje: mensaje
+        }))
+    }).then(() => {
+        document.getElementById("mensaje").value = "";
+        cargarMensajes();
+    });
+});
 
-        const mensajeInput = document.getElementById("mensaje");
-        const mensaje = mensajeInput.value.trim();
+// 📸 imagen
+document.getElementById("input-imagen")?.addEventListener("change", e => {
+    let file = e.target.files[0];
+    if (!file) return;
 
-        if (!mensaje) return;
+    let reader = new FileReader();
 
-        const formData = new FormData();
-        formData.append("receptor", chatCon);
-        formData.append("mensaje", mensaje);
-
-        fetch("/mensaje", {
+    reader.onload = function(ev) {
+        fetch("/enviar_imagen", {
             method: "POST",
-            body: formData
-        })
-        .then(res => res.json())
-        .then(() => {
-            mensajeInput.value = "";
-            cargarMensajes(); // 🔥 refresco inmediato
-        });
-    });
-}
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                imagen: ev.target.result,
+                receptor: chatCon
+            })
+        }).then(cargarMensajes);
+    };
 
-// 📸 imágenes
-const inputImagen = document.getElementById("input-imagen");
+    reader.readAsDataURL(file);
+});
 
-if (inputImagen) {
-    inputImagen.addEventListener("change", function () {
-        const file = inputImagen.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-
-        reader.onload = function (e) {
-            fetch("/enviar_imagen", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                    imagen: e.target.result,
-                    receptor: chatCon
-                })
-            }).then(() => cargarMensajes());
-        };
-
-        reader.readAsDataURL(file);
-    });
-}
-
-// scroll inicial
-window.onload = () => {
-    if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
-};
+// 🔥 CARGA INICIAL + REFRESH
+cargarMensajes();
+setInterval(cargarMensajes, 2000);
 </script>
 
 </body>
