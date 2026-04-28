@@ -6,9 +6,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, text
 from starlette.middleware.sessions import SessionMiddleware
+from fastapi.staticfiles import StaticFiles
 import base64
 
 app = FastAPI()
+
+# 🔥 STATIC (IMÁGENES)
+os.makedirs("static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(SessionMiddleware, secret_key="supersecreto")
 
@@ -215,8 +220,6 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
 
         imagen = imagen.split(",")[1]
         imagen_bytes = base64.b64decode(imagen)
-
-        os.makedirs("static", exist_ok=True)
 
         nombre = f"foto_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
         ruta = f"static/{nombre}"
