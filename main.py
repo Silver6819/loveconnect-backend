@@ -32,10 +32,10 @@ if DATABASE_URL:
 
 templates = Jinja2Templates(directory="templates")
 
+# ✅ FUNCIÓN CORREGIDA
 def render(request, template_name, context):
-    if not isinstance(context, dict):
-        context = dict(context)
-    return templates.TemplateResponse(template_name, {**context, "request": request})
+    context["request"] = request
+    return templates.TemplateResponse(template_name, context)
 
 def mostrar_error():
     return HTMLResponse("<h3>Error interno</h3><pre>" + traceback.format_exc() + "</pre>")
