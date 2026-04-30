@@ -92,7 +92,7 @@ body {
 
 {% for user in usuarios %}
 {% if user.nombre != usuario_actual %}
-<a href="/chat/{{ user.nombre }}">{{ user.nombre }}</a><br>
+<a href="/chat/{{ user.nombre | urlencode }}">{{ user.nombre }}</a><br>
 {% endif %}
 {% endfor %}
 
@@ -119,7 +119,7 @@ Chat con {{ chat_con }}
 {% endif %}
 
 <script>
-const chatCon = "{{ chat_con }}";
+const chatCon = {{ chat_con | tojson }};
 const chatBox = document.getElementById("chat-box");
 
 // 🎨 render
@@ -141,7 +141,7 @@ function renderMensaje(m) {
 
 // 🔄 cargar
 function cargarMensajes() {
-    if (!chatBox || !chatCon || chatCon === "None") return;
+    if (!chatBox || !chatCon) return;
 
     fetch("/mensajes_privados/" + chatCon)
     .then(r => r.json())
