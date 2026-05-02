@@ -151,18 +151,19 @@ function cargarMensajes() {
     });
 }
 
-// 🚀 enviar
+// 🚀 enviar (CORREGIDO)
 document.getElementById("form-chat")?.addEventListener("submit", e => {
     e.preventDefault();
 
     let mensaje = document.getElementById("mensaje").value;
 
+    let formData = new FormData();
+    formData.append("receptor", chatCon);
+    formData.append("mensaje", mensaje);
+
     fetch("/mensaje", {
         method: "POST",
-        body: new FormData(Object.assign(new FormData(), {
-            receptor: chatCon,
-            mensaje: mensaje
-        }))
+        body: formData
     }).then(() => {
         document.getElementById("mensaje").value = "";
         cargarMensajes();
