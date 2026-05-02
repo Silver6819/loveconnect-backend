@@ -1,201 +1,291 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>LoveConnect 💕</title>
+import os
+import traceback
+from datetime import datetime
+from fastapi import FastAPI, Request, Form, Body
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy import create_engine, text
+from starlette.middleware.sessions import SessionMiddleware
+from fastapi.staticfiles import StaticFiles
+import base64
 
-<style>
-body {
-    font-family: Arial;
-    margin: 0;
-    padding: 10px;
-    overflow-x: hidden;
-    padding-bottom: 60px;
-}
+app = FastAPI()
 
-.barra-pro {
-    display: flex;
-    justify-content: space-around;
-    background: #ffffff;
-    padding: 8px 5px;
-    border-bottom: 1px solid #ccc;
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-}
+# 🔥 STATIC
+os.makedirs("static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-.btn-barra {
-    background: none;
-    border: none;
-    font-size: 14px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: #555;
-}
+app.add_middleware(SessionMiddleware, secret_key="supersecreto")
 
-.chat-box {
-    border:1px solid black;
-    padding:8px;
-    height:300px;
-    overflow-y:auto;
-    display:flex;
-    flex-direction:column;
-    background:#e5ddd5;
-}
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-.mensaje {
-    max-width: 80%;
-    padding:6px 10px;
-    margin:3px 0;
-    border-radius:12px;
-    word-wrap: break-word;
-    font-size: 13px;
-}
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
 
-.mio {
-    background-color:#dcf8c6;
-    align-self:flex-end;
-}
+# 🔥 CONEXIÓN REAL
+engine = None
 
-.otro {
-    background-color:#ffffff;
-    align-self:flex-start;
-}
-</style>
+try:
+    if not DATABASE_URL:
+        raise Exception("DATABASE_URL no existe")
 
-</head>
-<body>
+    engine = create_engine(DATABASE_URL)
 
-<h1>💕 LoveConnect</h1>
-<h3>Usuario actual: {{ usuario_actual }}</h3>
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
 
-<a href="/logout"><button>Cerrar sesión</button></a>
+    print("✅ DB CONECTADA CORRECTAMENTE")
 
-<hr>
+except Exception as e:
+    print("❌ ERROR REAL DB:")
+    print(e)
+    engine = None
 
-<div class="barra-pro">
-<a href="/"><button class="btn-barra">💬<span>Privado</span></button></a>
-<a href="/global"><button class="btn-barra">🌍<span>Global</span></button></a>
-</div>
+templates = Jinja2Templates(directory="templates")
 
-<hr>
+def render(request, template_name, context):
+    return templates.TemplateResponse(
+        name=template_name,
+        context=context,
+        request=request
+    )
 
-<form action="/set_usuario" method="post">
-    <input type="text" name="usuario" placeholder="Tu nombre" required>
-    <button type="submit">Entrar</button>
-</form>
+def mostrar_error():
+    return HTMLResponse("<h3>Error interno</h3><pre>" + traceback.format_exc() + "</pre>")
 
-<hr>
+@app.on_event("startup")
+def startup():
+    try:
+        if not engine:
+            print("⚠️ DB no disponible en startup")
+            return
 
-<h3>Usuarios 💕</h3>
+        with engine.begin() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS mensajes (
+                    id SERIAL PRIMARY KEY,
+                    emisor TEXT,
+                    receptor TEXT,
+                    mensaje TEXT,
+                    fecha TIMESTAMP DEFAULT NOW()
+                )
+            """))
 
-{% for user in usuarios %}
-{% if user.nombre != usuario_actual %}
-<a href="/chat/{{ user.nombre | urlencode }}">{{ user.nombre }}</a><br>
-{% endif %}
-{% endfor %}
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id SERIAL PRIMARY KEY,
+                    nombre TEXT UNIQUE
+                )
+            """))
+    except:
+        print(traceback.format_exc())
 
-<hr>
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    try:
+        usuarios = []
 
-{% if chat_con is not none %}
+        if engine:
+            with engine.begin() as conn:
+                result = conn.execute(text("SELECT nombre FROM usuarios"))
+                usuarios = [{"nombre": r[0], "online": True} for r in result.fetchall()]
 
-<h3>
-{% if chat_con == "GLOBAL" %}
-🌍 Chat Global
-{% else %}
-Chat con {{ chat_con }}
-{% endif %}
-</h3>
+        return render(request, "index.html", {
+            "usuarios": usuarios,
+            "usuario_actual": request.session.get("usuario", "Invitado"),
+            "chat_con": None,
+            "mensajes": [],
+            "es_premium": False
+        })
+    except:
+        return mostrar_error()
 
-<div id="chat-box" class="chat-box"></div>
+@app.post("/set_usuario")
+async def set_usuario(request: Request, usuario: str = Form(...)):
+    try:
+        request.session["usuario"] = usuario
 
-<form id="form-chat">
-<input type="file" id="input-imagen" accept="image/*">
-<input type="text" id="mensaje" placeholder="Mensaje">
-<button type="submit">Enviar</button>
-</form>
+        if engine:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    INSERT INTO usuarios (nombre)
+                    VALUES (:nombre)
+                    ON CONFLICT (nombre) DO NOTHING
+                """), {"nombre": usuario})
 
-{% endif %}
+        return RedirectResponse("/", status_code=303)
+    except:
+        return mostrar_error()
 
-<script>
-const chatCon = {{ chat_con | tojson }} || null;
-const chatBox = document.getElementById("chat-box");
+@app.get("/chat/{usuario}", response_class=HTMLResponse)
+async def chat(request: Request, usuario: str):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
 
-// 🎨 render
-function renderMensaje(m) {
-    let clase = m.emisor === "{{ usuario_actual }}" ? "mio" : "otro";
+        mensajes = []
+        usuarios = []
 
-    if (m.mensaje.includes("[FOTO]")) {
-        let ruta = m.mensaje.replace("[FOTO]", "");
-        return `<div class="mensaje ${clase}">
-        <strong>${m.emisor}:</strong><br>
-        <img src="/${ruta}" style="max-width:150px;">
-        </div>`;
-    }
+        if engine:
+            with engine.begin() as conn:
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE (emisor = :yo AND receptor = :otro)
+                       OR (emisor = :otro AND receptor = :yo)
+                    ORDER BY fecha ASC
+                """), {"yo": usuario_actual, "otro": usuario})
 
-    return `<div class="mensaje ${clase}">
-    <strong>${m.emisor}:</strong> ${m.mensaje}
-    </div>`;
-}
+                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
-// 🔄 cargar
-function cargarMensajes() {
-    if (!chatBox) return;
-    if (!chatCon) return;
+                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
+                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
 
-    fetch("/mensajes_privados/" + chatCon)
-    .then(r => r.json())
-    .then(data => {
-        chatBox.innerHTML = data.mensajes.map(renderMensaje).join("");
-        chatBox.scrollTop = chatBox.scrollHeight;
-    });
-}
+        return render(request, "index.html", {
+            "usuarios": usuarios,
+            "usuario_actual": usuario_actual,
+            "chat_con": usuario,
+            "mensajes": mensajes,
+            "es_premium": False
+        })
+    except:
+        return mostrar_error()
 
-// 🚀 enviar
-document.getElementById("form-chat")?.addEventListener("submit", e => {
-    e.preventDefault();
+@app.get("/global", response_class=HTMLResponse)
+async def global_chat(request: Request):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
 
-    let mensaje = document.getElementById("mensaje").value;
+        mensajes = []
+        usuarios = []
 
-    let formData = new FormData();
-    formData.append("receptor", chatCon);
-    formData.append("mensaje", mensaje);
+        if engine:
+            with engine.begin() as conn:
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE receptor = 'GLOBAL'
+                    ORDER BY fecha ASC
+                """))
 
-    fetch("/mensaje", {
-        method: "POST",
-        body: formData
-    }).then(() => {
-        document.getElementById("mensaje").value = "";
-        cargarMensajes();
-    });
-});
+                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
-// 📸 imagen
-document.getElementById("input-imagen")?.addEventListener("change", e => {
-    let file = e.target.files[0];
-    if (!file) return;
+                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
+                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
 
-    let reader = new FileReader();
+        return render(request, "index.html", {
+            "usuarios": usuarios,
+            "usuario_actual": usuario_actual,
+            "chat_con": "GLOBAL",
+            "mensajes": mensajes,
+            "es_premium": False
+        })
+    except:
+        return mostrar_error()
 
-    reader.onload = function(ev) {
-        fetch("/enviar_imagen", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({
-                imagen: ev.target.result,
-                receptor: chatCon
-            })
-        }).then(cargarMensajes);
-    };
+# 🔥 ARREGLADO
+@app.post("/mensaje")
+async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
 
-    reader.readAsDataURL(file);
-});
+        if not mensaje.strip():
+            return {"ok": False}
 
-// 🔥 CARGA INICIAL + REFRESH
-cargarMensajes();
-setInterval(cargarMensajes, 2000);
-</script>
+        if not receptor:
+            return {"ok": False}
 
-</body>
-</html>
+        # ✅ manejar GLOBAL correctamente
+        receptor_final = "GLOBAL" if receptor == "GLOBAL" else receptor
+
+        if engine:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    INSERT INTO mensajes (emisor, receptor, mensaje)
+                    VALUES (:e, :r, :m)
+                """), {
+                    "e": usuario_actual,
+                    "r": receptor_final,
+                    "m": mensaje
+                })
+
+        return {"ok": True}
+    except:
+        return mostrar_error()
+
+@app.get("/mensajes_privados/{usuario}")
+async def mensajes_privados(request: Request, usuario: str):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        mensajes = []
+
+        if engine:
+            with engine.begin() as conn:
+                if usuario == "GLOBAL":
+                    result = conn.execute(text("""
+                        SELECT emisor, mensaje
+                        FROM mensajes
+                        WHERE receptor = 'GLOBAL'
+                        ORDER BY fecha ASC
+                    """))
+                else:
+                    result = conn.execute(text("""
+                        SELECT emisor, mensaje
+                        FROM mensajes
+                        WHERE (emisor = :yo AND receptor = :otro)
+                           OR (emisor = :otro AND receptor = :yo)
+                        ORDER BY fecha ASC
+                    """), {"yo": usuario_actual, "otro": usuario})
+
+                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+
+        return {"mensajes": mensajes}
+    except:
+        return mostrar_error()
+
+@app.post("/enviar_foto")
+async def enviar_foto(request: Request, data: dict = Body(...)):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        imagen = data.get("imagen")
+        receptor = data.get("receptor")
+
+        if not imagen or not receptor:
+            return {"ok": False}
+
+        imagen = imagen.split(",")[1]
+        imagen_bytes = base64.b64decode(imagen)
+
+        nombre = f"foto_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
+        ruta = f"static/{nombre}"
+
+        with open(ruta, "wb") as f:
+            f.write(imagen_bytes)
+
+        if engine:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    INSERT INTO mensajes (emisor, receptor, mensaje)
+                    VALUES (:e, :r, :m)
+                """), {
+                    "e": usuario_actual,
+                    "r": receptor,
+                    "m": f"[FOTO]{ruta}"
+                })
+
+        return {"ok": True}
+    except:
+        return mostrar_error()
+
+@app.post("/enviar_imagen")
+async def enviar_imagen(request: Request, data: dict = Body(...)):
+    return await enviar_foto(request, data)
+
+@app.get("/logout")
+async def logout(request: Request):
+    try:
+        request.session.clear()
+        return RedirectResponse(url="/", status_code=303)
+    except:
+        return mostrar_error()
