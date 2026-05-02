@@ -22,17 +22,28 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
 
+# 🔥 CONEXIÓN REAL A DB (VERIFICADA)
 engine = None
 
-if DATABASE_URL:
-    try:
-        engine = create_engine(DATABASE_URL, connect_args={"sslmode": "require"})
-    except Exception as e:
-        print("ERROR DB:", e)
+try:
+    if not DATABASE_URL:
+        raise Exception("DATABASE_URL no existe")
+
+    engine = create_engine(DATABASE_URL)
+
+    # ✅ prueba real
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+
+    print("✅ DB CONECTADA CORRECTAMENTE")
+
+except Exception as e:
+    print("❌ ERROR REAL DB:")
+    print(e)
+    engine = None
 
 templates = Jinja2Templates(directory="templates")
 
-# ✅ FUNCIÓN CORREGIDA PARA TU VERSIÓN
 def render(request, template_name, context):
     return templates.TemplateResponse(
         name=template_name,
@@ -47,6 +58,7 @@ def mostrar_error():
 def startup():
     try:
         if not engine:
+            print("⚠️ DB no disponible en startup")
             return
 
         with engine.begin() as conn:
@@ -111,19 +123,23 @@ async def chat(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
-        with engine.begin() as conn:
-            result = conn.execute(text("""
-                SELECT emisor, mensaje
-                FROM mensajes
-                WHERE (emisor = :yo AND receptor = :otro)
-                   OR (emisor = :otro AND receptor = :yo)
-                ORDER BY fecha ASC
-            """), {"yo": usuario_actual, "otro": usuario})
+        mensajes = []
+        usuarios = []
 
-            mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+        if engine:
+            with engine.begin() as conn:
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE (emisor = :yo AND receptor = :otro)
+                       OR (emisor = :otro AND receptor = :yo)
+                    ORDER BY fecha ASC
+                """), {"yo": usuario_actual, "otro": usuario})
 
-            result_users = conn.execute(text("SELECT nombre FROM usuarios"))
-            usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+
+                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
+                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
 
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -140,18 +156,22 @@ async def global_chat(request: Request):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
-        with engine.begin() as conn:
-            result = conn.execute(text("""
-                SELECT emisor, mensaje
-                FROM mensajes
-                WHERE receptor = 'GLOBAL'
-                ORDER BY fecha ASC
-            """))
+        mensajes = []
+        usuarios = []
 
-            mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+        if engine:
+            with engine.begin() as conn:
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE receptor = 'GLOBAL'
+                    ORDER BY fecha ASC
+                """))
 
-            result_users = conn.execute(text("SELECT nombre FROM usuarios"))
-            usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+
+                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
+                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
 
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -187,24 +207,27 @@ async def mensajes_privados(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
-        with engine.begin() as conn:
-            if usuario == "GLOBAL":
-                result = conn.execute(text("""
-                    SELECT emisor, mensaje
-                    FROM mensajes
-                    WHERE receptor = 'GLOBAL'
-                    ORDER BY fecha ASC
-                """))
-            else:
-                result = conn.execute(text("""
-                    SELECT emisor, mensaje
-                    FROM mensajes
-                    WHERE (emisor = :yo AND receptor = :otro)
-                       OR (emisor = :otro AND receptor = :yo)
-                    ORDER BY fecha ASC
-                """), {"yo": usuario_actual, "otro": usuario})
+        mensajes = []
 
-            mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+        if engine:
+            with engine.begin() as conn:
+                if usuario == "GLOBAL":
+                    result = conn.execute(text("""
+                        SELECT emisor, mensaje
+                        FROM mensajes
+                        WHERE receptor = 'GLOBAL'
+                        ORDER BY fecha ASC
+                    """))
+                else:
+                    result = conn.execute(text("""
+                        SELECT emisor, mensaje
+                        FROM mensajes
+                        WHERE (emisor = :yo AND receptor = :otro)
+                           OR (emisor = :otro AND receptor = :yo)
+                        ORDER BY fecha ASC
+                    """), {"yo": usuario_actual, "otro": usuario})
+
+                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
         return {"mensajes": mensajes}
     except:
