@@ -35,7 +35,7 @@ templates = Jinja2Templates(directory="templates")
 # ✅ FUNCIÓN CORREGIDA
 def render(request, template_name, context):
     context["request"] = request
-    return templates.TemplateResponse(template_name, context)
+    return templates.TemplateResponse(name=template_name, context=context)
 
 def mostrar_error():
     return HTMLResponse("<h3>Error interno</h3><pre>" + traceback.format_exc() + "</pre>")
