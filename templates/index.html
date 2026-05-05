@@ -120,16 +120,21 @@ Chat con {{ chat_con }}
 {% endif %}
 
 <script>
+// 🔒 variables seguras desde Jinja
 let chatCon = {{ chat_con | tojson | safe }};
-// 🔒 protección fuerte
-if (typeof chatCon === "undefined" || chatCon === null) {
-    chatCon = null;
-}
+let usuarioActual = {{ usuario_actual | tojson | safe }};
+
+const chatBox = document.getElementById("chat-box") || null;
+
+// fallback seguro
+if (typeof chatCon === "undefined" || chatCon === null) chatCon = null;
+if (typeof usuarioActual === "undefined" || usuarioActual === null) usuarioActual = "";
+
 // 🎨 render seguro
 function renderMensaje(m) {
     if (!m || !m.mensaje) return "";
 
-    let clase = m.emisor === "{{ usuario_actual }}" ? "mio" : "otro";
+    let clase = m.emisor === usuarioActual ? "mio" : "otro";
 
     if (typeof m.mensaje === "string" && m.mensaje.includes("[FOTO]")) {
         let ruta = m.mensaje.replace("[FOTO]", "");
