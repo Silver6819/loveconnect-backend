@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -91,8 +92,7 @@ body {
 <h3>Usuarios 💕</h3>
 
 {% for user in usuarios %}
-{% if user.nombre != usuario_actual %}
-<a href="/chat/{{ user.nombre | urlencode }}">{{ user.nombre }}</a><br>
+{% if user.nombre != usuario_actual %} <a href="/chat/{{ user.nombre | urlencode }}">{{ user.nombre }}</a><br>
 {% endif %}
 {% endfor %}
 
@@ -119,7 +119,7 @@ Chat con {{ chat_con }}
 {% endif %}
 
 <script>
-const chatCon = {{ chat_con | tojson }} || null;
+const chatCon = {{ chat_con | tojson }};
 const chatBox = document.getElementById("chat-box");
 
 // 🎨 render
@@ -141,12 +141,13 @@ function renderMensaje(m) {
 
 // 🔄 cargar
 function cargarMensajes() {
-    if (!chatBox) return;
-    if (!chatCon) return;
+    if (!chatBox || !chatCon) return;
 
     fetch("/mensajes_privados/" + chatCon)
     .then(r => r.json())
     .then(data => {
+        if (!data.mensajes) return;
+
         chatBox.innerHTML = data.mensajes.map(renderMensaje).join("");
         chatBox.scrollTop = chatBox.scrollHeight;
     });
@@ -156,7 +157,15 @@ function cargarMensajes() {
 document.getElementById("form-chat")?.addEventListener("submit", e => {
     e.preventDefault();
 
-    let mensaje = document.getElementById("mensaje").value;
+    if (!chatCon) {
+        alert("Selecciona un chat primero");
+        return;
+    }
+
+    let mensajeInput = document.getElementById("mensaje");
+    let mensaje = mensajeInput.value.trim();
+
+    if (!mensaje) return;
 
     let formData = new FormData();
     formData.append("receptor", chatCon);
@@ -165,9 +174,15 @@ document.getElementById("form-chat")?.addEventListener("submit", e => {
     fetch("/mensaje", {
         method: "POST",
         body: formData
-    }).then(() => {
-        document.getElementById("mensaje").value = "";
-        cargarMensajes();
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            mensajeInput.value = "";
+            cargarMensajes();
+        } else {
+            console.log("Error al enviar");
+        }
     });
 });
 
