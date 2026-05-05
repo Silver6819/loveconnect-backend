@@ -120,17 +120,19 @@ Chat con {{ chat_con }}
 {% endif %}
 
 <script>
-// 🔒 variables seguras desde Jinja
+document.addEventListener("DOMContentLoaded", () => {
+
 let chatCon = {{ chat_con | tojson | safe }};
 let usuarioActual = {{ usuario_actual | tojson | safe }};
 
-const chatBox = document.getElementById("chat-box") || null;
+const chatBox = document.getElementById("chat-box");
+const form = document.getElementById("form-chat");
+const inputMensaje = document.getElementById("mensaje");
+const inputImagen = document.getElementById("input-imagen");
 
-// fallback seguro
-if (typeof chatCon === "undefined" || chatCon === null) chatCon = null;
-if (typeof usuarioActual === "undefined" || usuarioActual === null) usuarioActual = "";
+if (!chatCon) return;
 
-// 🎨 render seguro
+// 🎨 render
 function renderMensaje(m) {
     if (!m || !m.mensaje) return "";
 
@@ -149,10 +151,8 @@ function renderMensaje(m) {
     </div>`;
 }
 
-// 🔄 cargar robusto
+// 🔄 cargar
 function cargarMensajes() {
-    if (!chatBox || !chatCon) return;
-
     fetch("/mensajes_privados/" + chatCon)
     .then(r => r.json())
     .then(data => {
@@ -160,22 +160,14 @@ function cargarMensajes() {
 
         chatBox.innerHTML = data.mensajes.map(renderMensaje).join("");
         chatBox.scrollTop = chatBox.scrollHeight;
-    })
-    .catch(err => console.log("Error carga:", err));
+    });
 }
 
-// 🚀 enviar robusto
-document.getElementById("form-chat")?.addEventListener("submit", e => {
+// 🚀 enviar
+form?.addEventListener("submit", e => {
     e.preventDefault();
 
-    if (!chatCon) {
-        alert("Selecciona un chat");
-        return;
-    }
-
-    let input = document.getElementById("mensaje");
-    let mensaje = input.value.trim();
-
+    let mensaje = inputMensaje.value.trim();
     if (!mensaje) return;
 
     let formData = new FormData();
@@ -188,18 +180,17 @@ document.getElementById("form-chat")?.addEventListener("submit", e => {
     })
     .then(r => r.json())
     .then(data => {
-        if (data && data.ok) {
-            input.value = "";
+        if (data.ok) {
+            inputMensaje.value = "";
             cargarMensajes();
         }
-    })
-    .catch(err => console.log("Error envío:", err));
+    });
 });
 
-// 📸 imagen segura
-document.getElementById("input-imagen")?.addEventListener("change", e => {
+// 📸 imagen
+inputImagen?.addEventListener("change", e => {
     let file = e.target.files[0];
-    if (!file || !chatCon) return;
+    if (!file) return;
 
     let reader = new FileReader();
 
@@ -211,17 +202,17 @@ document.getElementById("input-imagen")?.addEventListener("change", e => {
                 imagen: ev.target.result,
                 receptor: chatCon
             })
-        })
-        .then(cargarMensajes)
-        .catch(err => console.log("Error imagen:", err));
+        }).then(cargarMensajes);
     };
 
     reader.readAsDataURL(file);
 });
 
-// 🔥 inicio seguro
-setTimeout(cargarMensajes, 300);
+// iniciar
+cargarMensajes();
 setInterval(cargarMensajes, 2000);
+
+});
 </script>
 
 </body>
