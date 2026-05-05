@@ -2,8 +2,8 @@
 
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>LoveConnect 💕</title>
+<meta charset="UTF-8">
+<title>LoveConnect 💕</title>
 
 <style>
 body {
@@ -66,6 +66,7 @@ body {
 </style>
 
 </head>
+
 <body>
 
 <h1>💕 LoveConnect</h1>
@@ -83,8 +84,8 @@ body {
 <hr>
 
 <form action="/set_usuario" method="post">
-    <input type="text" name="usuario" placeholder="Tu nombre" required>
-    <button type="submit">Entrar</button>
+<input type="text" name="usuario" placeholder="Tu nombre" required>
+<button type="submit">Entrar</button>
 </form>
 
 <hr>
@@ -119,14 +120,19 @@ Chat con {{ chat_con }}
 {% endif %}
 
 <script>
-const chatCon = {{ chat_con | tojson }};
+let chatCon = {{ chat_con | tojson }};
 const chatBox = document.getElementById("chat-box");
 
-// 🎨 render
+// 🔒 protección fuerte
+if (!chatCon) chatCon = null;
+
+// 🎨 render seguro
 function renderMensaje(m) {
+    if (!m || !m.mensaje) return "";
+
     let clase = m.emisor === "{{ usuario_actual }}" ? "mio" : "otro";
 
-    if (m.mensaje.includes("[FOTO]")) {
+    if (typeof m.mensaje === "string" && m.mensaje.includes("[FOTO]")) {
         let ruta = m.mensaje.replace("[FOTO]", "");
         return `<div class="mensaje ${clase}">
         <strong>${m.emisor}:</strong><br>
@@ -139,31 +145,32 @@ function renderMensaje(m) {
     </div>`;
 }
 
-// 🔄 cargar
+// 🔄 cargar robusto
 function cargarMensajes() {
     if (!chatBox || !chatCon) return;
 
     fetch("/mensajes_privados/" + chatCon)
     .then(r => r.json())
     .then(data => {
-        if (!data.mensajes) return;
+        if (!data || !data.mensajes) return;
 
         chatBox.innerHTML = data.mensajes.map(renderMensaje).join("");
         chatBox.scrollTop = chatBox.scrollHeight;
-    });
+    })
+    .catch(err => console.log("Error carga:", err));
 }
 
-// 🚀 enviar
+// 🚀 enviar robusto
 document.getElementById("form-chat")?.addEventListener("submit", e => {
     e.preventDefault();
 
     if (!chatCon) {
-        alert("Selecciona un chat primero");
+        alert("Selecciona un chat");
         return;
     }
 
-    let mensajeInput = document.getElementById("mensaje");
-    let mensaje = mensajeInput.value.trim();
+    let input = document.getElementById("mensaje");
+    let mensaje = input.value.trim();
 
     if (!mensaje) return;
 
@@ -177,19 +184,18 @@ document.getElementById("form-chat")?.addEventListener("submit", e => {
     })
     .then(r => r.json())
     .then(data => {
-        if (data.ok) {
-            mensajeInput.value = "";
+        if (data && data.ok) {
+            input.value = "";
             cargarMensajes();
-        } else {
-            console.log("Error al enviar");
         }
-    });
+    })
+    .catch(err => console.log("Error envío:", err));
 });
 
-// 📸 imagen
+// 📸 imagen segura
 document.getElementById("input-imagen")?.addEventListener("change", e => {
     let file = e.target.files[0];
-    if (!file) return;
+    if (!file || !chatCon) return;
 
     let reader = new FileReader();
 
@@ -201,14 +207,16 @@ document.getElementById("input-imagen")?.addEventListener("change", e => {
                 imagen: ev.target.result,
                 receptor: chatCon
             })
-        }).then(cargarMensajes);
+        })
+        .then(cargarMensajes)
+        .catch(err => console.log("Error imagen:", err));
     };
 
     reader.readAsDataURL(file);
 });
 
-// 🔥 CARGA INICIAL + REFRESH
-cargarMensajes();
+// 🔥 inicio seguro
+setTimeout(cargarMensajes, 300);
 setInterval(cargarMensajes, 2000);
 </script>
 
