@@ -120,12 +120,11 @@ Chat con {{ chat_con }}
 {% endif %}
 
 <script>
-let chatCon = {{ chat_con | tojson }};
-const chatBox = document.getElementById("chat-box");
-
+let chatCon = {{ chat_con | tojson | safe }};
 // 🔒 protección fuerte
-if (!chatCon) chatCon = null;
-
+if (typeof chatCon === "undefined" || chatCon === null) {
+    chatCon = null;
+}
 // 🎨 render seguro
 function renderMensaje(m) {
     if (!m || !m.mensaje) return "";
