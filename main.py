@@ -80,42 +80,68 @@ def startup():
     except:
         print(traceback.format_exc())
 
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
+@app.get("/mensajes_privados/{usuario}")
+async def mensajes_privados(request: Request, usuario: str):
     try:
-        usuarios = []
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        mensajes = []
 
         if engine:
             with engine.begin() as conn:
-                result = conn.execute(text("SELECT nombre FROM usuarios"))
-                usuarios = [{"nombre": r[0], "online": True} for r in result.fetchall()]
+                if usuario == "GLOBAL":
+                    result = conn.execute(text("""
+                        SELECT emisor, mensaje
+                        FROM mensajes
+                        WHERE receptor = 'GLOBAL'
+                        ORDER BY fecha ASC
+                    """))
+                else:
+                    result = conn.execute(text("""
+                        SELECT emisor, mensaje
+                        FROM mensajes
+                        WHERE (emisor = :yo AND receptor = :otro)
+                           OR (emisor = :otro AND receptor = :yo)
+                        ORDER BY fecha ASC
+                    """), {"yo": usuario_actual, "otro": usuario})
 
-        return render(request, "index.html", {
-            "usuarios": usuarios,
-            "usuario_actual": request.session.get("usuario", "Invitado"),
-            "chat_con": None,
-            "mensajes": [],
-            "es_premium": False
-        })
-    except:
-        return mostrar_error()
+                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
 
-@app.post("/set_usuario")
-async def set_usuario(request: Request, usuario: str = Form(...)):
+        return {"mensajes": mensajes}
+
+    except Exception as e:
+        print("ERROR /mensajes_privados:", e)
+        return {"mensajes": [], "error": str(e)}
+
+@app.post("/mensaje")
+async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
     try:
-        request.session["usuario"] = usuario
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        if not mensaje.strip():
+            return {"ok": False}
+
+        if not receptor:
+            return {"ok": False}
+
+        receptor_final = "GLOBAL" if receptor == "GLOBAL" else receptor
 
         if engine:
             with engine.begin() as conn:
                 conn.execute(text("""
-                    INSERT INTO usuarios (nombre)
-                    VALUES (:nombre)
-                    ON CONFLICT (nombre) DO NOTHING
-                """), {"nombre": usuario})
+                    INSERT INTO mensajes (emisor, receptor, mensaje)
+                    VALUES (:e, :r, :m)
+                """), {
+                    "e": usuario_actual,
+                    "r": receptor_final,
+                    "m": mensaje
+                })
 
-        return RedirectResponse("/", status_code=303)
-    except:
-        return mostrar_error()
+        return {"ok": True}
+
+    except Exception as e:
+        print("ERROR /mensaje:", e)
+        return {"ok": False, "error": str(e)}
 
 @app.get("/chat/{usuario}", response_class=HTMLResponse)
 async def chat(request: Request, usuario: str):
