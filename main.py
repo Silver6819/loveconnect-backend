@@ -315,3 +315,6 @@ async def logout(request: Request):
         return RedirectResponse(url="/", status_code=303)
     except:
         return mostrar_error()
+@app.get("/test")
+async def test():
+    return {"ok": True}
