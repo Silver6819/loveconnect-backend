@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-
 <html lang="es">
+
 <head>
 <meta charset="UTF-8">
 <title>LoveConnect 💕</title>
 
 <style>
+
 body {
     font-family: Arial;
     margin: 0;
@@ -36,56 +37,75 @@ body {
 }
 
 .chat-box {
-    border:1px solid black;
-    padding:8px;
-    height:300px;
-    overflow-y:auto;
-    display:flex;
-    flex-direction:column;
-    background:#e5ddd5;
+    border: 1px solid black;
+    padding: 8px;
+    height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    background: #e5ddd5;
 }
 
 .mensaje {
     max-width: 80%;
-    padding:6px 10px;
-    margin:3px 0;
-    border-radius:12px;
+    padding: 6px 10px;
+    margin: 3px 0;
+    border-radius: 12px;
     word-wrap: break-word;
     font-size: 13px;
 }
 
 .mio {
-    background-color:#dcf8c6;
-    align-self:flex-end;
+    background-color: #dcf8c6;
+    align-self: flex-end;
 }
 
 .otro {
-    background-color:#ffffff;
-    align-self:flex-start;
+    background-color: #ffffff;
+    align-self: flex-start;
 }
-</style>
 
+</style>
 </head>
 
 <body>
 
 <h1>💕 LoveConnect</h1>
+
 <h3>Usuario actual: {{ usuario_actual }}</h3>
 
-<a href="/logout"><button>Cerrar sesión</button></a>
+<a href="/logout">
+<button>Cerrar sesión</button>
+</a>
 
 <hr>
 
 <div class="barra-pro">
-<a href="/"><button class="btn-barra">💬<span>Privado</span></button></a>
-<a href="/global"><button class="btn-barra">🌍<span>Global</span></button></a>
+
+<a href="/global">
+<button class="btn-barra">
+🌍
+<span>Global</span>
+</button>
+</a>
+
 </div>
 
 <hr>
 
 <form action="/set_usuario" method="post">
-<input type="text" name="usuario" placeholder="Tu nombre" required>
-<button type="submit">Entrar</button>
+
+<input
+type="text"
+name="usuario"
+placeholder="Tu nombre"
+required
+>
+
+<button type="submit">
+Entrar
+</button>
+
 </form>
 
 <hr>
@@ -93,8 +113,17 @@ body {
 <h3>Usuarios 💕</h3>
 
 {% for user in usuarios %}
-{% if user.nombre != usuario_actual %} <a href="/chat/{{ user.nombre | urlencode }}">{{ user.nombre }}</a><br>
+
+{% if user.nombre != usuario_actual %}
+
+<a href="/chat/{{ user.nombre | urlencode }}">
+{{ user.nombre }}
+</a>
+
+<br>
+
 {% endif %}
+
 {% endfor %}
 
 <hr>
@@ -102,11 +131,17 @@ body {
 {% if chat_con is not none %}
 
 <h3>
+
 {% if chat_con == "GLOBAL" %}
+
 🌍 Chat Global
+
 {% else %}
+
 Chat con {{ chat_con }}
+
 {% endif %}
+
 </h3>
 
 <div id="chat-box" class="chat-box">
@@ -117,10 +152,13 @@ Chat con {{ chat_con }}
 
 {% if "[FOTO]" in m.mensaje %}
 
-<strong>{{ m.emisor }}:</strong><br>
+<strong>{{ m.emisor }}:</strong>
+<br>
 
-<img src="/{{ m.mensaje.replace('[FOTO]', '') }}"
-style="max-width:150px;">
+<img
+src="/{{ m.mensaje.replace('[FOTO]', '') }}"
+style="max-width:150px;"
+>
 
 {% else %}
 
@@ -135,46 +173,87 @@ style="max-width:150px;">
 
 </div>
 
+<form id="form-chat">
+
+<input
+type="file"
+id="input-imagen"
+accept="image/*"
+>
+
+<input
+type="text"
+id="mensaje"
+placeholder="Mensaje"
+>
+
+<button type="submit">
+Enviar
+</button>
+
+</form>
+
+{% endif %}
+
 <script>
+
 document.addEventListener("DOMContentLoaded", () => {
+
 function debugLog(modulo, mensaje) {
     console.log(`[${modulo}] ${mensaje}`);
 }
 
 let chatCon = {{ chat_con | tojson | safe }};
-    debugLog("CHAT", "Chat actual: " + chatCon);
 let usuarioActual = {{ usuario_actual | tojson | safe }};
+
+debugLog("CHAT", "Chat actual: " + chatCon);
 
 const chatBox = document.getElementById("chat-box");
 const form = document.getElementById("form-chat");
 const inputMensaje = document.getElementById("mensaje");
 const inputImagen = document.getElementById("input-imagen");
 
-if (!chatCon) return;
-
-// 🎨 render
-function renderMensaje(m) {
-    if (!m || !m.mensaje) return "";
-
-    let clase = m.emisor === usuarioActual ? "mio" : "otro";
-
-    if (typeof m.mensaje === "string" && m.mensaje.includes("[FOTO]")) {
-        let ruta = m.mensaje.replace("[FOTO]", "");
-        return `<div class="mensaje ${clase}">
-        <strong>${m.emisor}:</strong><br>
-        <img src="/${ruta}" style="max-width:150px;">
-        </div>`;
-    }
-
-    return `<div class="mensaje ${clase}">
-    <strong>${m.emisor}:</strong> ${m.mensaje}
-    </div>`;
+if (!chatCon) {
+    debugLog("CHAT", "No hay chat activo");
+    return;
 }
 
-// 🔄 cargar
+function renderMensaje(m) {
+
+    if (!m || !m.mensaje) return "";
+
+    let clase =
+        m.emisor === usuarioActual
+        ? "mio"
+        : "otro";
+
+    if (
+        typeof m.mensaje === "string"
+        &&
+        m.mensaje.includes("[FOTO]")
+    ) {
+
+        let ruta = m.mensaje.replace("[FOTO]", "");
+
+        return `
+        <div class="mensaje ${clase}">
+            <strong>${m.emisor}:</strong><br>
+            <img src="/${ruta}" style="max-width:150px;">
+        </div>
+        `;
+    }
+
+    return `
+    <div class="mensaje ${clase}">
+        <strong>${m.emisor}:</strong>
+        ${m.mensaje}
+    </div>
+    `;
+}
+
 function cargarMensajes() {
 
-    debugLog("FETCH", "Cargando mensajes...");
+    debugLog("FETCH", "Cargando mensajes");
 
     fetch("/mensajes_privados/" + chatCon)
 
@@ -185,14 +264,17 @@ function cargarMensajes() {
         debugLog("FETCH", JSON.stringify(data));
 
         if (!data || !data.mensajes) {
-            debugLog("FETCH", "No llegaron mensajes");
+            debugLog("FETCH", "Sin mensajes");
             return;
         }
 
         chatBox.innerHTML =
-            data.mensajes.map(renderMensaje).join("");
+            data.mensajes
+            .map(renderMensaje)
+            .join("");
 
-        chatBox.scrollTop = chatBox.scrollHeight;
+        chatBox.scrollTop =
+            chatBox.scrollHeight;
     })
 
     .catch(err => {
@@ -200,12 +282,12 @@ function cargarMensajes() {
     });
 }
 
-// 🚀 enviar
 form?.addEventListener("submit", e => {
 
     e.preventDefault();
 
-    let mensaje = inputMensaje.value.trim();
+    let mensaje =
+        inputMensaje.value.trim();
 
     debugLog("MENSAJE", "Intentando enviar");
 
@@ -216,8 +298,15 @@ form?.addEventListener("submit", e => {
 
     let formData = new FormData();
 
-    formData.append("receptor", chatCon);
-    formData.append("mensaje", mensaje);
+    formData.append(
+        "receptor",
+        chatCon
+    );
+
+    formData.append(
+        "mensaje",
+        mensaje
+    );
 
     fetch("/mensaje", {
         method: "POST",
@@ -228,7 +317,10 @@ form?.addEventListener("submit", e => {
 
     .then(data => {
 
-        debugLog("MENSAJE", JSON.stringify(data));
+        debugLog(
+            "MENSAJE",
+            JSON.stringify(data)
+        );
 
         if (data.ok) {
 
@@ -238,41 +330,77 @@ form?.addEventListener("submit", e => {
 
         } else {
 
-            debugLog("MENSAJE", "Backend rechazó mensaje");
+            debugLog(
+                "MENSAJE",
+                "Backend rechazó mensaje"
+            );
         }
+
     })
 
     .catch(err => {
-        console.error("ERROR MENSAJE:", err);
+        console.error(
+            "ERROR MENSAJE:",
+            err
+        );
     });
+
 });
 
-// 📸 imagen
 inputImagen?.addEventListener("change", e => {
+
     let file = e.target.files[0];
+
     if (!file) return;
 
     let reader = new FileReader();
 
     reader.onload = function(ev) {
+
         fetch("/enviar_imagen", {
+
             method: "POST",
-            headers: {"Content-Type": "application/json"},
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
             body: JSON.stringify({
                 imagen: ev.target.result,
                 receptor: chatCon
             })
-        }).then(cargarMensajes);
+
+        })
+
+        .then(r => r.json())
+
+        .then(data => {
+
+            debugLog(
+                "IMAGEN",
+                JSON.stringify(data)
+            );
+
+            cargarMensajes();
+        })
+
+        .catch(err => {
+            console.error(
+                "ERROR IMAGEN:",
+                err
+            );
+        });
     };
 
     reader.readAsDataURL(file);
 });
 
-// iniciar
 cargarMensajes();
+
 setInterval(cargarMensajes, 2000);
 
 });
+
 </script>
 
 </body>
