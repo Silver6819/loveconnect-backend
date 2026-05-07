@@ -109,15 +109,31 @@ Chat con {{ chat_con }}
 {% endif %}
 </h3>
 
-<div id="chat-box" class="chat-box"></div>
+<div id="chat-box" class="chat-box">
 
-<form id="form-chat">
-<input type="file" id="input-imagen" accept="image/*">
-<input type="text" id="mensaje" placeholder="Mensaje">
-<button type="submit">Enviar</button>
-</form>
+{% for m in mensajes %}
+
+<div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
+
+{% if "[FOTO]" in m.mensaje %}
+
+<strong>{{ m.emisor }}:</strong><br>
+
+<img src="/{{ m.mensaje.replace('[FOTO]', '') }}"
+style="max-width:150px;">
+
+{% else %}
+
+<strong>{{ m.emisor }}:</strong>
+{{ m.mensaje }}
 
 {% endif %}
+
+</div>
+
+{% endfor %}
+
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
