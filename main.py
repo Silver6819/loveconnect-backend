@@ -22,10 +22,20 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
 
+# 🔥 DEBUG CENTRAL
+def debug_log(modulo, mensaje):
+    print(f"[DEBUG - {modulo}] {mensaje}")
+
+def debug_error(modulo, e):
+    print(f"[ERROR - {modulo}] {e}")
+    print(traceback.format_exc())
+
 # 🔥 CONEXIÓN REAL
 engine = None
 
 try:
+    debug_log("DB", "Intentando conectar base de datos")
+
     if not DATABASE_URL:
         raise Exception("DATABASE_URL no existe")
 
@@ -34,11 +44,12 @@ try:
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
 
+    debug_log("DB", "Base de datos conectada correctamente")
     print("✅ DB CONECTADA CORRECTAMENTE")
 
 except Exception as e:
     print("❌ ERROR REAL DB:")
-    print(e)
+    debug_error("DB", e)
     engine = None
 
 templates = Jinja2Templates(directory="templates")
@@ -51,16 +62,21 @@ def render(request, template_name, context):
     )
 
 def mostrar_error():
-    return HTMLResponse("<h3>Error interno</h3><pre>" + traceback.format_exc() + "</pre>")
+    return HTMLResponse(
+        "<h3>Error interno</h3><pre>" + traceback.format_exc() + "</pre>"
+    )
 
 @app.on_event("startup")
 def startup():
     try:
+        debug_log("STARTUP", "Iniciando LoveConnect")
+
         if not engine:
-            print("⚠️ DB no disponible en startup")
+            debug_log("STARTUP", "DB no disponible")
             return
 
         with engine.begin() as conn:
+
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS mensajes (
                     id SERIAL PRIMARY KEY,
@@ -77,57 +93,95 @@ def startup():
                     nombre TEXT UNIQUE
                 )
             """))
-    except:
-        print(traceback.format_exc())
+
+        debug_log("STARTUP", "Tablas verificadas correctamente")
+
+    except Exception as e:
+        debug_error("STARTUP", e)
 
 @app.get("/mensajes_privados/{usuario}")
 async def mensajes_privados(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
+        debug_log(
+            "PRIVADO",
+            f"{usuario_actual} cargando chat con {usuario}"
+        )
+
         mensajes = []
 
         if engine:
             with engine.begin() as conn:
+
                 if usuario == "GLOBAL":
+
                     result = conn.execute(text("""
                         SELECT emisor, mensaje
                         FROM mensajes
                         WHERE receptor = 'GLOBAL'
                         ORDER BY fecha ASC
                     """))
+
                 else:
+
                     result = conn.execute(text("""
                         SELECT emisor, mensaje
                         FROM mensajes
                         WHERE (emisor = :yo AND receptor = :otro)
                            OR (emisor = :otro AND receptor = :yo)
                         ORDER BY fecha ASC
-                    """), {"yo": usuario_actual, "otro": usuario})
+                    """), {
+                        "yo": usuario_actual,
+                        "otro": usuario
+                    })
 
-                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+                mensajes = [
+                    {
+                        "emisor": r[0],
+                        "mensaje": r[1]
+                    }
+                    for r in result.fetchall()
+                ]
+
+        debug_log(
+            "PRIVADO",
+            f"Mensajes encontrados: {len(mensajes)}"
+        )
 
         return {"mensajes": mensajes}
 
     except Exception as e:
-        print("ERROR /mensajes_privados:", e)
+        debug_error("PRIVADO", e)
         return {"mensajes": [], "error": str(e)}
 
 @app.post("/mensaje")
-async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
+async def enviar_mensaje(
+    request: Request,
+    receptor: str = Form(...),
+    mensaje: str = Form(...)
+):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
+        debug_log(
+            "MENSAJE",
+            f"{usuario_actual} -> {receptor}"
+        )
+
         if not mensaje.strip():
+            debug_log("MENSAJE", "Mensaje vacío")
             return {"ok": False}
 
         if not receptor:
+            debug_log("MENSAJE", "Receptor vacío")
             return {"ok": False}
 
         receptor_final = "GLOBAL" if receptor == "GLOBAL" else receptor
 
         if engine:
             with engine.begin() as conn:
+
                 conn.execute(text("""
                     INSERT INTO mensajes (emisor, receptor, mensaje)
                     VALUES (:e, :r, :m)
@@ -137,10 +191,12 @@ async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: s
                     "m": mensaje
                 })
 
+        debug_log("MENSAJE", "Mensaje enviado correctamente")
+
         return {"ok": True}
 
     except Exception as e:
-        print("ERROR /mensaje:", e)
+        debug_error("MENSAJE", e)
         return {"ok": False, "error": str(e)}
 
 @app.get("/chat/{usuario}", response_class=HTMLResponse)
@@ -148,23 +204,52 @@ async def chat(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
+        debug_log(
+            "CHAT",
+            f"{usuario_actual} entrando chat con {usuario}"
+        )
+
         mensajes = []
         usuarios = []
 
         if engine:
             with engine.begin() as conn:
+
                 result = conn.execute(text("""
                     SELECT emisor, mensaje
                     FROM mensajes
                     WHERE (emisor = :yo AND receptor = :otro)
                        OR (emisor = :otro AND receptor = :yo)
                     ORDER BY fecha ASC
-                """), {"yo": usuario_actual, "otro": usuario})
+                """), {
+                    "yo": usuario_actual,
+                    "otro": usuario
+                })
 
-                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+                mensajes = [
+                    {
+                        "emisor": r[0],
+                        "mensaje": r[1]
+                    }
+                    for r in result.fetchall()
+                ]
 
-                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
-                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+                result_users = conn.execute(
+                    text("SELECT nombre FROM usuarios")
+                )
+
+                usuarios = [
+                    {
+                        "nombre": r[0],
+                        "online": True
+                    }
+                    for r in result_users.fetchall()
+                ]
+
+        debug_log(
+            "CHAT",
+            f"Mensajes privados: {len(mensajes)}"
+        )
 
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -173,7 +258,9 @@ async def chat(request: Request, usuario: str):
             "mensajes": mensajes,
             "es_premium": False
         })
-    except:
+
+    except Exception as e:
+        debug_error("CHAT", e)
         return mostrar_error()
 
 @app.get("/global", response_class=HTMLResponse)
@@ -181,11 +268,17 @@ async def global_chat(request: Request):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
+        debug_log(
+            "GLOBAL",
+            f"{usuario_actual} entrando al chat global"
+        )
+
         mensajes = []
         usuarios = []
 
         if engine:
             with engine.begin() as conn:
+
                 result = conn.execute(text("""
                     SELECT emisor, mensaje
                     FROM mensajes
@@ -193,10 +286,30 @@ async def global_chat(request: Request):
                     ORDER BY fecha ASC
                 """))
 
-                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+                mensajes = [
+                    {
+                        "emisor": r[0],
+                        "mensaje": r[1]
+                    }
+                    for r in result.fetchall()
+                ]
 
-                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
-                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+                result_users = conn.execute(
+                    text("SELECT nombre FROM usuarios")
+                )
+
+                usuarios = [
+                    {
+                        "nombre": r[0],
+                        "online": True
+                    }
+                    for r in result_users.fetchall()
+                ]
+
+        debug_log(
+            "GLOBAL",
+            f"Mensajes globales: {len(mensajes)}"
+        )
 
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -205,68 +318,9 @@ async def global_chat(request: Request):
             "mensajes": mensajes,
             "es_premium": False
         })
-    except:
-        return mostrar_error()
 
-# 🔥 ARREGLADO
-@app.post("/mensaje")
-async def enviar_mensaje(request: Request, receptor: str = Form(...), mensaje: str = Form(...)):
-    try:
-        usuario_actual = request.session.get("usuario", "Invitado")
-
-        if not mensaje.strip():
-            return {"ok": False}
-
-        if not receptor:
-            return {"ok": False}
-
-        # ✅ manejar GLOBAL correctamente
-        receptor_final = "GLOBAL" if receptor == "GLOBAL" else receptor
-
-        if engine:
-            with engine.begin() as conn:
-                conn.execute(text("""
-                    INSERT INTO mensajes (emisor, receptor, mensaje)
-                    VALUES (:e, :r, :m)
-                """), {
-                    "e": usuario_actual,
-                    "r": receptor_final,
-                    "m": mensaje
-                })
-
-        return {"ok": True}
-    except:
-        return mostrar_error()
-
-@app.get("/mensajes_privados/{usuario}")
-async def mensajes_privados(request: Request, usuario: str):
-    try:
-        usuario_actual = request.session.get("usuario", "Invitado")
-
-        mensajes = []
-
-        if engine:
-            with engine.begin() as conn:
-                if usuario == "GLOBAL":
-                    result = conn.execute(text("""
-                        SELECT emisor, mensaje
-                        FROM mensajes
-                        WHERE receptor = 'GLOBAL'
-                        ORDER BY fecha ASC
-                    """))
-                else:
-                    result = conn.execute(text("""
-                        SELECT emisor, mensaje
-                        FROM mensajes
-                        WHERE (emisor = :yo AND receptor = :otro)
-                           OR (emisor = :otro AND receptor = :yo)
-                        ORDER BY fecha ASC
-                    """), {"yo": usuario_actual, "otro": usuario})
-
-                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
-
-        return {"mensajes": mensajes}
-    except:
+    except Exception as e:
+        debug_error("GLOBAL", e)
         return mostrar_error()
 
 @app.post("/enviar_foto")
@@ -274,10 +328,16 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
+        debug_log(
+            "IMAGEN",
+            f"{usuario_actual} enviando imagen"
+        )
+
         imagen = data.get("imagen")
         receptor = data.get("receptor")
 
         if not imagen or not receptor:
+            debug_log("IMAGEN", "Datos incompletos")
             return {"ok": False}
 
         imagen = imagen.split(",")[1]
@@ -289,8 +349,14 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
         with open(ruta, "wb") as f:
             f.write(imagen_bytes)
 
+        debug_log(
+            "IMAGEN",
+            f"Imagen guardada: {ruta}"
+        )
+
         if engine:
             with engine.begin() as conn:
+
                 conn.execute(text("""
                     INSERT INTO mensajes (emisor, receptor, mensaje)
                     VALUES (:e, :r, :m)
@@ -300,8 +366,12 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
                     "m": f"[FOTO]{ruta}"
                 })
 
+        debug_log("IMAGEN", "Imagen enviada correctamente")
+
         return {"ok": True}
-    except:
+
+    except Exception as e:
+        debug_error("IMAGEN", e)
         return mostrar_error()
 
 @app.post("/enviar_imagen")
@@ -311,10 +381,20 @@ async def enviar_imagen(request: Request, data: dict = Body(...)):
 @app.get("/logout")
 async def logout(request: Request):
     try:
+        debug_log("LOGIN", "Cierre de sesión")
+
         request.session.clear()
-        return RedirectResponse(url="/", status_code=303)
-    except:
+
+        return RedirectResponse(
+            url="/",
+            status_code=303
+        )
+
+    except Exception as e:
+        debug_error("LOGIN", e)
         return mostrar_error()
+
 @app.get("/test")
 async def test():
+    debug_log("TEST", "Ruta test funcionando")
     return {"ok": True}
