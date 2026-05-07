@@ -386,3 +386,30 @@ async def logout(request: Request):
 async def test():
     debug_log("TEST", "Ruta test funcionando")
     return {"ok": True}
+@app.post("/set_usuario")
+async def set_usuario(request: Request, usuario: str = Form(...)):
+    try:
+
+        debug_log("LOGIN", f"Usuario entrando: {usuario}")
+
+        request.session["usuario"] = usuario
+
+        if engine:
+            with engine.begin() as conn:
+
+                conn.execute(text("""
+                    INSERT INTO usuarios (nombre)
+                    VALUES (:n)
+                    ON CONFLICT (nombre) DO NOTHING
+                """), {
+                    "n": usuario
+                })
+
+        return RedirectResponse(
+            url="/global",
+            status_code=303
+        )
+
+    except Exception as e:
+        debug_error("LOGIN", e)
+        return mostrar_error()
