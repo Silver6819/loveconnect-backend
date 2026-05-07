@@ -65,6 +65,17 @@ body {
     align-self: flex-start;
 }
 
+#debug-box {
+    margin-top: 10px;
+    padding: 8px;
+    border: 1px solid red;
+    background: #fff3f3;
+    font-size: 12px;
+    color: #900;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
 </style>
 </head>
 
@@ -173,6 +184,10 @@ style="max-width:150px;"
 
 </div>
 
+<div id="debug-box">
+DEBUG LoveConnect...
+</div>
+
 <form id="form-chat">
 
 <input
@@ -199,22 +214,36 @@ Enviar
 
 document.addEventListener("DOMContentLoaded", () => {
 
-function debugLog(modulo, mensaje) {
-    console.log(`[${modulo}] ${mensaje}`);
-}
-
 let chatCon = {{ chat_con | tojson | safe }};
 let usuarioActual = {{ usuario_actual | tojson | safe }};
-
-debugLog("CHAT", "Chat actual: " + chatCon);
 
 const chatBox = document.getElementById("chat-box");
 const form = document.getElementById("form-chat");
 const inputMensaje = document.getElementById("mensaje");
 const inputImagen = document.getElementById("input-imagen");
+const debugBox = document.getElementById("debug-box");
+
+function debugPantalla(msg) {
+
+    console.log(msg);
+
+    if (debugBox) {
+
+        debugBox.innerHTML += `
+        <div>${msg}</div>
+        `;
+
+        debugBox.scrollTop =
+            debugBox.scrollHeight;
+    }
+}
+
+debugPantalla("[CHAT] Chat actual: " + chatCon);
 
 if (!chatCon) {
-    debugLog("CHAT", "No hay chat activo");
+
+    debugPantalla("[CHAT] No hay chat activo");
+
     return;
 }
 
@@ -253,7 +282,7 @@ function renderMensaje(m) {
 
 function cargarMensajes() {
 
-    debugLog("FETCH", "Cargando mensajes");
+    debugPantalla("[FETCH] Cargando mensajes");
 
     fetch("/mensajes_privados/" + chatCon)
 
@@ -261,10 +290,17 @@ function cargarMensajes() {
 
     .then(data => {
 
-        debugLog("FETCH", JSON.stringify(data));
+        debugPantalla(
+            "[FETCH] " +
+            JSON.stringify(data)
+        );
 
         if (!data || !data.mensajes) {
-            debugLog("FETCH", "Sin mensajes");
+
+            debugPantalla(
+                "[FETCH] Sin mensajes"
+            );
+
             return;
         }
 
@@ -278,7 +314,11 @@ function cargarMensajes() {
     })
 
     .catch(err => {
-        console.error("ERROR FETCH:", err);
+
+        debugPantalla(
+            "[ERROR FETCH] " + err
+        );
+
     });
 }
 
@@ -289,10 +329,16 @@ form?.addEventListener("submit", e => {
     let mensaje =
         inputMensaje.value.trim();
 
-    debugLog("MENSAJE", "Intentando enviar");
+    debugPantalla(
+        "[MENSAJE] Intentando enviar"
+    );
 
     if (!mensaje) {
-        debugLog("MENSAJE", "Mensaje vacío");
+
+        debugPantalla(
+            "[MENSAJE] Vacío"
+        );
+
         return;
     }
 
@@ -309,16 +355,19 @@ form?.addEventListener("submit", e => {
     );
 
     fetch("/mensaje", {
+
         method: "POST",
+
         body: formData
+
     })
 
     .then(r => r.json())
 
     .then(data => {
 
-        debugLog(
-            "MENSAJE",
+        debugPantalla(
+            "[MENSAJE] " +
             JSON.stringify(data)
         );
 
@@ -330,19 +379,19 @@ form?.addEventListener("submit", e => {
 
         } else {
 
-            debugLog(
-                "MENSAJE",
-                "Backend rechazó mensaje"
+            debugPantalla(
+                "[MENSAJE] Backend rechazó"
             );
         }
 
     })
 
     .catch(err => {
-        console.error(
-            "ERROR MENSAJE:",
-            err
+
+        debugPantalla(
+            "[ERROR MENSAJE] " + err
         );
+
     });
 
 });
@@ -352,6 +401,10 @@ inputImagen?.addEventListener("change", e => {
     let file = e.target.files[0];
 
     if (!file) return;
+
+    debugPantalla(
+        "[IMAGEN] Procesando imagen"
+    );
 
     let reader = new FileReader();
 
@@ -376,8 +429,8 @@ inputImagen?.addEventListener("change", e => {
 
         .then(data => {
 
-            debugLog(
-                "IMAGEN",
+            debugPantalla(
+                "[IMAGEN] " +
                 JSON.stringify(data)
             );
 
@@ -385,10 +438,11 @@ inputImagen?.addEventListener("change", e => {
         })
 
         .catch(err => {
-            console.error(
-                "ERROR IMAGEN:",
-                err
+
+            debugPantalla(
+                "[ERROR IMAGEN] " + err
             );
+
         });
     };
 
