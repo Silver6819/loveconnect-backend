@@ -199,15 +199,12 @@ async def enviar_mensaje(
         debug_error("MENSAJE", e)
         return {"ok": False, "error": str(e)}
 
-@app.get("/chat/{usuario}", response_class=HTMLResponse)
-async def chat(request: Request, usuario: str):
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
 
-        debug_log(
-            "CHAT",
-            f"{usuario_actual} entrando chat con {usuario}"
-        )
+        debug_log("HOME", f"Entrando usuario: {usuario_actual}")
 
         mensajes = []
         usuarios = []
@@ -218,13 +215,9 @@ async def chat(request: Request, usuario: str):
                 result = conn.execute(text("""
                     SELECT emisor, mensaje
                     FROM mensajes
-                    WHERE (emisor = :yo AND receptor = :otro)
-                       OR (emisor = :otro AND receptor = :yo)
+                    WHERE receptor = 'GLOBAL'
                     ORDER BY fecha ASC
-                """), {
-                    "yo": usuario_actual,
-                    "otro": usuario
-                })
+                """))
 
                 mensajes = [
                     {
@@ -246,21 +239,16 @@ async def chat(request: Request, usuario: str):
                     for r in result_users.fetchall()
                 ]
 
-        debug_log(
-            "CHAT",
-            f"Mensajes privados: {len(mensajes)}"
-        )
-
         return render(request, "index.html", {
             "usuarios": usuarios,
             "usuario_actual": usuario_actual,
-            "chat_con": usuario,
+            "chat_con": "GLOBAL",
             "mensajes": mensajes,
             "es_premium": False
         })
 
     except Exception as e:
-        debug_error("CHAT", e)
+        debug_error("HOME", e)
         return mostrar_error()
 
 @app.get("/global", response_class=HTMLResponse)
