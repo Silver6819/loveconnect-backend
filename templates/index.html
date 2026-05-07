@@ -121,8 +121,12 @@ Chat con {{ chat_con }}
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+function debugLog(modulo, mensaje) {
+    console.log(`[${modulo}] ${mensaje}`);
+}
 
 let chatCon = {{ chat_con | tojson | safe }};
+    debugLog("CHAT", "Chat actual: " + chatCon);
 let usuarioActual = {{ usuario_actual | tojson | safe }};
 
 const chatBox = document.getElementById("chat-box");
@@ -153,24 +157,49 @@ function renderMensaje(m) {
 
 // 🔄 cargar
 function cargarMensajes() {
-    fetch("/mensajes_privados/" + chatCon)
-    .then(r => r.json())
-    .then(data => {
-        if (!data || !data.mensajes) return;
 
-        chatBox.innerHTML = data.mensajes.map(renderMensaje).join("");
+    debugLog("FETCH", "Cargando mensajes...");
+
+    fetch("/mensajes_privados/" + chatCon)
+
+    .then(r => r.json())
+
+    .then(data => {
+
+        debugLog("FETCH", JSON.stringify(data));
+
+        if (!data || !data.mensajes) {
+            debugLog("FETCH", "No llegaron mensajes");
+            return;
+        }
+
+        chatBox.innerHTML =
+            data.mensajes.map(renderMensaje).join("");
+
         chatBox.scrollTop = chatBox.scrollHeight;
+    })
+
+    .catch(err => {
+        console.error("ERROR FETCH:", err);
     });
 }
 
 // 🚀 enviar
 form?.addEventListener("submit", e => {
+
     e.preventDefault();
 
     let mensaje = inputMensaje.value.trim();
-    if (!mensaje) return;
+
+    debugLog("MENSAJE", "Intentando enviar");
+
+    if (!mensaje) {
+        debugLog("MENSAJE", "Mensaje vacío");
+        return;
+    }
 
     let formData = new FormData();
+
     formData.append("receptor", chatCon);
     formData.append("mensaje", mensaje);
 
@@ -178,12 +207,27 @@ form?.addEventListener("submit", e => {
         method: "POST",
         body: formData
     })
+
     .then(r => r.json())
+
     .then(data => {
+
+        debugLog("MENSAJE", JSON.stringify(data));
+
         if (data.ok) {
+
             inputMensaje.value = "";
+
             cargarMensajes();
+
+        } else {
+
+            debugLog("MENSAJE", "Backend rechazó mensaje");
         }
+    })
+
+    .catch(err => {
+        console.error("ERROR MENSAJE:", err);
     });
 });
 
