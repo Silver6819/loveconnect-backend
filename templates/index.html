@@ -13,6 +13,7 @@ body {
     padding: 10px;
     overflow-x: hidden;
     padding-bottom: 60px;
+    background: #f5f5f5;
 }
 
 .barra-pro {
@@ -65,6 +66,20 @@ body {
     align-self: flex-start;
 }
 
+.usuario-item {
+    padding: 8px;
+    margin: 4px 0;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+.usuario-item a {
+    text-decoration: none;
+    color: black;
+    font-weight: bold;
+}
+
 #debug-box {
     margin-top: 10px;
     padding: 8px;
@@ -76,6 +91,28 @@ body {
     overflow-y: auto;
 }
 
+.input-chat {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    box-sizing: border-box;
+}
+
+.btn-enviar {
+    width: 100%;
+    padding: 12px;
+    margin-top: 5px;
+    background: #ff4da6;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+}
+
+.btn-enviar:active {
+    transform: scale(0.98);
+}
+
 </style>
 </head>
 
@@ -83,10 +120,15 @@ body {
 
 <h1>💕 LoveConnect</h1>
 
-<h3>Usuario actual: {{ usuario_actual }}</h3>
+<h3>
+Usuario actual:
+{{ usuario_actual }}
+</h3>
 
 <a href="/logout">
-<button>Cerrar sesión</button>
+<button>
+Cerrar sesión
+</button>
 </a>
 
 <hr>
@@ -94,10 +136,12 @@ body {
 <div class="barra-pro">
 
 <a href="/global">
+
 <button class="btn-barra">
 🌍
 <span>Global</span>
 </button>
+
 </a>
 
 </div>
@@ -127,11 +171,13 @@ Entrar
 
 {% if user.nombre != usuario_actual %}
 
+<div class="usuario-item">
+
 <a href="/chat/{{ user.nombre | urlencode }}">
-{{ user.nombre }}
+💌 {{ user.nombre }}
 </a>
 
-<br>
+</div>
 
 {% endif %}
 
@@ -149,7 +195,7 @@ Entrar
 
 {% else %}
 
-Chat con {{ chat_con }}
+💌 Chat con {{ chat_con }}
 
 {% endif %}
 
@@ -164,11 +210,12 @@ Chat con {{ chat_con }}
 {% if "[FOTO]" in m.mensaje %}
 
 <strong>{{ m.emisor }}:</strong>
+
 <br>
 
 <img
 src="/{{ m.mensaje.replace('[FOTO]', '') }}"
-style="max-width:150px;"
+style="max-width:150px; border-radius:10px;"
 >
 
 {% else %}
@@ -188,25 +235,31 @@ style="max-width:150px;"
 DEBUG LoveConnect...
 </div>
 
-<form id="form-chat">
+<div style="margin-top:10px;">
 
 <input
 type="file"
 id="input-imagen"
 accept="image/*"
+class="input-chat"
 >
 
 <input
 type="text"
 id="mensaje"
 placeholder="Mensaje"
+class="input-chat"
 >
 
-<button type="submit">
+<button
+type="button"
+id="btn-enviar"
+class="btn-enviar"
+>
 Enviar
 </button>
 
-</form>
+</div>
 
 {% endif %}
 
@@ -214,14 +267,26 @@ Enviar
 
 document.addEventListener("DOMContentLoaded", () => {
 
-let chatCon = {{ chat_con | tojson | safe }};
-let usuarioActual = {{ usuario_actual | tojson | safe }};
+let chatCon =
+    {{ chat_con | tojson | safe }};
 
-const chatBox = document.getElementById("chat-box");
-const form = document.getElementById("form-chat");
-const inputMensaje = document.getElementById("mensaje");
-const inputImagen = document.getElementById("input-imagen");
-const debugBox = document.getElementById("debug-box");
+let usuarioActual =
+    {{ usuario_actual | tojson | safe }};
+
+const chatBox =
+    document.getElementById("chat-box");
+
+const inputMensaje =
+    document.getElementById("mensaje");
+
+const inputImagen =
+    document.getElementById("input-imagen");
+
+const debugBox =
+    document.getElementById("debug-box");
+
+const btnEnviar =
+    document.getElementById("btn-enviar");
 
 function debugPantalla(msg) {
 
@@ -238,18 +303,23 @@ function debugPantalla(msg) {
     }
 }
 
-debugPantalla("[CHAT] Chat actual: " + chatCon);
+debugPantalla(
+    "[CHAT] Chat actual: " + chatCon
+);
 
-if (!mensaje || !chatCon) {
+if (!chatCon) {
 
-    debugPantalla("[CHAT] No hay chat activo");
+    debugPantalla(
+        "[CHAT] No hay chat activo"
+    );
 
     return;
 }
 
 function renderMensaje(m) {
 
-    if (!m || !m.mensaje) return "";
+    if (!m || !m.mensaje)
+        return "";
 
     let clase =
         m.emisor === usuarioActual
@@ -262,12 +332,20 @@ function renderMensaje(m) {
         m.mensaje.includes("[FOTO]")
     ) {
 
-        let ruta = m.mensaje.replace("[FOTO]", "");
+        let ruta =
+            m.mensaje.replace(
+                "[FOTO]",
+                ""
+            );
 
         return `
         <div class="mensaje ${clase}">
-            <strong>${m.emisor}:</strong><br>
-            <img src="/${ruta}" style="max-width:150px;">
+            <strong>${m.emisor}:</strong>
+            <br>
+            <img
+            src="/${ruta}"
+            style="max-width:150px; border-radius:10px;"
+            >
         </div>
         `;
     }
@@ -282,9 +360,13 @@ function renderMensaje(m) {
 
 function cargarMensajes() {
 
-    debugPantalla("[FETCH] Cargando mensajes");
+    debugPantalla(
+        "[FETCH] Cargando mensajes"
+    );
 
-    fetch("/mensajes_privados/" + chatCon)
+    fetch(
+        "/mensajes_privados/" + chatCon
+    )
 
     .then(r => r.json())
 
@@ -322,9 +404,7 @@ function cargarMensajes() {
     });
 }
 
-form?.addEventListener("submit", e => {
-
-    e.preventDefault();
+btnEnviar?.addEventListener("click", () => {
 
     let mensaje =
         inputMensaje.value.trim();
@@ -333,7 +413,7 @@ form?.addEventListener("submit", e => {
         "[MENSAJE] Intentando enviar"
     );
 
-    if (!mensaje) {
+    if (!mensaje || !chatCon) {
 
         debugPantalla(
             "[MENSAJE] Vacío"
@@ -419,8 +499,11 @@ inputImagen?.addEventListener("change", e => {
             },
 
             body: JSON.stringify({
+
                 imagen: ev.target.result,
+
                 receptor: chatCon
+
             })
 
         })
@@ -435,6 +518,7 @@ inputImagen?.addEventListener("change", e => {
             );
 
             cargarMensajes();
+
         })
 
         .catch(err => {
@@ -451,7 +535,10 @@ inputImagen?.addEventListener("change", e => {
 
 cargarMensajes();
 
-setInterval(cargarMensajes, 2000);
+setInterval(
+    cargarMensajes,
+    2000
+);
 
 });
 
