@@ -155,6 +155,52 @@ async def mensajes_privados(request: Request, usuario: str):
         debug_error("PRIVADO", e)
         return {"mensajes": [], "error": str(e)}
 
+# 🔥 NUEVA RUTA GLOBAL FETCH
+@app.get("/mensajes")
+async def obtener_mensajes(request: Request):
+
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+
+        debug_log(
+            "FETCH",
+            f"{usuario_actual} solicitando mensajes GLOBAL"
+        )
+
+        mensajes = []
+
+        if engine:
+            with engine.begin() as conn:
+
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje
+                    FROM mensajes
+                    WHERE receptor = 'GLOBAL'
+                    ORDER BY fecha ASC
+                """))
+
+                mensajes = [
+                    {
+                        "emisor": r[0],
+                        "mensaje": r[1]
+                    }
+                    for r in result.fetchall()
+                ]
+
+        debug_log(
+            "FETCH",
+            f"Mensajes encontrados: {len(mensajes)}"
+        )
+
+        return {"mensajes": mensajes}
+
+    except Exception as e:
+        debug_error("FETCH", e)
+        return {
+            "mensajes": [],
+            "error": str(e)
+        }
+
 @app.post("/mensaje")
 async def enviar_mensaje(
     request: Request,
@@ -386,6 +432,7 @@ async def logout(request: Request):
 async def test():
     debug_log("TEST", "Ruta test funcionando")
     return {"ok": True}
+
 @app.post("/set_usuario")
 async def set_usuario(request: Request, usuario: str = Form(...)):
     try:
