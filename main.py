@@ -298,27 +298,44 @@ async def home(request: Request):
         return mostrar_error()
 
 @app.get("/global", response_class=HTMLResponse)
-async def global_chat(request: Request):
+@app.get("/chat/{usuario}", response_class=HTMLResponse)
+async def chat_privado(request: Request, usuario: str):
+
     try:
-        usuario_actual = request.session.get("usuario", "Invitado")
+
+        usuario_actual = request.session.get(
+            "usuario",
+            "Invitado"
+        )
 
         debug_log(
-            "GLOBAL",
-            f"{usuario_actual} entrando al chat global"
+            "CHAT",
+            f"{usuario_actual} abrió chat con {usuario}"
         )
 
         mensajes = []
         usuarios = []
 
         if engine:
+
             with engine.begin() as conn:
 
                 result = conn.execute(text("""
                     SELECT emisor, mensaje
                     FROM mensajes
-                    WHERE receptor = 'GLOBAL'
+                    WHERE (
+                        emisor = :yo
+                        AND receptor = :otro
+                    )
+                    OR (
+                        emisor = :otro
+                        AND receptor = :yo
+                    )
                     ORDER BY fecha ASC
-                """))
+                """), {
+                    "yo": usuario_actual,
+                    "otro": usuario
+                })
 
                 mensajes = [
                     {
@@ -341,20 +358,28 @@ async def global_chat(request: Request):
                 ]
 
         debug_log(
-            "GLOBAL",
-            f"Mensajes globales: {len(mensajes)}"
+            "CHAT",
+            f"Mensajes privados: {len(mensajes)}"
         )
 
         return render(request, "index.html", {
+
             "usuarios": usuarios,
+
             "usuario_actual": usuario_actual,
-            "chat_con": "GLOBAL",
+
+            "chat_con": usuario,
+
             "mensajes": mensajes,
+
             "es_premium": False
+
         })
 
     except Exception as e:
-        debug_error("GLOBAL", e)
+
+        debug_error("CHAT", e)
+
         return mostrar_error()
 
 @app.post("/enviar_foto")
