@@ -11,22 +11,39 @@ import base64
 
 app = FastAPI()
 
-# ========== CONFIGURACIÓN ==========
+# ========== CONFIGURACIÓN INICIAL ==========
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.add_middleware(SessionMiddleware, secret_key="supersecreto", https_only=False)  # FIX: https_only False para desarrollo
+app.add_middleware(SessionMiddleware, secret_key="supersecreto", https_only=False)
 
+# ========== VARIABLE DE ENTORNO DATABASE_URL ==========
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# FIX: Forzar SSL para PostgreSQL en Render
+# 🔥 CORRECCIÓN: Asegurar SSL y formato correcto
 if DATABASE_URL:
+    # Convertir postgres:// a postgresql:// (común en Render)
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    # Añadir sslmode si no está presente
-    if "?" not in DATABASE_URL:
-        DATABASE_URL += "?sslmode=require"
-    else:
-        DATABASE_URL += "&sslmode=require"
+    
+    # Si no tiene puerto :5432, lo agregamos (asumiendo el estándar)
+    # Detectamos si ya contiene el puerto: patrón @algo:5432/
+    import re
+    if re.search(r'@[^:]+:\d+/', DATABASE_URL) is None:
+        # Reemplazar @host/ por @host:5432/
+        DATABASE_URL = re.sub(r'@([^/]+)/', r'@\1:5432/', DATABASE_URL)
+    
+    # Agregar sslmode=require si no está presente
+    if "sslmode" not in DATABASE_URL:
+        if "?" in DATABASE_URL:
+            DATABASE_URL += "&sslmode=require"
+        else:
+            DATABASE_URL += "?sslmode=require"
+
+print(f"🔗 DATABASE_URL configurada (oculta contraseña)")
+# Mostrar solo para depuración (sin password)
+if DATABASE_URL:
+    masked = re.sub(r':[^@]+@', ':****@', DATABASE_URL)
+    print(f"   → {masked}")
 
 # ========== LOGGERS ==========
 def debug_log(modulo, mensaje):
@@ -36,20 +53,20 @@ def debug_error(modulo, e):
     print(f"[ERROR - {modulo}] {e}")
     print(traceback.format_exc())
 
-# ========== CONEXIÓN DB ==========
+# ========== CONEXIÓN A LA BASE DE DATOS ==========
 engine = None
 
 if not DATABASE_URL:
-    print("❌ CRÍTICO: Variable DATABASE_URL no definida")
+    print("❌ CRÍTICO: Variable DATABASE_URL no definida en el entorno.")
 else:
     try:
-        engine = create_engine(DATABASE_URL, pool_pre_ping=True)  # FIX: pool_pre_ping evita conexiones muertas
+        engine = create_engine(DATABASE_URL, pool_pre_ping=True)
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        print("✅ DB CONECTADA CORRECTAMENTE con SSL")
+        print("✅ Base de datos PostgreSQL conectada correctamente (SSL activo)")
     except Exception as e:
-        print("❌ ERROR CRÍTICO CONECTANDO DB:")
-        debug_error("DB", e)
+        print("❌ ERROR FATAL conectando a la base de datos:")
+        debug_error("DB_INIT", e)
 
 # ========== TEMPLATES ==========
 templates = Jinja2Templates(directory="templates")
@@ -57,16 +74,16 @@ templates = Jinja2Templates(directory="templates")
 def render(request, template_name, context):
     return templates.TemplateResponse(name=template_name, context=context, request=request)
 
-def mostrar_error(mensaje="Error interno"):
+def mostrar_error(mensaje="Error interno del servidor"):
     return HTMLResponse(f"<h3>{mensaje}</h3><pre>{traceback.format_exc()}</pre>")
 
-# ========== INICIO ==========
+# ========== INICIO: CREAR TABLAS ==========
 @app.on_event("startup")
 def startup():
+    if not engine:
+        print("⚠️ Startup: No hay conexión a DB, no se crearán tablas.")
+        return
     try:
-        if not engine:
-            print("⚠️ Startup: DB no disponible, las tablas NO se crearán")
-            return
         with engine.begin() as conn:
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS mensajes (
@@ -83,20 +100,19 @@ def startup():
                     nombre TEXT UNIQUE
                 )
             """))
-        print("✅ Tablas verificadas/creadas")
+        print("✅ Tablas 'mensajes' y 'usuarios' verificadas/creadas.")
     except Exception as e:
         debug_error("STARTUP", e)
 
-# ========== ENDPOINTS ==========
+# ========== ENDPOINTS PRINCIPALES ==========
+
 @app.get("/mensajes_privados/{usuario}")
 async def mensajes_privados(request: Request, usuario: str):
     if not engine:
-        return {"mensajes": [], "error": "DB no conectada"}
-    
+        return {"mensajes": [], "error": "Base de datos no conectada"}
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
-        debug_log("PRIVADO", f"{usuario_actual} con {usuario}")
-        
+        debug_log("PRIVADO", f"{usuario_actual} -> {usuario}")
         with engine.begin() as conn:
             if usuario == "GLOBAL":
                 result = conn.execute(text("""
@@ -111,17 +127,14 @@ async def mensajes_privados(request: Request, usuario: str):
                        OR (emisor = :otro AND receptor = :yo)
                     ORDER BY fecha ASC
                 """), {"yo": usuario_actual, "otro": usuario})
-            
             mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
-        
-        debug_log("PRIVADO", f"Devueltos {len(mensajes)} mensajes")
         return {"mensajes": mensajes}
     except Exception as e:
         debug_error("PRIVADO", e)
         return {"mensajes": [], "error": str(e)}
 
 @app.get("/mensajes")
-async def obtener_mensajes(request: Request):
+async def obtener_mensajes_global(request: Request):
     if not engine:
         return {"mensajes": [], "error": "DB no conectada"}
     try:
@@ -134,7 +147,7 @@ async def obtener_mensajes(request: Request):
             mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
         return {"mensajes": mensajes}
     except Exception as e:
-        debug_error("FETCH", e)
+        debug_error("FETCH_GLOBAL", e)
         return {"mensajes": [], "error": str(e)}
 
 @app.post("/mensaje")
@@ -144,23 +157,19 @@ async def enviar_mensaje(
     mensaje: str = Form(...)
 ):
     if not engine:
-        debug_log("MENSAJE", "DB no conectada - mensaje no guardado")
+        debug_log("MENSAJE", "DB no conectada - mensaje rechazado")
         return {"ok": False, "error": "Base de datos no disponible"}
-    
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
         if not mensaje.strip():
             return {"ok": False, "error": "Mensaje vacío"}
-        
         receptor_final = "GLOBAL" if receptor == "GLOBAL" else receptor
-        
         with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO mensajes (emisor, receptor, mensaje)
                 VALUES (:e, :r, :m)
             """), {"e": usuario_actual, "r": receptor_final, "m": mensaje})
-        
-        debug_log("MENSAJE", f"{usuario_actual} -> {receptor_final}: {mensaje[:20]}")
+        debug_log("MENSAJE", f"{usuario_actual} -> {receptor_final}: {mensaje[:30]}")
         return {"ok": True}
     except Exception as e:
         debug_error("MENSAJE", e)
@@ -172,7 +181,6 @@ async def home(request: Request):
         usuario_actual = request.session.get("usuario", "Invitado")
         mensajes = []
         usuarios = []
-        
         if engine:
             with engine.begin() as conn:
                 result = conn.execute(text("SELECT emisor, mensaje FROM mensajes WHERE receptor = 'GLOBAL' ORDER BY fecha ASC"))
@@ -180,8 +188,7 @@ async def home(request: Request):
                 result_users = conn.execute(text("SELECT nombre FROM usuarios"))
                 usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
         else:
-            debug_log("HOME", "DB no disponible - mostrando vacío")
-        
+            debug_log("HOME", "DB no disponible, mostrando vacío")
         return render(request, "index.html", {
             "usuarios": usuarios,
             "usuario_actual": usuario_actual,
@@ -195,15 +202,14 @@ async def home(request: Request):
 
 @app.get("/global", response_class=HTMLResponse)
 @app.get("/chat/{usuario}", response_class=HTMLResponse)
-async def chat_privado(request: Request, usuario: str):
+async def chat_privado_o_global(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
         mensajes = []
         usuarios = []
-        
         if engine:
             with engine.begin() as conn:
-                # Obtener mensajes
+                # Mensajes
                 if usuario == "GLOBAL":
                     result = conn.execute(text("SELECT emisor, mensaje FROM mensajes WHERE receptor = 'GLOBAL' ORDER BY fecha ASC"))
                 else:
@@ -213,13 +219,9 @@ async def chat_privado(request: Request, usuario: str):
                         ORDER BY fecha ASC
                     """), {"yo": usuario_actual, "otro": usuario})
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
-                
-                # Lista de usuarios
+                # Usuarios
                 result_users = conn.execute(text("SELECT nombre FROM usuarios"))
                 usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
-        else:
-            debug_log("CHAT", "DB no disponible")
-        
         return render(request, "index.html", {
             "usuarios": usuarios,
             "usuario_actual": usuario_actual,
@@ -235,33 +237,26 @@ async def chat_privado(request: Request, usuario: str):
 async def enviar_foto(request: Request, data: dict = Body(...)):
     if not engine:
         return {"ok": False, "error": "DB no conectada"}
-    
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
         imagen = data.get("imagen")
         receptor = data.get("receptor")
-        
         if not imagen or not receptor:
             return {"ok": False, "error": "Datos incompletos"}
-        
-        # Decodificar base64
+        # Decodificar base64 (eliminar cabecera data:image/png;base64,)
         if "," in imagen:
             imagen = imagen.split(",")[1]
         imagen_bytes = base64.b64decode(imagen)
-        
-        # Guardar en static (efímero, pero mientras funciona)
+        # Guardar en disco (efímero pero funcional)
         nombre = f"foto_{datetime.now().strftime('%Y%m%d%H%M%S')}_{usuario_actual}.png"
         ruta = f"static/{nombre}"
         with open(ruta, "wb") as f:
             f.write(imagen_bytes)
-        
-        # Registrar en DB
         with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO mensajes (emisor, receptor, mensaje)
                 VALUES (:e, :r, :m)
             """), {"e": usuario_actual, "r": receptor, "m": f"[FOTO]{ruta}"})
-        
         debug_log("IMAGEN", f"Imagen guardada: {ruta}")
         return {"ok": True}
     except Exception as e:
@@ -292,3 +287,5 @@ async def set_usuario(request: Request, usuario: str = Form(...)):
     except Exception as e:
         debug_error("LOGIN", e)
         return mostrar_error()
+
+# ========== FIN ==========
