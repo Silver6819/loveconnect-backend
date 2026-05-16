@@ -80,15 +80,27 @@ body {
     font-weight: bold;
 }
 
+/* 🔥 DEBUG BOX - OCULTO POR DEFECTO, SOLO SE MUESTRA CUANDO HAY ERROR */
 #debug-box {
-    margin-top: 10px;
-    padding: 8px;
-    border: 1px solid red;
-    background: #fff3f3;
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    padding: 10px;
+    background: #ff4444;
+    color: white;
     font-size: 12px;
-    color: #900;
-    max-height: 120px;
+    border-radius: 8px;
+    max-height: 200px;
     overflow-y: auto;
+    display: none;
+    z-index: 9999;
+    font-family: monospace;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+#debug-box.error-activo {
+    display: block;
 }
 
 .input-chat {
@@ -121,46 +133,29 @@ body {
 <h1>💕 LoveConnect</h1>
 
 <h3>
-Usuario actual:
-{{ usuario_actual }}
+Usuario actual: {{ usuario_actual }}
 </h3>
 
 <a href="/logout">
-<button>
-Cerrar sesión
-</button>
+<button>Cerrar sesión</button>
 </a>
 
 <hr>
 
 <div class="barra-pro">
-
 <a href="/global">
-
 <button class="btn-barra">
 🌍
 <span>Global</span>
 </button>
-
 </a>
-
 </div>
 
 <hr>
 
 <form action="/set_usuario" method="post">
-
-<input
-type="text"
-name="usuario"
-placeholder="Tu nombre"
-required
->
-
-<button type="submit">
-Entrar
-</button>
-
+<input type="text" name="usuario" placeholder="Tu nombre" required>
+<button type="submit">Entrar</button>
 </form>
 
 <hr>
@@ -168,19 +163,13 @@ Entrar
 <h3>Usuarios 💕</h3>
 
 {% for user in usuarios %}
-
 {% if user.nombre != usuario_actual %}
-
 <div class="usuario-item">
-
 <a href="/chat/{{ user.nombre | urlencode }}">
 💌 {{ user.nombre }}
 </a>
-
 </div>
-
 {% endif %}
-
 {% endfor %}
 
 <hr>
@@ -188,77 +177,35 @@ Entrar
 {% if chat_con is not none %}
 
 <h3>
-
 {% if chat_con == "GLOBAL" %}
-
 🌍 Chat Global
-
 {% else %}
-
 💌 Chat con {{ chat_con }}
-
 {% endif %}
-
 </h3>
 
 <div id="chat-box" class="chat-box">
-
 {% for m in mensajes %}
-
 <div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
-
 {% if "[FOTO]" in m.mensaje %}
-
 <strong>{{ m.emisor }}:</strong>
-
 <br>
-
-<img
-src="/{{ m.mensaje.replace('[FOTO]', '') }}"
-style="max-width:150px; border-radius:10px;"
->
-
+<img src="/{{ m.mensaje.replace('[FOTO]', '') }}" style="max-width:150px; border-radius:10px;">
 {% else %}
-
 <strong>{{ m.emisor }}:</strong>
 {{ m.mensaje }}
-
 {% endif %}
-
 </div>
-
 {% endfor %}
-
 </div>
 
-<div id="debug-box">
-DEBUG LoveConnect...
-</div>
+<!-- 🔥 DEBUG BOX - OCULTO, SOLO APARECE EN ERRORES -->
+<div id="debug-box"></div>
 
 <div style="margin-top:10px;">
-
-<input
-type="file"
-id="input-imagen"
-accept="image/*"
-class="input-chat"
->
-
-<input
-type="text"
-id="mensaje"
-placeholder="Mensaje"
-class="input-chat"
->
-
-<button
-type="button"
-id="btn-enviar"
-class="btn-enviar"
->
-Enviar
-</button>
-
+<input type="file" id="input-imagen" accept="image/*" class="input-chat">
+<input type="text" id="mensaje" placeholder="Mensaje" class="input-chat">
+<button type="button" id="btn-enviar" class="btn-enviar">Enviar</button>
 </div>
 
 {% endif %}
@@ -267,85 +214,62 @@ Enviar
 
 document.addEventListener("DOMContentLoaded", () => {
 
-let chatCon =
-    {{ chat_con | tojson | safe }};
+let chatCon = {{ chat_con | tojson | safe }};
+let usuarioActual = {{ usuario_actual | tojson | safe }};
 
-let usuarioActual =
-    {{ usuario_actual | tojson | safe }};
+const chatBox = document.getElementById("chat-box");
+const inputMensaje = document.getElementById("mensaje");
+const inputImagen = document.getElementById("input-imagen");
+const debugBox = document.getElementById("debug-box");
+const btnEnviar = document.getElementById("btn-enviar");
 
-const chatBox =
-    document.getElementById("chat-box");
-
-const inputMensaje =
-    document.getElementById("mensaje");
-
-const inputImagen =
-    document.getElementById("input-imagen");
-
-const debugBox =
-    document.getElementById("debug-box");
-
-const btnEnviar =
-    document.getElementById("btn-enviar");
-
-function debugPantalla(msg) {
-
-    console.log(msg);
-
+// 🔥 Función para mostrar errores (solo errores, no logs normales)
+function mostrarError(mensaje) {
+    console.error(mensaje);
+    
     if (debugBox) {
-
-        debugBox.innerHTML += `
-        <div>${msg}</div>
-        `;
-
-        debugBox.scrollTop =
-            debugBox.scrollHeight;
+        debugBox.classList.add("error-activo");
+        debugBox.innerHTML = `❌ ERROR: ${mensaje}`;
+        
+        // Auto-ocultar después de 5 segundos
+        setTimeout(() => {
+            if (debugBox) {
+                debugBox.classList.remove("error-activo");
+                debugBox.innerHTML = "";
+            }
+        }, 5000);
     }
 }
 
-debugPantalla(
-    "[CHAT] Chat actual: " + chatCon
-);
+// 🔥 Función para ocultar error manualmente si se necesita
+function ocultarError() {
+    if (debugBox) {
+        debugBox.classList.remove("error-activo");
+        debugBox.innerHTML = "";
+    }
+}
 
-if (!chatCon) {
-
-    debugPantalla(
-        "[CHAT] No hay chat activo"
-    );
-
-    return;
+// No mostramos logs normales, solo errores
+function debugPantalla(msg) {
+    console.log(msg); // Solo para consola del navegador
+    // No mostramos en la pantalla a menos que sea un error
+    if (msg.includes("ERROR") || msg.includes("rechazó") || msg.includes("falló")) {
+        mostrarError(msg);
+    }
 }
 
 function renderMensaje(m) {
+    if (!m || !m.mensaje) return "";
 
-    if (!m || !m.mensaje)
-        return "";
+    let clase = m.emisor === usuarioActual ? "mio" : "otro";
 
-    let clase =
-        m.emisor === usuarioActual
-        ? "mio"
-        : "otro";
-
-    if (
-        typeof m.mensaje === "string"
-        &&
-        m.mensaje.includes("[FOTO]")
-    ) {
-
-        let ruta =
-            m.mensaje.replace(
-                "[FOTO]",
-                ""
-            );
-
+    if (typeof m.mensaje === "string" && m.mensaje.includes("[FOTO]")) {
+        let ruta = m.mensaje.replace("[FOTO]", "");
         return `
         <div class="mensaje ${clase}">
             <strong>${m.emisor}:</strong>
             <br>
-            <img
-            src="/${ruta}"
-            style="max-width:150px; border-radius:10px;"
-            >
+            <img src="/${ruta}" style="max-width:150px; border-radius:10px;">
         </div>
         `;
     }
@@ -359,186 +283,111 @@ function renderMensaje(m) {
 }
 
 function cargarMensajes() {
-
-    debugPantalla(
-        "[FETCH] Cargando mensajes"
-    );
-
-    fetch(
-        "/mensajes_privados/" + chatCon
-    )
-
-    .then(r => r.json())
-
-    .then(data => {
-
-        debugPantalla(
-            "[FETCH] " +
-            JSON.stringify(data)
-        );
-
-        if (!data || !data.mensajes) {
-
-            debugPantalla(
-                "[FETCH] Sin mensajes"
-            );
-
-            return;
-        }
-
-        chatBox.innerHTML =
-            data.mensajes
-            .map(renderMensaje)
-            .join("");
-
-        chatBox.scrollTop =
-            chatBox.scrollHeight;
-    })
-
-    .catch(err => {
-
-        debugPantalla(
-            "[ERROR FETCH] " + err
-        );
-
-    });
-}
-
-btnEnviar?.addEventListener("click", () => {
-
-    let mensaje =
-        inputMensaje.value.trim();
-
-    debugPantalla(
-        "[MENSAJE] Intentando enviar"
-    );
-
-    if (!mensaje || !chatCon) {
-
-        debugPantalla(
-            "[MENSAJE] Vacío"
-        );
-
+    if (!chatCon) {
+        mostrarError("No hay chat activo");
         return;
     }
 
-    let formData = new FormData();
-
-    formData.append(
-        "receptor",
-        chatCon
-    );
-
-    formData.append(
-        "mensaje",
-        mensaje
-    );
-
-    fetch("/mensaje", {
-
-        method: "POST",
-
-        body: formData
-
+    fetch("/mensajes_privados/" + encodeURIComponent(chatCon))
+    .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
     })
-
-    .then(r => r.json())
-
     .then(data => {
-
-        debugPantalla(
-            "[MENSAJE] " +
-            JSON.stringify(data)
-        );
-
-        if (data.ok) {
-
-            inputMensaje.value = "";
-
-            cargarMensajes();
-
-        } else {
-
-            debugPantalla(
-                "[MENSAJE] Backend rechazó"
-            );
+        if (data.error) {
+            mostrarError(data.error);
+            return;
+        }
+        
+        if (!data || !data.mensajes) {
+            return;
         }
 
+        if (chatBox) {
+            chatBox.innerHTML = data.mensajes.map(renderMensaje).join("");
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
     })
-
     .catch(err => {
-
-        debugPantalla(
-            "[ERROR MENSAJE] " + err
-        );
-
+        mostrarError("Error cargando mensajes: " + err.message);
     });
+}
 
-});
+if (btnEnviar) {
+    btnEnviar.addEventListener("click", () => {
+        let mensaje = inputMensaje?.value.trim();
+        
+        if (!mensaje) {
+            mostrarError("Escribe un mensaje antes de enviar");
+            return;
+        }
+        
+        if (!chatCon) {
+            mostrarError("No hay chat seleccionado");
+            return;
+        }
 
-inputImagen?.addEventListener("change", e => {
+        let formData = new FormData();
+        formData.append("receptor", chatCon);
+        formData.append("mensaje", mensaje);
 
-    let file = e.target.files[0];
-
-    if (!file) return;
-
-    debugPantalla(
-        "[IMAGEN] Procesando imagen"
-    );
-
-    let reader = new FileReader();
-
-    reader.onload = function(ev) {
-
-        fetch("/enviar_imagen", {
-
+        fetch("/mensaje", {
             method: "POST",
-
-            headers: {
-                "Content-Type": "application/json"
-            },
-
-            body: JSON.stringify({
-
-                imagen: ev.target.result,
-
-                receptor: chatCon
-
-            })
-
+            body: formData
         })
-
         .then(r => r.json())
-
         .then(data => {
-
-            debugPantalla(
-                "[IMAGEN] " +
-                JSON.stringify(data)
-            );
-
-            cargarMensajes();
-
+            if (data.ok) {
+                if (inputMensaje) inputMensaje.value = "";
+                cargarMensajes();
+                ocultarError(); // Si había error, lo ocultamos al enviar bien
+            } else {
+                mostrarError(data.error || "Error al enviar mensaje");
+            }
         })
-
         .catch(err => {
-
-            debugPantalla(
-                "[ERROR IMAGEN] " + err
-            );
-
+            mostrarError("Error de red: " + err.message);
         });
-    };
+    });
+}
 
-    reader.readAsDataURL(file);
-});
+if (inputImagen) {
+    inputImagen.addEventListener("change", e => {
+        let file = e.target.files[0];
+        if (!file) return;
 
-cargarMensajes();
+        let reader = new FileReader();
+        reader.onload = function(ev) {
+            fetch("/enviar_imagen", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    imagen: ev.target.result,
+                    receptor: chatCon
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    cargarMensajes();
+                    ocultarError();
+                } else {
+                    mostrarError(data.error || "Error al enviar imagen");
+                }
+            })
+            .catch(err => {
+                mostrarError("Error de red al enviar imagen: " + err.message);
+            });
+        };
+        reader.readAsDataURL(file);
+    });
+}
 
-setInterval(
-    cargarMensajes,
-    2000
-);
+// Cargar mensajes inicial
+if (chatCon) {
+    cargarMensajes();
+    setInterval(cargarMensajes, 3000);
+}
 
 });
 
