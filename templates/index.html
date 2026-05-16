@@ -80,7 +80,7 @@ body {
     font-weight: bold;
 }
 
-/* 🔥 DEBUG BOX - OCULTO POR DEFECTO, SOLO SE MUESTRA CUANDO HAY ERROR */
+/* DEBUG BOX - OCULTO POR DEFECTO, SOLO SE MUESTRA CUANDO HAY ERROR */
 #debug-box {
     position: fixed;
     bottom: 10px;
@@ -199,7 +199,7 @@ Usuario actual: {{ usuario_actual }}
 {% endfor %}
 </div>
 
-<!-- 🔥 DEBUG BOX - OCULTO, SOLO APARECE EN ERRORES -->
+<!-- DEBUG BOX - OCULTO, SOLO APARECE EN ERRORES -->
 <div id="debug-box"></div>
 
 <div style="margin-top:10px;">
@@ -223,7 +223,7 @@ const inputImagen = document.getElementById("input-imagen");
 const debugBox = document.getElementById("debug-box");
 const btnEnviar = document.getElementById("btn-enviar");
 
-// 🔥 Función para mostrar errores (solo errores, no logs normales)
+// Función para mostrar errores (solo errores, no logs normales)
 function mostrarError(mensaje) {
     console.error(mensaje);
     
@@ -241,20 +241,11 @@ function mostrarError(mensaje) {
     }
 }
 
-// 🔥 Función para ocultar error manualmente si se necesita
+// Función para ocultar error manualmente
 function ocultarError() {
     if (debugBox) {
         debugBox.classList.remove("error-activo");
         debugBox.innerHTML = "";
-    }
-}
-
-// No mostramos logs normales, solo errores
-function debugPantalla(msg) {
-    console.log(msg); // Solo para consola del navegador
-    // No mostramos en la pantalla a menos que sea un error
-    if (msg.includes("ERROR") || msg.includes("rechazó") || msg.includes("falló")) {
-        mostrarError(msg);
     }
 }
 
@@ -282,6 +273,7 @@ function renderMensaje(m) {
     `;
 }
 
+// 🔥 CORRECCIÓN: encodeURIComponent para nombres con espacios
 function cargarMensajes() {
     if (!chatCon) {
         mostrarError("No hay chat activo");
@@ -340,7 +332,7 @@ if (btnEnviar) {
             if (data.ok) {
                 if (inputMensaje) inputMensaje.value = "";
                 cargarMensajes();
-                ocultarError(); // Si había error, lo ocultamos al enviar bien
+                ocultarError();
             } else {
                 mostrarError(data.error || "Error al enviar mensaje");
             }
