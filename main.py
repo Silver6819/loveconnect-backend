@@ -235,6 +235,49 @@ async def chat_privado_o_global(request: Request, usuario: str):
         debug_error("CHAT", e)
         return mostrar_error()
 
+# ========== NUEVO ENDPOINT: MIS CHATS DIRECTOS ==========
+@app.get("/mis_chats")
+async def mis_chats(request: Request):
+    if not engine:
+        return {"chats": []}
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+        
+        with engine.begin() as conn:
+            # Obtener usuarios con los que ha habido conversación (excluyendo GLOBAL)
+            result = conn.execute(text("""
+                SELECT DISTINCT 
+                    CASE 
+                        WHEN emisor = :usuario THEN receptor
+                        ELSE emisor
+                    END as otro_usuario,
+                    (SELECT mensaje FROM mensajes m2 
+                     WHERE ((m2.emisor = :usuario AND m2.receptor = otro_usuario)
+                        OR (m2.emisor = otro_usuario AND m2.receptor = :usuario))
+                        AND m2.receptor != 'GLOBAL'
+                     ORDER BY m2.fecha DESC LIMIT 1) as ultimo_mensaje
+                FROM mensajes
+                WHERE (emisor = :usuario OR receptor = :usuario)
+                    AND receptor != 'GLOBAL'
+                ORDER BY fecha DESC
+            """), {"usuario": usuario_actual})
+            
+            chats = []
+            for r in result.fetchall():
+                if r[0] and r[0] != "GLOBAL" and r[0] != usuario_actual:
+                    ultimo = r[1] if r[1] else ""
+                    if len(ultimo) > 50:
+                        ultimo = ultimo[:50] + "..."
+                    chats.append({
+                        "usuario": r[0],
+                        "ultimo_mensaje": ultimo
+                    })
+            
+        return {"chats": chats}
+    except Exception as e:
+        debug_error("MIS_CHATS", e)
+        return {"chats": []}
+
 @app.post("/enviar_foto")
 async def enviar_foto(request: Request, data: dict = Body(...)):
     if not engine:
