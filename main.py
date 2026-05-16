@@ -9,6 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 import base64
 import re
+from urllib.parse import unquote
 
 app = FastAPI()
 
@@ -104,6 +105,8 @@ async def mensajes_privados(request: Request, usuario: str):
     if not engine:
         return {"mensajes": [], "error": "Base de datos no conectada"}
     try:
+        # Decodificar nombre con espacios
+        usuario = unquote(usuario)
         usuario_actual = request.session.get("usuario", "Invitado")
         debug_log("PRIVADO", f"{usuario_actual} -> {usuario}")
         
@@ -203,6 +206,9 @@ async def home(request: Request):
 @app.get("/global", response_class=HTMLResponse)
 @app.get("/chat/{usuario}", response_class=HTMLResponse)
 async def chat_privado_o_global(request: Request, usuario: str):
+    # 🔥 FIX: Decodificar nombres con espacios (ej: "Marcos%20Ramírez" -> "Marcos Ramírez")
+    usuario = unquote(usuario)
+    
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
         mensajes = []
