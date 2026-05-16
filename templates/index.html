@@ -15,13 +15,14 @@ body {
     background: #f5f5f5;
 }
 
-/* Barra superior */
+/* Barra superior más compacta */
 .barra-pro {
     display: flex;
-    justify-content: space-around;
+    justify-content: center;
+    gap: 15px;
     background: #ffffff;
-    padding: 8px 5px;
-    border-bottom: 1px solid #ccc;
+    padding: 6px 10px;
+    border-bottom: 1px solid #eee;
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -30,14 +31,14 @@ body {
 .btn-barra {
     background: none;
     border: none;
-    font-size: 14px;
+    font-size: 13px;
     display: flex;
-    flex-direction: column;
     align-items: center;
+    gap: 5px;
     color: #555;
     cursor: pointer;
-    padding: 8px 12px;
-    border-radius: 10px;
+    padding: 6px 16px;
+    border-radius: 20px;
     transition: all 0.2s;
 }
 
@@ -45,11 +46,16 @@ body {
     background: #f0f0f0;
 }
 
-/* Chat box estilo WhatsApp */
+.btn-barra.activo {
+    background: #ff4da6;
+    color: white;
+}
+
+/* Chat box tamaño normal (ni muy grande ni muy pequeño) */
 .chat-box {
     border: none;
     padding: 10px;
-    height: 400px;
+    height: 350px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -65,9 +71,8 @@ body {
     margin: 4px 0;
     border-radius: 18px;
     word-wrap: break-word;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.4;
-    position: relative;
 }
 
 .mio {
@@ -83,16 +88,16 @@ body {
 }
 
 .mensaje strong {
-    font-size: 12px;
+    font-size: 11px;
     color: #075e54;
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 
-/* Lista de usuarios y chats */
+/* Lista de usuarios y chats más compacta */
 .usuario-item {
-    padding: 12px;
-    margin: 5px 0;
+    padding: 8px 12px;
+    margin: 4px 0;
     background: white;
     border-radius: 10px;
     border: 1px solid #eee;
@@ -102,7 +107,6 @@ body {
 
 .usuario-item:hover {
     background: #f9f9f9;
-    transform: translateX(2px);
 }
 
 .usuario-item a {
@@ -113,28 +117,28 @@ body {
 
 .usuario-item .nombre {
     font-weight: bold;
-    font-size: 15px;
+    font-size: 14px;
 }
 
 .usuario-item .ultimo-mensaje {
-    font-size: 12px;
+    font-size: 11px;
     color: #888;
-    margin-top: 5px;
+    margin-top: 3px;
 }
 
 /* Sección de chats directos */
 .chats-directos {
-    max-height: 200px;
+    max-height: 180px;
     overflow-y: auto;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
     border-radius: 10px;
     background: white;
 }
 
 .titulo-seccion {
-    font-size: 13px;
+    font-size: 12px;
     color: #666;
-    margin: 10px 0 5px 5px;
+    margin: 8px 0 4px 5px;
     font-weight: bold;
 }
 
@@ -144,12 +148,12 @@ body {
     bottom: 10px;
     right: 10px;
     left: 10px;
-    padding: 10px;
+    padding: 8px;
     background: #ff4444;
     color: white;
-    font-size: 12px;
+    font-size: 11px;
     border-radius: 8px;
-    max-height: 200px;
+    max-height: 150px;
     overflow-y: auto;
     display: none;
     z-index: 9999;
@@ -160,15 +164,21 @@ body {
     display: block;
 }
 
-/* Inputs estilo moderno */
-.input-chat {
-    width: 100%;
-    padding: 12px;
+/* Inputs más compactos y botón normal */
+.input-group {
+    display: flex;
+    gap: 8px;
     margin-top: 8px;
+    align-items: center;
+}
+
+.input-chat {
+    flex: 1;
+    padding: 10px 14px;
     box-sizing: border-box;
     border: 1px solid #ddd;
     border-radius: 25px;
-    font-size: 14px;
+    font-size: 13px;
     outline: none;
     transition: border 0.2s;
 }
@@ -177,37 +187,68 @@ body {
     border-color: #ff4da6;
 }
 
+/* Botón de enviar más pequeño y normal */
 .btn-enviar {
-    width: 100%;
-    padding: 12px;
-    margin-top: 8px;
+    padding: 10px 20px;
     background: #ff4da6;
     color: white;
     border: none;
     border-radius: 25px;
-    font-size: 16px;
+    font-size: 13px;
     cursor: pointer;
     font-weight: bold;
     transition: transform 0.1s;
+    white-space: nowrap;
 }
 
 .btn-enviar:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
+}
+
+/* Botón de imagen pequeño */
+.btn-imagen {
+    background: #eee;
+    border: none;
+    border-radius: 25px;
+    padding: 10px 16px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-imagen:hover {
+    background: #ddd;
+}
+
+/* Ocultar input file normal */
+#input-imagen {
+    display: none;
 }
 
 h1 {
-    font-size: 24px;
-    margin: 10px 0;
+    font-size: 22px;
+    margin: 8px 0;
+}
+
+h3 {
+    font-size: 16px;
+    margin: 8px 0;
 }
 
 hr {
-    margin: 15px 0;
+    margin: 12px 0;
     border: none;
     border-top: 1px solid #ddd;
 }
 
-button {
+button, .btn-barra {
     cursor: pointer;
+}
+
+/* Header del chat */
+#chat-header h3 {
+    font-size: 16px;
+    margin: 8px 0;
 }
 
 </style>
@@ -219,11 +260,11 @@ button {
 
 <h3>👤 {{ usuario_actual }}</h3>
 
-<a href="/logout"><button style="padding: 8px 16px; border-radius: 20px; border: none; background: #ddd;">Cerrar sesión</button></a>
+<a href="/logout"><button style="padding: 6px 14px; border-radius: 20px; border: none; background: #ddd; font-size: 12px;">Cerrar sesión</button></a>
 
 <hr>
 
-<!-- Barra de navegación -->
+<!-- Barra de navegación compacta -->
 <div class="barra-pro">
     <button class="btn-barra" onclick="window.location.href='/global'">
         🌍 Global
@@ -233,17 +274,17 @@ button {
 <hr>
 
 <!-- Formulario para cambiar usuario -->
-<form action="/set_usuario" method="post" style="display: flex; gap: 8px;">
-    <input type="text" name="usuario" placeholder="Cambiar nombre" required style="flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ddd;">
-    <button type="submit" style="padding: 10px 20px; border-radius: 20px; border: none; background: #ff4da6; color: white;">Entrar</button>
+<form action="/set_usuario" method="post" style="display: flex; gap: 6px;">
+    <input type="text" name="usuario" placeholder="Cambiar nombre" required style="flex: 1; padding: 8px 14px; border-radius: 20px; border: 1px solid #ddd; font-size: 13px;">
+    <button type="submit" style="padding: 8px 16px; border-radius: 20px; border: none; background: #ff4da6; color: white; font-size: 12px;">Entrar</button>
 </form>
 
 <hr>
 
-<!-- Sección: Mensajes directos (chats privados recientes) -->
+<!-- Sección: Mensajes directos -->
 <div class="titulo-seccion">💬 Mensajes directos</div>
 <div id="chats-directos" class="chats-directos">
-    <div style="padding: 15px; color: #888; text-align: center;">Cargando conversaciones...</div>
+    <div style="padding: 12px; color: #888; text-align: center; font-size: 12px;">Cargando...</div>
 </div>
 
 <hr>
@@ -282,7 +323,7 @@ button {
         {% if "[FOTO]" in m.mensaje %}
         <strong>{{ m.emisor }}:</strong>
         <br>
-        <img src="{{ m.mensaje.replace('[FOTO]', '') }}" style="max-width:150px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/150?text=Imagen+no+disponible'">
+        <img src="{{ m.mensaje.replace('[FOTO]', '') }}" style="max-width:120px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/120?text=Imagen'">
         {% else %}
         <strong>{{ m.emisor }}:</strong>
         {{ m.mensaje }}
@@ -293,10 +334,12 @@ button {
 
 <div id="debug-box"></div>
 
-<div style="margin-top:10px;">
-    <input type="file" id="input-imagen" accept="image/*" class="input-chat">
+<!-- Grupo de inputs más compacto -->
+<div class="input-group">
+    <label for="input-imagen" class="btn-imagen" title="Enviar imagen">📷</label>
+    <input type="file" id="input-imagen" accept="image/*">
     <input type="text" id="mensaje" placeholder="Escribe un mensaje..." class="input-chat">
-    <button type="button" id="btn-enviar" class="btn-enviar">📤 Enviar</button>
+    <button type="button" id="btn-enviar" class="btn-enviar">Enviar</button>
 </div>
 
 {% endif %}
@@ -336,7 +379,6 @@ function ocultarError() {
     }
 }
 
-// ========== ESCAPE HTML ==========
 function escapeHtml(text) {
     if (!text) return "";
     return text.replace(/[&<>]/g, function(m) {
@@ -347,7 +389,6 @@ function escapeHtml(text) {
     });
 }
 
-// ========== RENDER MENSAJES ==========
 function renderMensaje(m) {
     if (!m || !m.mensaje) return "";
 
@@ -359,7 +400,7 @@ function renderMensaje(m) {
         <div class="mensaje ${clase}">
             <strong>${escapeHtml(m.emisor)}:</strong>
             <br>
-            <img src="/${ruta}" style="max-width:150px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/150?text=Imagen+no+disponible'">
+            <img src="/${ruta}" style="max-width:120px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/120?text=Imagen'">
         </div>
         `;
     }
@@ -372,7 +413,6 @@ function renderMensaje(m) {
     `;
 }
 
-// ========== CARGAR MENSAJES ==========
 function cargarMensajes() {
     if (!chatCon) return;
 
@@ -393,7 +433,6 @@ function cargarMensajes() {
     });
 }
 
-// ========== CARGAR CHATS DIRECTOS ==========
 function cargarChatsDirectos() {
     fetch("/mis_chats")
     .then(r => r.json())
@@ -402,32 +441,31 @@ function cargarChatsDirectos() {
         if (!container) return;
         
         if (!data.chats || data.chats.length === 0) {
-            container.innerHTML = '<div style="padding: 15px; color: #888; text-align: center;">📭 Sin conversaciones aún</div>';
+            container.innerHTML = '<div style="padding: 12px; color: #888; text-align: center; font-size: 12px;">📭 Sin conversaciones</div>';
             return;
         }
         
         container.innerHTML = data.chats.map(chat => `
             <div class="usuario-item" onclick="window.location.href='/chat/${encodeURIComponent(chat.usuario)}'">
                 <div class="nombre">💬 ${escapeHtml(chat.usuario)}</div>
-                <div class="ultimo-mensaje">${escapeHtml(chat.ultimo_mensaje || '📎 Nueva conversación')}</div>
+                <div class="ultimo-mensaje">${escapeHtml(chat.ultimo_mensaje || 'Nueva conversación')}</div>
             </div>
         `).join("");
     })
     .catch(err => {
-        console.error("Error cargando chats:", err);
+        console.error("Error:", err);
     });
 }
 
-// ========== ENVIAR MENSAJE ==========
 if (btnEnviar) {
     btnEnviar.addEventListener("click", () => {
         let mensaje = inputMensaje?.value.trim();
         if (!mensaje) {
-            mostrarError("✏️ Escribe un mensaje");
+            mostrarError("Escribe un mensaje");
             return;
         }
         if (!chatCon) {
-            mostrarError("💬 No hay chat seleccionado");
+            mostrarError("No hay chat seleccionado");
             return;
         }
 
@@ -456,14 +494,13 @@ if (btnEnviar) {
     });
 }
 
-// ========== ENVIAR IMAGEN ==========
 if (inputImagen) {
     inputImagen.addEventListener("change", e => {
         let file = e.target.files[0];
         if (!file) return;
 
         if (file.size > 5 * 1024 * 1024) {
-            mostrarError("📸 La imagen no puede superar 5MB");
+            mostrarError("La imagen no puede superar 5MB");
             return;
         }
 
@@ -496,7 +533,6 @@ if (inputImagen) {
     });
 }
 
-// ========== ENTER PARA ENVIAR ==========
 if (inputMensaje) {
     inputMensaje.addEventListener("keypress", (e) => {
         if (e.key === "Enter") {
@@ -506,7 +542,6 @@ if (inputMensaje) {
     });
 }
 
-// ========== INICIALIZAR ==========
 if (chatCon) {
     cargarMensajes();
     setInterval(cargarMensajes, 3000);
