@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, text
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 import base64
+import re
 
 app = FastAPI()
 
@@ -19,28 +20,20 @@ app.add_middleware(SessionMiddleware, secret_key="supersecreto", https_only=Fals
 # ========== VARIABLE DE ENTORNO DATABASE_URL ==========
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# 🔥 CORRECCIÓN: Asegurar SSL y formato correcto
 if DATABASE_URL:
-    # Convertir postgres:// a postgresql:// (común en Render)
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     
-    # Si no tiene puerto :5432, lo agregamos (asumiendo el estándar)
-    # Detectamos si ya contiene el puerto: patrón @algo:5432/
-    import re
     if re.search(r'@[^:]+:\d+/', DATABASE_URL) is None:
-        # Reemplazar @host/ por @host:5432/
         DATABASE_URL = re.sub(r'@([^/]+)/', r'@\1:5432/', DATABASE_URL)
     
-    # Agregar sslmode=require si no está presente
     if "sslmode" not in DATABASE_URL:
         if "?" in DATABASE_URL:
             DATABASE_URL += "&sslmode=require"
         else:
             DATABASE_URL += "?sslmode=require"
 
-print(f"🔗 DATABASE_URL configurada (oculta contraseña)")
-# Mostrar solo para depuración (sin password)
+print(f"🔗 DATABASE_URL configurada")
 if DATABASE_URL:
     masked = re.sub(r':[^@]+@', ':****@', DATABASE_URL)
     print(f"   → {masked}")
@@ -113,21 +106,25 @@ async def mensajes_privados(request: Request, usuario: str):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
         debug_log("PRIVADO", f"{usuario_actual} -> {usuario}")
+        
         with engine.begin() as conn:
             if usuario == "GLOBAL":
                 result = conn.execute(text("""
-                    SELECT emisor, mensaje FROM mensajes
+                    SELECT emisor, mensaje, fecha FROM mensajes
                     WHERE receptor = 'GLOBAL'
                     ORDER BY fecha ASC
                 """))
             else:
                 result = conn.execute(text("""
-                    SELECT emisor, mensaje FROM mensajes
+                    SELECT emisor, mensaje, fecha FROM mensajes
                     WHERE (emisor = :yo AND receptor = :otro)
                        OR (emisor = :otro AND receptor = :yo)
                     ORDER BY fecha ASC
                 """), {"yo": usuario_actual, "otro": usuario})
+            
             mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+        
+        debug_log("PRIVADO", f"Devueltos {len(mensajes)} mensajes")
         return {"mensajes": mensajes}
     except Exception as e:
         debug_error("PRIVADO", e)
@@ -163,12 +160,15 @@ async def enviar_mensaje(
         usuario_actual = request.session.get("usuario", "Invitado")
         if not mensaje.strip():
             return {"ok": False, "error": "Mensaje vacío"}
+        
         receptor_final = "GLOBAL" if receptor == "GLOBAL" else receptor
+        
         with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO mensajes (emisor, receptor, mensaje)
                 VALUES (:e, :r, :m)
             """), {"e": usuario_actual, "r": receptor_final, "m": mensaje})
+        
         debug_log("MENSAJE", f"{usuario_actual} -> {receptor_final}: {mensaje[:30]}")
         return {"ok": True}
     except Exception as e:
@@ -181,14 +181,14 @@ async def home(request: Request):
         usuario_actual = request.session.get("usuario", "Invitado")
         mensajes = []
         usuarios = []
+        
         if engine:
             with engine.begin() as conn:
                 result = conn.execute(text("SELECT emisor, mensaje FROM mensajes WHERE receptor = 'GLOBAL' ORDER BY fecha ASC"))
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
                 result_users = conn.execute(text("SELECT nombre FROM usuarios"))
                 usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
-        else:
-            debug_log("HOME", "DB no disponible, mostrando vacío")
+        
         return render(request, "index.html", {
             "usuarios": usuarios,
             "usuario_actual": usuario_actual,
@@ -207,21 +207,23 @@ async def chat_privado_o_global(request: Request, usuario: str):
         usuario_actual = request.session.get("usuario", "Invitado")
         mensajes = []
         usuarios = []
+        
         if engine:
             with engine.begin() as conn:
-                # Mensajes
                 if usuario == "GLOBAL":
                     result = conn.execute(text("SELECT emisor, mensaje FROM mensajes WHERE receptor = 'GLOBAL' ORDER BY fecha ASC"))
                 else:
                     result = conn.execute(text("""
                         SELECT emisor, mensaje FROM mensajes
-                        WHERE (emisor = :yo AND receptor = :otro) OR (emisor = :otro AND receptor = :yo)
+                        WHERE (emisor = :yo AND receptor = :otro) 
+                           OR (emisor = :otro AND receptor = :yo)
                         ORDER BY fecha ASC
                     """), {"yo": usuario_actual, "otro": usuario})
+                
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
-                # Usuarios
                 result_users = conn.execute(text("SELECT nombre FROM usuarios"))
                 usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+        
         return render(request, "index.html", {
             "usuarios": usuarios,
             "usuario_actual": usuario_actual,
@@ -241,22 +243,26 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
         usuario_actual = request.session.get("usuario", "Invitado")
         imagen = data.get("imagen")
         receptor = data.get("receptor")
+        
         if not imagen or not receptor:
             return {"ok": False, "error": "Datos incompletos"}
-        # Decodificar base64 (eliminar cabecera data:image/png;base64,)
+        
         if "," in imagen:
             imagen = imagen.split(",")[1]
+        
         imagen_bytes = base64.b64decode(imagen)
-        # Guardar en disco (efímero pero funcional)
         nombre = f"foto_{datetime.now().strftime('%Y%m%d%H%M%S')}_{usuario_actual}.png"
         ruta = f"static/{nombre}"
+        
         with open(ruta, "wb") as f:
             f.write(imagen_bytes)
+        
         with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO mensajes (emisor, receptor, mensaje)
                 VALUES (:e, :r, :m)
             """), {"e": usuario_actual, "r": receptor, "m": f"[FOTO]{ruta}"})
+        
         debug_log("IMAGEN", f"Imagen guardada: {ruta}")
         return {"ok": True}
     except Exception as e:
