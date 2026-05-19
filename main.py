@@ -94,7 +94,17 @@ def startup():
                     nombre TEXT UNIQUE
                 )
             """))
-        print("✅ Tablas 'mensajes' y 'usuarios' verificadas/creadas.")
+            # Tabla para likes (match)
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS likes (
+                    id SERIAL PRIMARY KEY,
+                    usuario_emisor TEXT,
+                    usuario_receptor TEXT,
+                    fecha TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(usuario_emisor, usuario_receptor)
+                )
+            """))
+        print("✅ Tablas 'mensajes', 'usuarios' y 'likes' verificadas/creadas.")
     except Exception as e:
         debug_error("STARTUP", e)
 
@@ -105,7 +115,6 @@ async def mensajes_privados(request: Request, usuario: str):
     if not engine:
         return {"mensajes": [], "error": "Base de datos no conectada"}
     try:
-        # Decodificar nombre con espacios
         usuario = unquote(usuario)
         usuario_actual = request.session.get("usuario", "Invitado")
         debug_log("PRIVADO", f"{usuario_actual} -> {usuario}")
@@ -157,7 +166,6 @@ async def enviar_mensaje(
     mensaje: str = Form(...)
 ):
     if not engine:
-        debug_log("MENSAJE", "DB no conectada - mensaje rechazado")
         return {"ok": False, "error": "Base de datos no disponible"}
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
@@ -172,14 +180,14 @@ async def enviar_mensaje(
                 VALUES (:e, :r, :m)
             """), {"e": usuario_actual, "r": receptor_final, "m": mensaje})
         
-        debug_log("MENSAJE", f"{usuario_actual} -> {receptor_final}: {mensaje[:30]}")
         return {"ok": True}
     except Exception as e:
         debug_error("MENSAJE", e)
         return {"ok": False, "error": str(e)}
 
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
+# ========== NUEVO: CHAT GLOBAL (sin parámetro) ==========
+@app.get("/global", response_class=HTMLResponse)
+async def chat_global(request: Request):
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
         mensajes = []
@@ -200,15 +208,13 @@ async def home(request: Request):
             "es_premium": False
         })
     except Exception as e:
-        debug_error("HOME", e)
+        debug_error("GLOBAL", e)
         return mostrar_error()
 
-@app.get("/global", response_class=HTMLResponse)
+# ========== CHAT PRIVADO ==========
 @app.get("/chat/{usuario}", response_class=HTMLResponse)
-async def chat_privado_o_global(request: Request, usuario: str):
-    # 🔥 FIX: Decodificar nombres con espacios (ej: "Marcos%20Ramírez" -> "Marcos Ramírez")
+async def chat_privado(request: Request, usuario: str):
     usuario = unquote(usuario)
-    
     try:
         usuario_actual = request.session.get("usuario", "Invitado")
         mensajes = []
@@ -216,16 +222,12 @@ async def chat_privado_o_global(request: Request, usuario: str):
         
         if engine:
             with engine.begin() as conn:
-                if usuario == "GLOBAL":
-                    result = conn.execute(text("SELECT emisor, mensaje FROM mensajes WHERE receptor = 'GLOBAL' ORDER BY fecha ASC"))
-                else:
-                    result = conn.execute(text("""
-                        SELECT emisor, mensaje FROM mensajes
-                        WHERE (emisor = :yo AND receptor = :otro) 
-                           OR (emisor = :otro AND receptor = :yo)
-                        ORDER BY fecha ASC
-                    """), {"yo": usuario_actual, "otro": usuario})
-                
+                result = conn.execute(text("""
+                    SELECT emisor, mensaje FROM mensajes
+                    WHERE (emisor = :yo AND receptor = :otro) 
+                       OR (emisor = :otro AND receptor = :yo)
+                    ORDER BY fecha ASC
+                """), {"yo": usuario_actual, "otro": usuario})
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
                 result_users = conn.execute(text("SELECT nombre FROM usuarios"))
                 usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
@@ -238,10 +240,77 @@ async def chat_privado_o_global(request: Request, usuario: str):
             "es_premium": False
         })
     except Exception as e:
-        debug_error("CHAT", e)
+        debug_error("CHAT_PRIVADO", e)
         return mostrar_error()
 
-# ========== NUEVO ENDPOINT: MIS CHATS DIRECTOS ==========
+# ========== ENDPOINTS PARA LIKES Y MATCHES ==========
+@app.post("/dar_like")
+async def dar_like(request: Request, data: dict = Body(...)):
+    if not engine:
+        return {"ok": False, "error": "DB no conectada"}
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+        receptor = data.get("receptor")
+        if not receptor or receptor == usuario_actual:
+            return {"ok": False, "error": "No puedes darte like a ti mismo"}
+        
+        with engine.begin() as conn:
+            # Insertar like
+            conn.execute(text("""
+                INSERT INTO likes (usuario_emisor, usuario_receptor)
+                VALUES (:e, :r) ON CONFLICT DO NOTHING
+            """), {"e": usuario_actual, "r": receptor})
+            
+            # Verificar match (el receptor ya me había dado like)
+            result = conn.execute(text("""
+                SELECT 1 FROM likes
+                WHERE usuario_emisor = :r AND usuario_receptor = :e
+            """), {"e": usuario_actual, "r": receptor})
+            match = result.fetchone() is not None
+        
+        return {"ok": True, "match": match}
+    except Exception as e:
+        debug_error("DAR_LIKE", e)
+        return {"ok": False, "error": str(e)}
+
+@app.get("/mis_matches")
+async def mis_matches(request: Request):
+    if not engine:
+        return {"matches": []}
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+        with engine.begin() as conn:
+            result = conn.execute(text("""
+                SELECT DISTINCT l1.usuario_receptor AS match_user
+                FROM likes l1
+                JOIN likes l2 ON l1.usuario_receptor = l2.usuario_emisor 
+                             AND l1.usuario_emisor = l2.usuario_receptor
+                WHERE l1.usuario_emisor = :usuario
+            """), {"usuario": usuario_actual})
+            matches = [r[0] for r in result.fetchall()]
+        return {"matches": matches}
+    except Exception as e:
+        debug_error("MIS_MATCHES", e)
+        return {"matches": []}
+
+@app.get("/mis_likes_dados")
+async def mis_likes_dados(request: Request):
+    if not engine:
+        return {"likes": []}
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+        with engine.begin() as conn:
+            result = conn.execute(text("""
+                SELECT usuario_receptor FROM likes
+                WHERE usuario_emisor = :usuario
+            """), {"usuario": usuario_actual})
+            likes = [r[0] for r in result.fetchall()]
+        return {"likes": likes}
+    except Exception as e:
+        debug_error("MIS_LIKES", e)
+        return {"likes": []}
+
+# ========== MIS CHATS DIRECTOS ==========
 @app.get("/mis_chats")
 async def mis_chats(request: Request):
     if not engine:
@@ -250,7 +319,6 @@ async def mis_chats(request: Request):
         usuario_actual = request.session.get("usuario", "Invitado")
         
         with engine.begin() as conn:
-            # Obtener usuarios con los que ha habido conversación (excluyendo GLOBAL)
             result = conn.execute(text("""
                 SELECT DISTINCT 
                     CASE 
@@ -284,6 +352,7 @@ async def mis_chats(request: Request):
         debug_error("MIS_CHATS", e)
         return {"chats": []}
 
+# ========== IMÁGENES ==========
 @app.post("/enviar_foto")
 async def enviar_foto(request: Request, data: dict = Body(...)):
     if not engine:
@@ -322,14 +391,36 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
 async def enviar_imagen(request: Request, data: dict = Body(...)):
     return await enviar_foto(request, data)
 
+# ========== LOGOUT Y SET USUARIO ==========
 @app.get("/logout")
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/", status_code=303)
 
-@app.get("/test")
-async def test():
-    return {"ok": True, "db_connected": engine is not None}
+@app.get("/")
+async def home(request: Request):
+    try:
+        usuario_actual = request.session.get("usuario", "Invitado")
+        mensajes = []
+        usuarios = []
+        
+        if engine:
+            with engine.begin() as conn:
+                result = conn.execute(text("SELECT emisor, mensaje FROM mensajes WHERE receptor = 'GLOBAL' ORDER BY fecha ASC"))
+                mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
+                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
+                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+        
+        return render(request, "index.html", {
+            "usuarios": usuarios,
+            "usuario_actual": usuario_actual,
+            "chat_con": "GLOBAL",
+            "mensajes": mensajes,
+            "es_premium": False
+        })
+    except Exception as e:
+        debug_error("HOME", e)
+        return mostrar_error()
 
 @app.post("/set_usuario")
 async def set_usuario(request: Request, usuario: str = Form(...)):
