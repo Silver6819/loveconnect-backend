@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>LoveConnect 💕</title>
-
 <style>
-
+* {
+    box-sizing: border-box;
+}
 body {
     font-family: 'Segoe UI', Arial, sans-serif;
     margin: 0;
@@ -18,8 +18,6 @@ body {
     flex-direction: column;
     overflow: hidden;
 }
-
-/* Contenedor principal ocupa toda la pantalla */
 .app-container {
     display: flex;
     flex-direction: column;
@@ -29,37 +27,38 @@ body {
     width: 100%;
     background: #f5f5f5;
 }
-
-/* Header superior compacto */
+/* Header fijo como WhatsApp */
 .main-header {
-    padding: 8px 12px;
+    position: sticky;
+    top: 0;
     background: white;
+    z-index: 20;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    padding: 8px 12px;
     border-bottom: 1px solid #e0e0e0;
     flex-shrink: 0;
 }
-
 .main-header h1 {
     font-size: 20px;
     margin: 0 0 4px 0;
 }
-
 .main-header h3 {
     font-size: 14px;
     margin: 4px 0;
     color: #555;
 }
-
-/* Barra de navegación */
 .barra-pro {
+    position: sticky;
+    top: 64px; /* altura del main-header */
+    background: white;
+    z-index: 19;
+    border-bottom: 1px solid #eee;
     display: flex;
     justify-content: center;
     gap: 12px;
-    background: #ffffff;
     padding: 6px 10px;
-    border-bottom: 1px solid #eee;
     flex-shrink: 0;
 }
-
 .btn-barra {
     background: none;
     border: none;
@@ -73,17 +72,13 @@ body {
     border-radius: 20px;
     transition: all 0.2s;
 }
-
 .btn-barra:hover {
     background: #f0f0f0;
 }
-
 .btn-barra.activo {
     background: #ff4da6;
     color: white;
 }
-
-/* Sección de lista de conversaciones (más compacta) */
 .conversations-section {
     flex-shrink: 0;
     margin: 8px 12px;
@@ -92,7 +87,6 @@ body {
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
-
 .titulo-seccion {
     font-size: 12px;
     font-weight: bold;
@@ -104,43 +98,34 @@ body {
     justify-content: space-between;
     align-items: center;
 }
-
 /* Lista de mensajes directos - TAMAÑO REDUCIDO */
 .chats-directos {
-    max-height: 140px;  /* Antes 180px - ahora más pequeña */
+    max-height: 140px;
     overflow-y: auto;
 }
-
-/* Lista de archivados (inicialmente oculta) */
 .archivados-list {
     max-height: 140px;
     overflow-y: auto;
     display: none;
 }
-
 .usuario-item {
-    padding: 6px 12px;  /* Más compacto */
+    padding: 6px 12px;
     border-bottom: 1px solid #f0f0f0;
     cursor: pointer;
-    transition: background 0.1s;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
-
 .usuario-item:hover {
     background: #f9f9f9;
 }
-
 .chat-info {
     flex: 1;
 }
-
 .chat-info .nombre {
     font-weight: bold;
     font-size: 13px;
 }
-
 .chat-info .ultimo-mensaje {
     font-size: 11px;
     color: #888;
@@ -150,7 +135,6 @@ body {
     text-overflow: ellipsis;
     max-width: 200px;
 }
-
 .btn-archivar {
     background: none;
     border: none;
@@ -161,13 +145,10 @@ body {
     border-radius: 20px;
     opacity: 0.6;
 }
-
 .btn-archivar:hover {
     opacity: 1;
     background: #eee;
 }
-
-/* Lista de todos los usuarios */
 .todos-usuarios {
     margin: 8px 12px;
     background: white;
@@ -176,19 +157,15 @@ body {
     max-height: 200px;
     flex-shrink: 0;
 }
-
 .usuario-item-todos {
     padding: 8px 12px;
     border-bottom: 1px solid #f0f0f0;
     cursor: pointer;
 }
-
 .usuario-item-todos .nombre {
     font-weight: bold;
     font-size: 13px;
 }
-
-/* Área del chat activo: ocupa el espacio restante */
 .chat-activo {
     flex: 1;
     display: flex;
@@ -197,22 +174,18 @@ body {
     margin: 8px 12px 12px 12px;
     border-radius: 16px;
     overflow: hidden;
-    min-height: 0; /* Importante para flex */
+    min-height: 0;
 }
-
 .chat-header {
     background: white;
     padding: 10px 12px;
     border-bottom: 1px solid #ddd;
     flex-shrink: 0;
 }
-
 .chat-header h3 {
     margin: 0;
     font-size: 16px;
 }
-
-/* Caja de mensajes con scroll */
 .chat-box {
     flex: 1;
     overflow-y: auto;
@@ -221,8 +194,6 @@ body {
     flex-direction: column;
     gap: 4px;
 }
-
-/* Burbujas de mensaje */
 .mensaje {
     max-width: 75%;
     padding: 8px 12px;
@@ -231,27 +202,23 @@ body {
     font-size: 13px;
     line-height: 1.4;
 }
-
 .mio {
     background-color: #dcf8c6;
     align-self: flex-end;
     border-bottom-right-radius: 4px;
 }
-
 .otro {
     background-color: #ffffff;
     align-self: flex-start;
     border-bottom-left-radius: 4px;
 }
-
 .mensaje strong {
     font-size: 11px;
     color: #075e54;
     display: block;
     margin-bottom: 3px;
 }
-
-/* Área de entrada de mensaje: más compacta y centrada */
+/* INPUT MÁS VISIBLE */
 .input-group {
     display: flex;
     gap: 8px;
@@ -261,23 +228,22 @@ body {
     flex-shrink: 0;
     justify-content: center;
 }
-
-/* BARRA DE MENSAJE MÁS CORTA: ancho máximo y centrada */
 .input-chat {
     flex: 1;
-    max-width: 500px;  /* Acortado */
+    max-width: 500px;
     padding: 10px 14px;
-    border: 1px solid #ddd;
+    border: 2px solid #ff4da6;
     border-radius: 25px;
-    font-size: 13px;
+    font-size: 14px;
     outline: none;
-    transition: border 0.2s;
+    background: white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: all 0.2s;
 }
-
 .input-chat:focus {
     border-color: #ff4da6;
+    box-shadow: 0 0 0 3px rgba(255,77,166,0.2);
 }
-
 .btn-enviar {
     padding: 10px 20px;
     background: #ff4da6;
@@ -287,9 +253,9 @@ body {
     font-size: 13px;
     cursor: pointer;
     font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     white-space: nowrap;
 }
-
 .btn-imagen {
     background: #eee;
     border: none;
@@ -298,12 +264,9 @@ body {
     font-size: 16px;
     cursor: pointer;
 }
-
 #input-imagen {
     display: none;
 }
-
-/* Botón cerrar sesión */
 .logout-btn {
     padding: 6px 14px;
     border-radius: 20px;
@@ -312,8 +275,6 @@ body {
     font-size: 12px;
     cursor: pointer;
 }
-
-/* Debug box */
 #debug-box {
     position: fixed;
     bottom: 10px;
@@ -328,18 +289,14 @@ body {
     z-index: 9999;
     font-family: monospace;
 }
-
 #debug-box.error-activo {
     display: block;
 }
-
 hr {
     display: none;
 }
-
 </style>
 </head>
-
 <body>
 <div class="app-container">
     <div class="main-header">
@@ -348,19 +305,16 @@ hr {
         <a href="/logout"><button class="logout-btn">Cerrar sesión</button></a>
     </div>
 
-    <!-- Barra de navegación (ahora con pestaña Archivados) -->
     <div class="barra-pro">
         <button class="btn-barra" id="btn-global" onclick="window.location.href='/global'">🌍 Global</button>
         <button class="btn-barra" id="btn-archivados-tab">📦 Archivados</button>
     </div>
 
-    <!-- Formulario cambiar nombre -->
     <form action="/set_usuario" method="post" style="display: flex; gap: 6px; margin: 8px 12px; flex-shrink: 0;">
         <input type="text" name="usuario" placeholder="Cambiar nombre" required style="flex:1; padding:8px 14px; border-radius:20px; border:1px solid #ddd; font-size:13px;">
         <button type="submit" style="padding:8px 16px; border-radius:20px; border:none; background:#ff4da6; color:white; font-size:12px;">Entrar</button>
     </form>
 
-    <!-- SECCIÓN DE CONVERSACIONES (Mensajes directos + Archivados) -->
     <div class="conversations-section">
         <div class="titulo-seccion">
             💬 Mensajes directos
@@ -369,14 +323,9 @@ hr {
         <div id="chats-directos" class="chats-directos">
             <div style="padding:12px; color:#888; text-align:center; font-size:12px;">Cargando...</div>
         </div>
-
-        <!-- Lista de archivados (oculta inicialmente) -->
-        <div id="archivados-list" class="archivados-list">
-            <!-- se llena con JS -->
-        </div>
+        <div id="archivados-list" class="archivados-list"></div>
     </div>
 
-    <!-- TODOS LOS USUARIOS -->
     <div class="todos-usuarios">
         <div class="titulo-seccion">👥 Todos los usuarios</div>
         <div id="lista-usuarios">
@@ -391,7 +340,6 @@ hr {
     </div>
 
     {% if chat_con is not none %}
-    <!-- CHAT ACTIVO -->
     <div class="chat-activo">
         <div class="chat-header">
             <h3>
@@ -406,18 +354,14 @@ hr {
             {% for m in mensajes %}
             <div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
                 {% if "[FOTO]" in m.mensaje %}
-                <strong>{{ m.emisor }}:</strong>
-                <br>
+                <strong>{{ m.emisor }}:</strong><br>
                 <img src="{{ m.mensaje.replace('[FOTO]', '') }}" style="max-width:120px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/120?text=Imagen'">
                 {% else %}
-                <strong>{{ m.emisor }}:</strong>
-                {{ m.mensaje }}
+                <strong>{{ m.emisor }}:</strong> {{ m.mensaje }}
                 {% endif %}
             </div>
             {% endfor %}
         </div>
-
-        <!-- Grupo de inputs más compacto -->
         <div class="input-group">
             <label for="input-imagen" class="btn-imagen" title="Enviar imagen">📷</label>
             <input type="file" id="input-imagen" accept="image/*">
@@ -435,7 +379,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let chatCon = {{ chat_con | tojson | safe }};
     let usuarioActual = {{ usuario_actual | tojson | safe }};
 
-    // Elementos
     const chatBox = document.getElementById("chat-box");
     const inputMensaje = document.getElementById("mensaje");
     const inputImagen = document.getElementById("input-imagen");
@@ -445,36 +388,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const archivadosDiv = document.getElementById("archivados-list");
     const btnArchivadosTab = document.getElementById("btn-archivados-tab");
 
-    // ========== ARCHIVADO EN LOCALSTORAGE ==========
+    // Archivado en localStorage
     let archivedChats = JSON.parse(localStorage.getItem("archivedChats") || "[]");
-
-    function saveArchived() {
-        localStorage.setItem("archivedChats", JSON.stringify(archivedChats));
-    }
-
-    function isArchived(chatUser) {
-        return archivedChats.includes(chatUser);
-    }
-
+    function saveArchived() { localStorage.setItem("archivedChats", JSON.stringify(archivedChats)); }
+    function isArchived(chatUser) { return archivedChats.includes(chatUser); }
     function archiveChat(chatUser) {
         if (!isArchived(chatUser)) {
             archivedChats.push(chatUser);
             saveArchived();
-            // Si el chat archivado está abierto actualmente, salimos del chat
-            if (chatCon === chatUser) {
-                window.location.href = "/";
-            }
-            cargarChatsDirectos(); // refrescar listas
+            if (chatCon === chatUser) window.location.href = "/";
+            cargarChatsDirectos();
         }
     }
-
     function unarchiveChat(chatUser) {
         archivedChats = archivedChats.filter(c => c !== chatUser);
         saveArchived();
         cargarChatsDirectos();
     }
 
-    // Mostrar/ocultar archivados
     let showingArchived = false;
     if (btnArchivadosTab) {
         btnArchivadosTab.addEventListener("click", () => {
@@ -493,20 +424,18 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Función para cargar lista de mensajes directos (excluyendo archivados)
     function cargarChatsDirectos() {
         if (!chatsDirectosDiv) return;
         fetch("/mis_chats")
         .then(r => r.json())
         .then(data => {
             if (!data.chats) data.chats = [];
-            // Filtrar los archivados
-            let chatsNoArchivados = data.chats.filter(chat => !isArchived(chat.usuario));
-            if (chatsNoArchivados.length === 0) {
+            let noArchivados = data.chats.filter(chat => !isArchived(chat.usuario));
+            if (noArchivados.length === 0) {
                 chatsDirectosDiv.innerHTML = '<div style="padding:12px; color:#888; text-align:center; font-size:12px;">📭 Sin conversaciones activas</div>';
                 return;
             }
-            chatsDirectosDiv.innerHTML = chatsNoArchivados.map(chat => `
+            chatsDirectosDiv.innerHTML = noArchivados.map(chat => `
                 <div class="usuario-item" data-user="${escapeHtml(chat.usuario)}">
                     <div class="chat-info" onclick="window.location.href='/chat/${encodeURIComponent(chat.usuario)}'">
                         <div class="nombre">💬 ${escapeHtml(chat.usuario)}</div>
@@ -515,7 +444,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     <button class="btn-archivar" data-user="${escapeHtml(chat.usuario)}" title="Archivar">📥</button>
                 </div>
             `).join("");
-            // Eventos de archivar
             document.querySelectorAll('.btn-archivar').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -527,19 +455,18 @@ document.addEventListener("DOMContentLoaded", () => {
         .catch(err => console.error("Error:", err));
     }
 
-    // Cargar archivados
     function cargarArchivados() {
         if (!archivadosDiv) return;
         fetch("/mis_chats")
         .then(r => r.json())
         .then(data => {
             if (!data.chats) data.chats = [];
-            let chatsArchivados = data.chats.filter(chat => isArchived(chat.usuario));
-            if (chatsArchivados.length === 0) {
+            let archivados = data.chats.filter(chat => isArchived(chat.usuario));
+            if (archivados.length === 0) {
                 archivadosDiv.innerHTML = '<div style="padding:12px; color:#888; text-align:center; font-size:12px;">📦 No hay conversaciones archivadas</div>';
                 return;
             }
-            archivadosDiv.innerHTML = chatsArchivados.map(chat => `
+            archivadosDiv.innerHTML = archivados.map(chat => `
                 <div class="usuario-item" data-user="${escapeHtml(chat.usuario)}">
                     <div class="chat-info" onclick="window.location.href='/chat/${encodeURIComponent(chat.usuario)}'">
                         <div class="nombre">📦 ${escapeHtml(chat.usuario)}</div>
@@ -558,7 +485,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // ========== FUNCIONES DE MENSAJES ==========
     function mostrarError(mensaje) {
         if (debugBox) {
             debugBox.classList.add("error-activo");
@@ -569,7 +495,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }, 5000);
         }
     }
-
     function escapeHtml(text) {
         if (!text) return "";
         return text.replace(/[&<>]/g, function(m) {
@@ -579,7 +504,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return m;
         });
     }
-
     function renderMensaje(m) {
         if (!m || !m.mensaje) return "";
         let clase = m.emisor === usuarioActual ? "mio" : "otro";
@@ -589,7 +513,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         return `<div class="mensaje ${clase}"><strong>${escapeHtml(m.emisor)}:</strong> ${escapeHtml(m.mensaje)}</div>`;
     }
-
     function cargarMensajes() {
         if (!chatCon || !chatBox) return;
         fetch("/mensajes_privados/" + encodeURIComponent(chatCon))
@@ -604,7 +527,6 @@ document.addEventListener("DOMContentLoaded", () => {
         .catch(err => mostrarError("Error cargando: " + err.message));
     }
 
-    // Envío mensaje
     if (btnEnviar) {
         btnEnviar.addEventListener("click", () => {
             let mensaje = inputMensaje?.value.trim();
@@ -628,7 +550,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Imagen
     if (inputImagen) {
         inputImagen.addEventListener("change", e => {
             let file = e.target.files[0];
@@ -657,7 +578,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Enter
     if (inputMensaje) {
         inputMensaje.addEventListener("keypress", (e) => {
             if (e.key === "Enter") {
@@ -665,8 +585,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 btnEnviar?.click();
             }
         });
-
-        // ========== AJUSTE AUTOMÁTICO AL TECLADO ==========
+        // Scroll automático al enfocar (teclado móvil)
         inputMensaje.addEventListener("focus", () => {
             setTimeout(() => {
                 inputMensaje.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -674,7 +593,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Eventos para hacer clic en todos los usuarios
+    // Click en todos los usuarios
     document.querySelectorAll("#lista-usuarios .usuario-item-todos").forEach(el => {
         el.addEventListener("click", () => {
             let user = el.getAttribute("data-usuario");
@@ -689,6 +608,23 @@ document.addEventListener("DOMContentLoaded", () => {
     cargarChatsDirectos();
     setInterval(cargarChatsDirectos, 5000);
 });
+
+// Ajuste extra para el teclado en móvil (evita que se oculte el header)
+(function() {
+    if (window.visualViewport) {
+        let originalHeight = window.innerHeight;
+        window.visualViewport.addEventListener('resize', () => {
+            const currentHeight = window.visualViewport.height;
+            const inputGroup = document.querySelector('.input-group');
+            if (currentHeight < originalHeight && inputGroup) {
+                setTimeout(() => {
+                    inputGroup.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+            originalHeight = currentHeight;
+        });
+    }
+})();
 </script>
 </body>
 </html>
