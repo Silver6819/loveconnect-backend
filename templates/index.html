@@ -543,11 +543,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (data.match) {
                 alert("✨ ¡ES UN MATCH! ✨ Ahora pueden chatear.");
                 cargarMatches();
-                // Recargar lista de usuarios para refrescar color del like
                 actualizarBotonesLike();
             } else {
                 alert("❤️ Like enviado a " + receptor);
-                // Cambiar visualmente el botón
                 const btn = document.querySelector(`.btn-like[data-usuario="${receptor}"]`);
                 if (btn) btn.classList.add("liked");
             }
@@ -556,7 +554,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function actualizarBotonesLike() {
-        // Consultar qué usuarios ya tienen like dado (para mostrar liked)
         fetch("/mis_likes_dados")
         .then(r => r.json())
         .then(data => {
@@ -598,22 +595,54 @@ document.addEventListener("DOMContentLoaded", () => {
         let clase = m.emisor === usuarioActual ? "mio" : "otro";
         if (typeof m.mensaje === "string" && m.mensaje.includes("[FOTO]")) {
             let ruta = m.mensaje.replace("[FOTO]", "");
-            return `<div class="mensaje ${clase}"><strong>${escapeHtml(m.emisor)}:</strong><br><img src="/${ruta}" style="max-width:120px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/120?text=Imagen'"></div>`;
+            // Corregir ruta de imagen
+            if (!ruta.startsWith("/static/") && !ruta.startsWith("static/")) {
+                ruta = "/static/" + ruta;
+            } else if (ruta.startsWith("static/")) {
+                ruta = "/" + ruta;
+            }
+            return `<div class="mensaje ${clase}"><strong>${escapeHtml(m.emisor)}:</strong><br><img src="${ruta}" style="max-width:120px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/120?text=Imagen'"></div>`;
         }
         return `<div class="mensaje ${clase}"><strong>${escapeHtml(m.emisor)}:</strong> ${escapeHtml(m.mensaje)}</div>`;
     }
+
+    // Control de scroll inteligente
+    let debeAutoScroll = true;
     function cargarMensajes() {
         if (!chatCon || !chatBox) return;
+        const distanciaAlFondo = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight;
+        const estabaCercaDelFondo = distanciaAlFondo < 100;
+        
         fetch("/mensajes_privados/" + encodeURIComponent(chatCon))
         .then(r => r.json())
         .then(data => {
             if (data.error) { mostrarError(data.error); return; }
             if (data.mensajes) {
+                const oldScrollHeight = chatBox.scrollHeight;
+                const oldScrollTop = chatBox.scrollTop;
                 chatBox.innerHTML = data.mensajes.map(renderMensaje).join("");
-                chatBox.scrollTop = chatBox.scrollHeight;
+                
+                if (estabaCercaDelFondo || debeAutoScroll) {
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                    debeAutoScroll = false;
+                } else {
+                    const newScrollHeight = chatBox.scrollHeight;
+                    chatBox.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+                }
             }
         })
         .catch(err => mostrarError("Error cargando: " + err.message));
+    }
+
+    if (chatBox) {
+        chatBox.addEventListener('scroll', () => {
+            const distanciaAlFondo = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight;
+            if (distanciaAlFondo > 200) {
+                debeAutoScroll = false;
+            } else if (distanciaAlFondo < 50) {
+                debeAutoScroll = true;
+            }
+        });
     }
 
     if (btnEnviar) {
@@ -621,6 +650,7 @@ document.addEventListener("DOMContentLoaded", () => {
             let mensaje = inputMensaje?.value.trim();
             if (!mensaje) { mostrarError("Escribe un mensaje"); return; }
             if (!chatCon) { mostrarError("No hay chat"); return; }
+            debeAutoScroll = true;
             let formData = new FormData();
             formData.append("receptor", chatCon);
             formData.append("mensaje", mensaje);
@@ -644,6 +674,7 @@ document.addEventListener("DOMContentLoaded", () => {
             let file = e.target.files[0];
             if (!file) return;
             if (file.size > 5 * 1024 * 1024) { mostrarError("Imagen máx 5MB"); return; }
+            debeAutoScroll = true;
             let reader = new FileReader();
             reader.onload = function(ev) {
                 fetch("/enviar_imagen", {
@@ -657,7 +688,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         cargarMensajes();
                         cargarChatsDirectos();
                         inputImagen.value = "";
-                        // Forzar que el input group siga visible (corrección del error)
                         const inputGroup = document.querySelector('.input-group');
                         if (inputGroup) inputGroup.style.display = 'flex';
                     } else {
@@ -684,7 +714,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Botones de like
     document.querySelectorAll('.btn-like').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -693,7 +722,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Click en usuarios de la lista general (no el botón like)
     document.querySelectorAll("#lista-usuarios .usuario-item-todos .nombre").forEach(nombreEl => {
         const parent = nombreEl.closest('.usuario-item-todos');
         if (parent) {
@@ -705,10 +733,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Corregir error al retroceder (pageshow)
     window.addEventListener('pageshow', (event) => {
         if (event.persisted) {
-            // Forzar que el input group sea visible
             const inputGroup = document.querySelector('.input-group');
             if (inputGroup) inputGroup.style.display = 'flex';
             if (chatCon) cargarMensajes();
