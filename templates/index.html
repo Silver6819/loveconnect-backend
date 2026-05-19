@@ -3,6 +3,7 @@
 
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>LoveConnect 💕</title>
 
 <style>
@@ -10,22 +11,53 @@
 body {
     font-family: 'Segoe UI', Arial, sans-serif;
     margin: 0;
-    padding: 10px;
-    padding-bottom: 80px;
+    padding: 0;
+    background: #f5f5f5;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Contenedor principal ocupa toda la pantalla */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
     background: #f5f5f5;
 }
 
-/* Barra superior más compacta */
+/* Header superior compacto */
+.main-header {
+    padding: 8px 12px;
+    background: white;
+    border-bottom: 1px solid #e0e0e0;
+    flex-shrink: 0;
+}
+
+.main-header h1 {
+    font-size: 20px;
+    margin: 0 0 4px 0;
+}
+
+.main-header h3 {
+    font-size: 14px;
+    margin: 4px 0;
+    color: #555;
+}
+
+/* Barra de navegación */
 .barra-pro {
     display: flex;
     justify-content: center;
-    gap: 15px;
+    gap: 12px;
     background: #ffffff;
     padding: 6px 10px;
     border-bottom: 1px solid #eee;
-    position: sticky;
-    top: 0;
-    z-index: 1000;
+    flex-shrink: 0;
 }
 
 .btn-barra {
@@ -51,24 +83,149 @@ body {
     color: white;
 }
 
-/* Chat box tamaño normal (ni muy grande ni muy pequeño) */
-.chat-box {
-    border: none;
-    padding: 10px;
-    height: 350px;
+/* Sección de lista de conversaciones (más compacta) */
+.conversations-section {
+    flex-shrink: 0;
+    margin: 8px 12px;
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.titulo-seccion {
+    font-size: 12px;
+    font-weight: bold;
+    padding: 8px 12px;
+    background: #fafafa;
+    border-bottom: 1px solid #eee;
+    color: #666;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Lista de mensajes directos - TAMAÑO REDUCIDO */
+.chats-directos {
+    max-height: 140px;  /* Antes 180px - ahora más pequeña */
     overflow-y: auto;
+}
+
+/* Lista de archivados (inicialmente oculta) */
+.archivados-list {
+    max-height: 140px;
+    overflow-y: auto;
+    display: none;
+}
+
+.usuario-item {
+    padding: 6px 12px;  /* Más compacto */
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.1s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.usuario-item:hover {
+    background: #f9f9f9;
+}
+
+.chat-info {
+    flex: 1;
+}
+
+.chat-info .nombre {
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.chat-info .ultimo-mensaje {
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.btn-archivar {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: #999;
+    padding: 4px 8px;
+    border-radius: 20px;
+    opacity: 0.6;
+}
+
+.btn-archivar:hover {
+    opacity: 1;
+    background: #eee;
+}
+
+/* Lista de todos los usuarios */
+.todos-usuarios {
+    margin: 8px 12px;
+    background: white;
+    border-radius: 16px;
+    overflow-y: auto;
+    max-height: 200px;
+    flex-shrink: 0;
+}
+
+.usuario-item-todos {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+}
+
+.usuario-item-todos .nombre {
+    font-weight: bold;
+    font-size: 13px;
+}
+
+/* Área del chat activo: ocupa el espacio restante */
+.chat-activo {
+    flex: 1;
     display: flex;
     flex-direction: column;
     background: #e5ddd5;
-    border-radius: 12px;
-    margin-bottom: 10px;
+    margin: 8px 12px 12px 12px;
+    border-radius: 16px;
+    overflow: hidden;
+    min-height: 0; /* Importante para flex */
+}
+
+.chat-header {
+    background: white;
+    padding: 10px 12px;
+    border-bottom: 1px solid #ddd;
+    flex-shrink: 0;
+}
+
+.chat-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+/* Caja de mensajes con scroll */
+.chat-box {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 /* Burbujas de mensaje */
 .mensaje {
     max-width: 75%;
     padding: 8px 12px;
-    margin: 4px 0;
     border-radius: 18px;
     word-wrap: break-word;
     font-size: 13px;
@@ -94,88 +251,22 @@ body {
     margin-bottom: 3px;
 }
 
-/* Lista de usuarios y chats más compacta */
-.usuario-item {
-    padding: 8px 12px;
-    margin: 4px 0;
-    background: white;
-    border-radius: 10px;
-    border: 1px solid #eee;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.usuario-item:hover {
-    background: #f9f9f9;
-}
-
-.usuario-item a {
-    text-decoration: none;
-    color: #333;
-    display: block;
-}
-
-.usuario-item .nombre {
-    font-weight: bold;
-    font-size: 14px;
-}
-
-.usuario-item .ultimo-mensaje {
-    font-size: 11px;
-    color: #888;
-    margin-top: 3px;
-}
-
-/* Sección de chats directos */
-.chats-directos {
-    max-height: 180px;
-    overflow-y: auto;
-    margin-bottom: 12px;
-    border-radius: 10px;
-    background: white;
-}
-
-.titulo-seccion {
-    font-size: 12px;
-    color: #666;
-    margin: 8px 0 4px 5px;
-    font-weight: bold;
-}
-
-/* DEBUG BOX - OCULTO */
-#debug-box {
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    left: 10px;
-    padding: 8px;
-    background: #ff4444;
-    color: white;
-    font-size: 11px;
-    border-radius: 8px;
-    max-height: 150px;
-    overflow-y: auto;
-    display: none;
-    z-index: 9999;
-    font-family: monospace;
-}
-
-#debug-box.error-activo {
-    display: block;
-}
-
-/* Inputs más compactos y botón normal */
+/* Área de entrada de mensaje: más compacta y centrada */
 .input-group {
     display: flex;
     gap: 8px;
-    margin-top: 8px;
-    align-items: center;
+    padding: 10px 12px;
+    background: white;
+    border-top: 1px solid #e0e0e0;
+    flex-shrink: 0;
+    justify-content: center;
 }
 
+/* BARRA DE MENSAJE MÁS CORTA: ancho máximo y centrada */
 .input-chat {
     flex: 1;
+    max-width: 500px;  /* Acortado */
     padding: 10px 14px;
-    box-sizing: border-box;
     border: 1px solid #ddd;
     border-radius: 25px;
     font-size: 13px;
@@ -187,7 +278,6 @@ body {
     border-color: #ff4da6;
 }
 
-/* Botón de enviar más pequeño y normal */
 .btn-enviar {
     padding: 10px 20px;
     background: #ff4da6;
@@ -197,15 +287,9 @@ body {
     font-size: 13px;
     cursor: pointer;
     font-weight: bold;
-    transition: transform 0.1s;
     white-space: nowrap;
 }
 
-.btn-enviar:active {
-    transform: scale(0.97);
-}
-
-/* Botón de imagen pequeño */
 .btn-imagen {
     background: #eee;
     border: none;
@@ -213,346 +297,398 @@ body {
     padding: 10px 16px;
     font-size: 16px;
     cursor: pointer;
-    transition: background 0.2s;
 }
 
-.btn-imagen:hover {
-    background: #ddd;
-}
-
-/* Ocultar input file normal */
 #input-imagen {
     display: none;
 }
 
-h1 {
-    font-size: 22px;
-    margin: 8px 0;
-}
-
-h3 {
-    font-size: 16px;
-    margin: 8px 0;
-}
-
-hr {
-    margin: 12px 0;
+/* Botón cerrar sesión */
+.logout-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
     border: none;
-    border-top: 1px solid #ddd;
-}
-
-button, .btn-barra {
+    background: #ddd;
+    font-size: 12px;
     cursor: pointer;
 }
 
-/* Header del chat */
-#chat-header h3 {
-    font-size: 16px;
-    margin: 8px 0;
+/* Debug box */
+#debug-box {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    background: #ff4444;
+    color: white;
+    font-size: 11px;
+    border-radius: 8px;
+    padding: 8px;
+    display: none;
+    z-index: 9999;
+    font-family: monospace;
+}
+
+#debug-box.error-activo {
+    display: block;
+}
+
+hr {
+    display: none;
 }
 
 </style>
 </head>
 
 <body>
+<div class="app-container">
+    <div class="main-header">
+        <h1>💕 LoveConnect</h1>
+        <h3>👤 {{ usuario_actual }}</h3>
+        <a href="/logout"><button class="logout-btn">Cerrar sesión</button></a>
+    </div>
 
-<h1>💕 LoveConnect</h1>
+    <!-- Barra de navegación (ahora con pestaña Archivados) -->
+    <div class="barra-pro">
+        <button class="btn-barra" id="btn-global" onclick="window.location.href='/global'">🌍 Global</button>
+        <button class="btn-barra" id="btn-archivados-tab">📦 Archivados</button>
+    </div>
 
-<h3>👤 {{ usuario_actual }}</h3>
+    <!-- Formulario cambiar nombre -->
+    <form action="/set_usuario" method="post" style="display: flex; gap: 6px; margin: 8px 12px; flex-shrink: 0;">
+        <input type="text" name="usuario" placeholder="Cambiar nombre" required style="flex:1; padding:8px 14px; border-radius:20px; border:1px solid #ddd; font-size:13px;">
+        <button type="submit" style="padding:8px 16px; border-radius:20px; border:none; background:#ff4da6; color:white; font-size:12px;">Entrar</button>
+    </form>
 
-<a href="/logout"><button style="padding: 6px 14px; border-radius: 20px; border: none; background: #ddd; font-size: 12px;">Cerrar sesión</button></a>
+    <!-- SECCIÓN DE CONVERSACIONES (Mensajes directos + Archivados) -->
+    <div class="conversations-section">
+        <div class="titulo-seccion">
+            💬 Mensajes directos
+            <span style="font-size:11px; color:#999;">(archivar ⤵️)</span>
+        </div>
+        <div id="chats-directos" class="chats-directos">
+            <div style="padding:12px; color:#888; text-align:center; font-size:12px;">Cargando...</div>
+        </div>
 
-<hr>
+        <!-- Lista de archivados (oculta inicialmente) -->
+        <div id="archivados-list" class="archivados-list">
+            <!-- se llena con JS -->
+        </div>
+    </div>
 
-<!-- Barra de navegación compacta -->
-<div class="barra-pro">
-    <button class="btn-barra" onclick="window.location.href='/global'">
-        🌍 Global
-    </button>
-</div>
+    <!-- TODOS LOS USUARIOS -->
+    <div class="todos-usuarios">
+        <div class="titulo-seccion">👥 Todos los usuarios</div>
+        <div id="lista-usuarios">
+            {% for user in usuarios %}
+            {% if user.nombre != usuario_actual %}
+            <div class="usuario-item-todos" data-usuario="{{ user.nombre }}">
+                <div class="nombre">💌 {{ user.nombre }}</div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
 
-<hr>
+    {% if chat_con is not none %}
+    <!-- CHAT ACTIVO -->
+    <div class="chat-activo">
+        <div class="chat-header">
+            <h3>
+                {% if chat_con == "GLOBAL" %}
+                🌍 Chat Global
+                {% else %}
+                💬 Chat con <span id="nombre-chat">{{ chat_con }}</span>
+                {% endif %}
+            </h3>
+        </div>
+        <div id="chat-box" class="chat-box">
+            {% for m in mensajes %}
+            <div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
+                {% if "[FOTO]" in m.mensaje %}
+                <strong>{{ m.emisor }}:</strong>
+                <br>
+                <img src="{{ m.mensaje.replace('[FOTO]', '') }}" style="max-width:120px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/120?text=Imagen'">
+                {% else %}
+                <strong>{{ m.emisor }}:</strong>
+                {{ m.mensaje }}
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
 
-<!-- Formulario para cambiar usuario -->
-<form action="/set_usuario" method="post" style="display: flex; gap: 6px;">
-    <input type="text" name="usuario" placeholder="Cambiar nombre" required style="flex: 1; padding: 8px 14px; border-radius: 20px; border: 1px solid #ddd; font-size: 13px;">
-    <button type="submit" style="padding: 8px 16px; border-radius: 20px; border: none; background: #ff4da6; color: white; font-size: 12px;">Entrar</button>
-</form>
-
-<hr>
-
-<!-- Sección: Mensajes directos -->
-<div class="titulo-seccion">💬 Mensajes directos</div>
-<div id="chats-directos" class="chats-directos">
-    <div style="padding: 12px; color: #888; text-align: center; font-size: 12px;">Cargando...</div>
-</div>
-
-<hr>
-
-<!-- Sección: Todos los usuarios -->
-<div class="titulo-seccion">👥 Todos los usuarios</div>
-<div id="lista-usuarios">
-    {% for user in usuarios %}
-    {% if user.nombre != usuario_actual %}
-    <div class="usuario-item" data-usuario="{{ user.nombre }}">
-        <a href="/chat/{{ user.nombre | urlencode }}">
-            <div class="nombre">💌 {{ user.nombre }}</div>
-        </a>
+        <!-- Grupo de inputs más compacto -->
+        <div class="input-group">
+            <label for="input-imagen" class="btn-imagen" title="Enviar imagen">📷</label>
+            <input type="file" id="input-imagen" accept="image/*">
+            <input type="text" id="mensaje" placeholder="Escribe un mensaje..." class="input-chat">
+            <button type="button" id="btn-enviar" class="btn-enviar">Enviar</button>
+        </div>
     </div>
     {% endif %}
-    {% endfor %}
+
+    <div id="debug-box"></div>
 </div>
-
-<hr>
-
-{% if chat_con is not none %}
-
-<div id="chat-header">
-    <h3>
-        {% if chat_con == "GLOBAL" %}
-        🌍 Chat Global
-        {% else %}
-        💬 Chat con <span id="nombre-chat">{{ chat_con }}</span>
-        {% endif %}
-    </h3>
-</div>
-
-<div id="chat-box" class="chat-box">
-    {% for m in mensajes %}
-    <div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
-        {% if "[FOTO]" in m.mensaje %}
-        <strong>{{ m.emisor }}:</strong>
-        <br>
-        <img src="{{ m.mensaje.replace('[FOTO]', '') }}" style="max-width:120px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/120?text=Imagen'">
-        {% else %}
-        <strong>{{ m.emisor }}:</strong>
-        {{ m.mensaje }}
-        {% endif %}
-    </div>
-    {% endfor %}
-</div>
-
-<div id="debug-box"></div>
-
-<!-- Grupo de inputs más compacto -->
-<div class="input-group">
-    <label for="input-imagen" class="btn-imagen" title="Enviar imagen">📷</label>
-    <input type="file" id="input-imagen" accept="image/*">
-    <input type="text" id="mensaje" placeholder="Escribe un mensaje..." class="input-chat">
-    <button type="button" id="btn-enviar" class="btn-enviar">Enviar</button>
-</div>
-
-{% endif %}
 
 <script>
-
 document.addEventListener("DOMContentLoaded", () => {
+    let chatCon = {{ chat_con | tojson | safe }};
+    let usuarioActual = {{ usuario_actual | tojson | safe }};
 
-let chatCon = {{ chat_con | tojson | safe }};
-let usuarioActual = {{ usuario_actual | tojson | safe }};
+    // Elementos
+    const chatBox = document.getElementById("chat-box");
+    const inputMensaje = document.getElementById("mensaje");
+    const inputImagen = document.getElementById("input-imagen");
+    const debugBox = document.getElementById("debug-box");
+    const btnEnviar = document.getElementById("btn-enviar");
+    const chatsDirectosDiv = document.getElementById("chats-directos");
+    const archivadosDiv = document.getElementById("archivados-list");
+    const btnArchivadosTab = document.getElementById("btn-archivados-tab");
 
-const chatBox = document.getElementById("chat-box");
-const inputMensaje = document.getElementById("mensaje");
-const inputImagen = document.getElementById("input-imagen");
-const debugBox = document.getElementById("debug-box");
-const btnEnviar = document.getElementById("btn-enviar");
+    // ========== ARCHIVADO EN LOCALSTORAGE ==========
+    let archivedChats = JSON.parse(localStorage.getItem("archivedChats") || "[]");
 
-// ========== FUNCIONES DE ERROR ==========
-function mostrarError(mensaje) {
-    console.error(mensaje);
-    if (debugBox) {
-        debugBox.classList.add("error-activo");
-        debugBox.innerHTML = `❌ ${mensaje}`;
-        setTimeout(() => {
-            if (debugBox) {
-                debugBox.classList.remove("error-activo");
-                debugBox.innerHTML = "";
+    function saveArchived() {
+        localStorage.setItem("archivedChats", JSON.stringify(archivedChats));
+    }
+
+    function isArchived(chatUser) {
+        return archivedChats.includes(chatUser);
+    }
+
+    function archiveChat(chatUser) {
+        if (!isArchived(chatUser)) {
+            archivedChats.push(chatUser);
+            saveArchived();
+            // Si el chat archivado está abierto actualmente, salimos del chat
+            if (chatCon === chatUser) {
+                window.location.href = "/";
             }
-        }, 5000);
-    }
-}
-
-function ocultarError() {
-    if (debugBox) {
-        debugBox.classList.remove("error-activo");
-        debugBox.innerHTML = "";
-    }
-}
-
-function escapeHtml(text) {
-    if (!text) return "";
-    return text.replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    });
-}
-
-function renderMensaje(m) {
-    if (!m || !m.mensaje) return "";
-
-    let clase = m.emisor === usuarioActual ? "mio" : "otro";
-
-    if (typeof m.mensaje === "string" && m.mensaje.includes("[FOTO]")) {
-        let ruta = m.mensaje.replace("[FOTO]", "");
-        return `
-        <div class="mensaje ${clase}">
-            <strong>${escapeHtml(m.emisor)}:</strong>
-            <br>
-            <img src="/${ruta}" style="max-width:120px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/120?text=Imagen'">
-        </div>
-        `;
+            cargarChatsDirectos(); // refrescar listas
+        }
     }
 
-    return `
-    <div class="mensaje ${clase}">
-        <strong>${escapeHtml(m.emisor)}:</strong>
-        ${escapeHtml(m.mensaje)}
-    </div>
-    `;
-}
+    function unarchiveChat(chatUser) {
+        archivedChats = archivedChats.filter(c => c !== chatUser);
+        saveArchived();
+        cargarChatsDirectos();
+    }
 
-function cargarMensajes() {
-    if (!chatCon) return;
+    // Mostrar/ocultar archivados
+    let showingArchived = false;
+    if (btnArchivadosTab) {
+        btnArchivadosTab.addEventListener("click", () => {
+            showingArchived = !showingArchived;
+            if (showingArchived) {
+                chatsDirectosDiv.style.display = "none";
+                archivadosDiv.style.display = "block";
+                btnArchivadosTab.classList.add("activo");
+                cargarArchivados();
+            } else {
+                chatsDirectosDiv.style.display = "block";
+                archivadosDiv.style.display = "none";
+                btnArchivadosTab.classList.remove("activo");
+                cargarChatsDirectos();
+            }
+        });
+    }
 
-    fetch("/mensajes_privados/" + encodeURIComponent(chatCon))
-    .then(r => r.json())
-    .then(data => {
-        if (data.error) {
-            mostrarError(data.error);
-            return;
-        }
-        if (data.mensajes && chatBox) {
-            chatBox.innerHTML = data.mensajes.map(renderMensaje).join("");
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-    })
-    .catch(err => {
-        mostrarError("Error cargando: " + err.message);
-    });
-}
-
-function cargarChatsDirectos() {
-    fetch("/mis_chats")
-    .then(r => r.json())
-    .then(data => {
-        const container = document.getElementById("chats-directos");
-        if (!container) return;
-        
-        if (!data.chats || data.chats.length === 0) {
-            container.innerHTML = '<div style="padding: 12px; color: #888; text-align: center; font-size: 12px;">📭 Sin conversaciones</div>';
-            return;
-        }
-        
-        container.innerHTML = data.chats.map(chat => `
-            <div class="usuario-item" onclick="window.location.href='/chat/${encodeURIComponent(chat.usuario)}'">
-                <div class="nombre">💬 ${escapeHtml(chat.usuario)}</div>
-                <div class="ultimo-mensaje">${escapeHtml(chat.ultimo_mensaje || 'Nueva conversación')}</div>
-            </div>
-        `).join("");
-    })
-    .catch(err => {
-        console.error("Error:", err);
-    });
-}
-
-if (btnEnviar) {
-    btnEnviar.addEventListener("click", () => {
-        let mensaje = inputMensaje?.value.trim();
-        if (!mensaje) {
-            mostrarError("Escribe un mensaje");
-            return;
-        }
-        if (!chatCon) {
-            mostrarError("No hay chat seleccionado");
-            return;
-        }
-
-        let formData = new FormData();
-        formData.append("receptor", chatCon);
-        formData.append("mensaje", mensaje);
-
-        fetch("/mensaje", {
-            method: "POST",
-            body: formData
-        })
+    // Función para cargar lista de mensajes directos (excluyendo archivados)
+    function cargarChatsDirectos() {
+        if (!chatsDirectosDiv) return;
+        fetch("/mis_chats")
         .then(r => r.json())
         .then(data => {
-            if (data.ok) {
-                if (inputMensaje) inputMensaje.value = "";
-                cargarMensajes();
-                cargarChatsDirectos();
-                ocultarError();
-            } else {
-                mostrarError(data.error || "Error al enviar");
+            if (!data.chats) data.chats = [];
+            // Filtrar los archivados
+            let chatsNoArchivados = data.chats.filter(chat => !isArchived(chat.usuario));
+            if (chatsNoArchivados.length === 0) {
+                chatsDirectosDiv.innerHTML = '<div style="padding:12px; color:#888; text-align:center; font-size:12px;">📭 Sin conversaciones activas</div>';
+                return;
+            }
+            chatsDirectosDiv.innerHTML = chatsNoArchivados.map(chat => `
+                <div class="usuario-item" data-user="${escapeHtml(chat.usuario)}">
+                    <div class="chat-info" onclick="window.location.href='/chat/${encodeURIComponent(chat.usuario)}'">
+                        <div class="nombre">💬 ${escapeHtml(chat.usuario)}</div>
+                        <div class="ultimo-mensaje">${escapeHtml(chat.ultimo_mensaje || 'Nueva conversación')}</div>
+                    </div>
+                    <button class="btn-archivar" data-user="${escapeHtml(chat.usuario)}" title="Archivar">📥</button>
+                </div>
+            `).join("");
+            // Eventos de archivar
+            document.querySelectorAll('.btn-archivar').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    let user = btn.getAttribute('data-user');
+                    archiveChat(user);
+                });
+            });
+        })
+        .catch(err => console.error("Error:", err));
+    }
+
+    // Cargar archivados
+    function cargarArchivados() {
+        if (!archivadosDiv) return;
+        fetch("/mis_chats")
+        .then(r => r.json())
+        .then(data => {
+            if (!data.chats) data.chats = [];
+            let chatsArchivados = data.chats.filter(chat => isArchived(chat.usuario));
+            if (chatsArchivados.length === 0) {
+                archivadosDiv.innerHTML = '<div style="padding:12px; color:#888; text-align:center; font-size:12px;">📦 No hay conversaciones archivadas</div>';
+                return;
+            }
+            archivadosDiv.innerHTML = chatsArchivados.map(chat => `
+                <div class="usuario-item" data-user="${escapeHtml(chat.usuario)}">
+                    <div class="chat-info" onclick="window.location.href='/chat/${encodeURIComponent(chat.usuario)}'">
+                        <div class="nombre">📦 ${escapeHtml(chat.usuario)}</div>
+                        <div class="ultimo-mensaje">${escapeHtml(chat.ultimo_mensaje || 'Archivado')}</div>
+                    </div>
+                    <button class="btn-archivar" data-user="${escapeHtml(chat.usuario)}" title="Desarchivar">📤</button>
+                </div>
+            `).join("");
+            document.querySelectorAll('#archivados-list .btn-archivar').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    let user = btn.getAttribute('data-user');
+                    unarchiveChat(user);
+                });
+            });
+        });
+    }
+
+    // ========== FUNCIONES DE MENSAJES ==========
+    function mostrarError(mensaje) {
+        if (debugBox) {
+            debugBox.classList.add("error-activo");
+            debugBox.innerHTML = `❌ ${mensaje}`;
+            setTimeout(() => {
+                debugBox.classList.remove("error-activo");
+                debugBox.innerHTML = "";
+            }, 5000);
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return text.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    function renderMensaje(m) {
+        if (!m || !m.mensaje) return "";
+        let clase = m.emisor === usuarioActual ? "mio" : "otro";
+        if (typeof m.mensaje === "string" && m.mensaje.includes("[FOTO]")) {
+            let ruta = m.mensaje.replace("[FOTO]", "");
+            return `<div class="mensaje ${clase}"><strong>${escapeHtml(m.emisor)}:</strong><br><img src="/${ruta}" style="max-width:120px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/120?text=Imagen'"></div>`;
+        }
+        return `<div class="mensaje ${clase}"><strong>${escapeHtml(m.emisor)}:</strong> ${escapeHtml(m.mensaje)}</div>`;
+    }
+
+    function cargarMensajes() {
+        if (!chatCon || !chatBox) return;
+        fetch("/mensajes_privados/" + encodeURIComponent(chatCon))
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { mostrarError(data.error); return; }
+            if (data.mensajes) {
+                chatBox.innerHTML = data.mensajes.map(renderMensaje).join("");
+                chatBox.scrollTop = chatBox.scrollHeight;
             }
         })
-        .catch(err => {
-            mostrarError("Error de red: " + err.message);
-        });
-    });
-}
+        .catch(err => mostrarError("Error cargando: " + err.message));
+    }
 
-if (inputImagen) {
-    inputImagen.addEventListener("change", e => {
-        let file = e.target.files[0];
-        if (!file) return;
-
-        if (file.size > 5 * 1024 * 1024) {
-            mostrarError("La imagen no puede superar 5MB");
-            return;
-        }
-
-        let reader = new FileReader();
-        reader.onload = function(ev) {
-            fetch("/enviar_imagen", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    imagen: ev.target.result,
-                    receptor: chatCon
-                })
-            })
+    // Envío mensaje
+    if (btnEnviar) {
+        btnEnviar.addEventListener("click", () => {
+            let mensaje = inputMensaje?.value.trim();
+            if (!mensaje) { mostrarError("Escribe un mensaje"); return; }
+            if (!chatCon) { mostrarError("No hay chat"); return; }
+            let formData = new FormData();
+            formData.append("receptor", chatCon);
+            formData.append("mensaje", mensaje);
+            fetch("/mensaje", { method: "POST", body: formData })
             .then(r => r.json())
             .then(data => {
                 if (data.ok) {
+                    if (inputMensaje) inputMensaje.value = "";
                     cargarMensajes();
                     cargarChatsDirectos();
-                    ocultarError();
-                    inputImagen.value = "";
                 } else {
-                    mostrarError(data.error || "Error al enviar imagen");
+                    mostrarError(data.error || "Error");
                 }
             })
-            .catch(err => {
-                mostrarError("Error de red: " + err.message);
-            });
-        };
-        reader.readAsDataURL(file);
+            .catch(err => mostrarError("Error de red: " + err.message));
+        });
+    }
+
+    // Imagen
+    if (inputImagen) {
+        inputImagen.addEventListener("change", e => {
+            let file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) { mostrarError("Imagen máx 5MB"); return; }
+            let reader = new FileReader();
+            reader.onload = function(ev) {
+                fetch("/enviar_imagen", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ imagen: ev.target.result, receptor: chatCon })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.ok) {
+                        cargarMensajes();
+                        cargarChatsDirectos();
+                        inputImagen.value = "";
+                    } else {
+                        mostrarError(data.error || "Error imagen");
+                    }
+                })
+                .catch(err => mostrarError("Error red: " + err.message));
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Enter
+    if (inputMensaje) {
+        inputMensaje.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                btnEnviar?.click();
+            }
+        });
+
+        // ========== AJUSTE AUTOMÁTICO AL TECLADO ==========
+        inputMensaje.addEventListener("focus", () => {
+            setTimeout(() => {
+                inputMensaje.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 300);
+        });
+    }
+
+    // Eventos para hacer clic en todos los usuarios
+    document.querySelectorAll("#lista-usuarios .usuario-item-todos").forEach(el => {
+        el.addEventListener("click", () => {
+            let user = el.getAttribute("data-usuario");
+            if (user) window.location.href = "/chat/" + encodeURIComponent(user);
+        });
     });
-}
 
-if (inputMensaje) {
-    inputMensaje.addEventListener("keypress", (e) => {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            btnEnviar?.click();
-        }
-    });
-}
-
-if (chatCon) {
-    cargarMensajes();
-    setInterval(cargarMensajes, 3000);
-}
-
-cargarChatsDirectos();
-setInterval(cargarChatsDirectos, 5000);
-
+    if (chatCon) {
+        cargarMensajes();
+        setInterval(cargarMensajes, 3000);
+    }
+    cargarChatsDirectos();
+    setInterval(cargarChatsDirectos, 5000);
 });
-
 </script>
-
 </body>
 </html>
