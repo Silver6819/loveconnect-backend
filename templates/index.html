@@ -1,760 +1,191 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-<title>LoveConnect 💕 | Matches</title>
-<style>
-* {
-    box-sizing: border-box;
-}
-body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background: #f5f5f5;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-.app-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    width: 100%;
-    background: #f5f5f5;
-}
-.main-header {
-    position: sticky;
-    top: 0;
-    background: white;
-    z-index: 20;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    padding: 8px 12px;
-    border-bottom: 1px solid #e0e0e0;
-    flex-shrink: 0;
-}
-.main-header h1 {
-    font-size: 20px;
-    margin: 0 0 4px 0;
-}
-.main-header h3 {
-    font-size: 14px;
-    margin: 4px 0;
-    color: #555;
-}
-.barra-pro {
-    position: sticky;
-    top: 64px;
-    background: white;
-    z-index: 19;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    padding: 6px 10px;
-    flex-shrink: 0;
-}
-.btn-barra {
-    background: none;
-    border: none;
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    color: #555;
-    cursor: pointer;
-    padding: 6px 16px;
-    border-radius: 20px;
-    transition: all 0.2s;
-}
-.btn-barra:hover {
-    background: #f0f0f0;
-}
-.btn-barra.activo {
-    background: #ff4da6;
-    color: white;
-}
-.conversations-section {
-    flex-shrink: 0;
-    margin: 8px 12px;
-    background: white;
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-.titulo-seccion {
-    font-size: 12px;
-    font-weight: bold;
-    padding: 8px 12px;
-    background: #fafafa;
-    border-bottom: 1px solid #eee;
-    color: #666;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.chats-directos, .matches-list {
-    max-height: 140px;
-    overflow-y: auto;
-}
-.archivados-list {
-    max-height: 140px;
-    overflow-y: auto;
-    display: none;
-}
-.usuario-item {
-    padding: 6px 12px;
-    border-bottom: 1px solid #f0f0f0;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.usuario-item:hover {
-    background: #f9f9f9;
-}
-.chat-info {
-    flex: 1;
-}
-.chat-info .nombre {
-    font-weight: bold;
-    font-size: 13px;
-}
-.chat-info .ultimo-mensaje {
-    font-size: 11px;
-    color: #888;
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 200px;
-}
-.btn-archivar {
-    background: none;
-    border: none;
-    font-size: 16px;
-    cursor: pointer;
-    color: #999;
-    padding: 4px 8px;
-    border-radius: 20px;
-    opacity: 0.6;
-}
-.btn-archivar:hover {
-    opacity: 1;
-    background: #eee;
-}
-.todos-usuarios {
-    margin: 8px 12px;
-    background: white;
-    border-radius: 16px;
-    overflow-y: auto;
-    max-height: 200px;
-    flex-shrink: 0;
-}
-.usuario-item-todos {
-    padding: 8px 12px;
-    border-bottom: 1px solid #f0f0f0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.usuario-item-todos .nombre {
-    font-weight: bold;
-    font-size: 13px;
-}
-.btn-like {
-    background: none;
-    border: none;
-    font-size: 18px;
-    cursor: pointer;
-    transition: transform 0.1s;
-    padding: 4px 8px;
-    border-radius: 20px;
-}
-.btn-like:hover {
-    transform: scale(1.1);
-}
-.btn-like.liked {
-    color: #ff4da6;
-}
-.chat-activo {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: #e5ddd5;
-    margin: 8px 12px 12px 12px;
-    border-radius: 16px;
-    overflow: hidden;
-    min-height: 0;
-}
-.chat-header {
-    background: white;
-    padding: 10px 12px;
-    border-bottom: 1px solid #ddd;
-    flex-shrink: 0;
-}
-.chat-header h3 {
-    margin: 0;
-    font-size: 16px;
-}
-.chat-box {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.mensaje {
-    max-width: 75%;
-    padding: 8px 12px;
-    border-radius: 18px;
-    word-wrap: break-word;
-    font-size: 13px;
-    line-height: 1.4;
-}
-.mio {
-    background-color: #dcf8c6;
-    align-self: flex-end;
-    border-bottom-right-radius: 4px;
-}
-.otro {
-    background-color: #ffffff;
-    align-self: flex-start;
-    border-bottom-left-radius: 4px;
-}
-.mensaje strong {
-    font-size: 11px;
-    color: #075e54;
-    display: block;
-    margin-bottom: 3px;
-}
-.input-group {
-    display: flex;
-    gap: 8px;
-    padding: 10px 12px;
-    background: white;
-    border-top: 1px solid #e0e0e0;
-    flex-shrink: 0;
-    justify-content: center;
-}
-.input-chat {
-    flex: 1;
-    max-width: 500px;
-    padding: 10px 14px;
-    border: 2px solid #ff4da6;
-    border-radius: 25px;
-    font-size: 14px;
-    outline: none;
-    background: white;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
-.input-chat:focus {
-    border-color: #ff4da6;
-    box-shadow: 0 0 0 3px rgba(255,77,166,0.2);
-}
-.btn-enviar {
-    padding: 10px 20px;
-    background: #ff4da6;
-    color: white;
-    border: none;
-    border-radius: 25px;
-    font-size: 13px;
-    cursor: pointer;
-    font-weight: bold;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    white-space: nowrap;
-}
-.btn-imagen {
-    background: #eee;
-    border: none;
-    border-radius: 25px;
-    padding: 10px 16px;
-    font-size: 16px;
-    cursor: pointer;
-}
-#input-imagen {
-    display: none;
-}
-.logout-btn {
-    padding: 6px 14px;
-    border-radius: 20px;
-    border: none;
-    background: #ddd;
-    font-size: 12px;
-    cursor: pointer;
-}
-#debug-box {
-    position: fixed;
-    bottom: 10px;
-    left: 10px;
-    right: 10px;
-    background: #ff4444;
-    color: white;
-    font-size: 11px;
-    border-radius: 8px;
-    padding: 8px;
-    display: none;
-    z-index: 9999;
-    font-family: monospace;
-}
-#debug-box.error-activo {
-    display: block;
-}
-hr {
-    display: none;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Perfil - LoveConnect</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            font-size: 24px;
+            margin: 0 0 20px 0;
+            color: #ff4da6;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+            margin: 15px 0 5px;
+            font-size: 14px;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 25px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        button {
+            background: #ff4da6;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #e0438f;
+        }
+        .foto-actual {
+            text-align: center;
+            margin: 15px 0;
+        }
+        .foto-actual img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #ff4da6;
+        }
+        .volver {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .volver a {
+            color: #ff4da6;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .info {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #666;
+        }
+    </style>
 </head>
 <body>
-<div class="app-container">
-    <div class="main-header">
-        <h1>💕 LoveConnect</h1>
-        <h3>👤 {{ usuario_actual }}</h3>
-        <a href="/logout"><button class="logout-btn">Cerrar sesión</button></a>
+<div class="container">
+    <h1>📷 Mi Perfil</h1>
+    <div class="info">
+        Completa tu perfil para que los demás te conozcan mejor.
     </div>
-
-    <div class="barra-pro">
-        <button class="btn-barra" id="btn-global" onclick="window.location.href='/global'">🌍 Global</button>
-        <button class="btn-barra" id="btn-archivados-tab">📦 Archivados</button>
-        <button class="btn-barra" id="btn-matches-tab">❤️ Matches</button>
+    <div id="cargando" style="text-align:center; padding:20px;">Cargando...</div>
+    
+    <div id="perfil-form-container" style="display:none;">
+        <div class="foto-actual" id="foto-actual"></div>
+        
+        <label>📅 Fecha de nacimiento</label>
+        <input type="date" id="fecha_nacimiento">
+        
+        <label>⚧ Género</label>
+        <select id="genero">
+            <option value="">Seleccionar</option>
+            <option value="hombre">Hombre</option>
+            <option value="mujer">Mujer</option>
+            <option value="otro">Otro / Prefiero no decir</option>
+        </select>
+        
+        <label>🖼️ Foto de perfil (clic para cambiar)</label>
+        <input type="file" id="foto_perfil" accept="image/*">
+        
+        <button id="guardar">Guardar cambios</button>
     </div>
-
-    <form action="/set_usuario" method="post" style="display: flex; gap: 6px; margin: 8px 12px; flex-shrink: 0;">
-        <input type="text" name="usuario" placeholder="Cambiar nombre" required style="flex:1; padding:8px 14px; border-radius:20px; border:1px solid #ddd; font-size:13px;">
-        <button type="submit" style="padding:8px 16px; border-radius:20px; border:none; background:#ff4da6; color:white; font-size:12px;">Entrar</button>
-    </form>
-
-    <div class="conversations-section">
-        <div class="titulo-seccion">
-            💬 Mensajes directos
-            <span style="font-size:11px; color:#999;">(archivar ⤵️)</span>
-        </div>
-        <div id="chats-directos" class="chats-directos">
-            <div style="padding:12px; color:#888; text-align:center; font-size:12px;">Cargando...</div>
-        </div>
-        <div id="archivados-list" class="archivados-list"></div>
-        <div id="matches-list" class="matches-list" style="display: none;"></div>
+    
+    <div class="volver">
+        <a href="/">← Volver al chat</a>
     </div>
-
-    <div class="todos-usuarios">
-        <div class="titulo-seccion">👥 Todos los usuarios</div>
-        <div id="lista-usuarios">
-            {% for user in usuarios %}
-            {% if user.nombre != usuario_actual %}
-            <div class="usuario-item-todos" data-usuario="{{ user.nombre }}">
-                <div class="nombre">💌 {{ user.nombre }}</div>
-                <button class="btn-like" data-usuario="{{ user.nombre }}">❤️</button>
-            </div>
-            {% endif %}
-            {% endfor %}
-        </div>
-    </div>
-
-    {% if chat_con is not none %}
-    <div class="chat-activo">
-        <div class="chat-header">
-            <h3>
-                {% if chat_con == "GLOBAL" %}
-                🌍 Chat Global
-                {% else %}
-                💬 Chat con <span id="nombre-chat">{{ chat_con }}</span>
-                {% endif %}
-            </h3>
-        </div>
-        <div id="chat-box" class="chat-box">
-            {% for m in mensajes %}
-            <div class="mensaje {% if m.emisor == usuario_actual %}mio{% else %}otro{% endif %}">
-                {% if "[FOTO]" in m.mensaje %}
-                <strong>{{ m.emisor }}:</strong><br>
-                <img src="{{ m.mensaje.replace('[FOTO]', '') }}" style="max-width:120px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/120?text=Imagen'">
-                {% else %}
-                <strong>{{ m.emisor }}:</strong> {{ m.mensaje }}
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-        <div class="input-group">
-            <label for="input-imagen" class="btn-imagen" title="Enviar imagen">📷</label>
-            <input type="file" id="input-imagen" accept="image/*">
-            <input type="text" id="mensaje" placeholder="Escribe un mensaje..." class="input-chat">
-            <button type="button" id="btn-enviar" class="btn-enviar">Enviar</button>
-        </div>
-    </div>
-    {% endif %}
-
-    <div id="debug-box"></div>
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-    let chatCon = {{ chat_con | tojson | safe }};
-    let usuarioActual = {{ usuario_actual | tojson | safe }};
-
-    const chatBox = document.getElementById("chat-box");
-    const inputMensaje = document.getElementById("mensaje");
-    const inputImagen = document.getElementById("input-imagen");
-    const debugBox = document.getElementById("debug-box");
-    const btnEnviar = document.getElementById("btn-enviar");
-    const chatsDirectosDiv = document.getElementById("chats-directos");
-    const archivadosDiv = document.getElementById("archivados-list");
-    const matchesDiv = document.getElementById("matches-list");
-    const btnArchivadosTab = document.getElementById("btn-archivados-tab");
-    const btnMatchesTab = document.getElementById("btn-matches-tab");
-
-    // ========== ARCHIVADO ==========
-    let archivedChats = JSON.parse(localStorage.getItem("archivedChats") || "[]");
-    function saveArchived() { localStorage.setItem("archivedChats", JSON.stringify(archivedChats)); }
-    function isArchived(chatUser) { return archivedChats.includes(chatUser); }
-    function archiveChat(chatUser) {
-        if (!isArchived(chatUser)) {
-            archivedChats.push(chatUser);
-            saveArchived();
-            if (chatCon === chatUser) window.location.href = "/";
-            cargarChatsDirectos();
-        }
-    }
-    function unarchiveChat(chatUser) {
-        archivedChats = archivedChats.filter(c => c !== chatUser);
-        saveArchived();
-        cargarChatsDirectos();
-    }
-
-    let showingArchived = false;
-    if (btnArchivadosTab) {
-        btnArchivadosTab.addEventListener("click", () => {
-            showingArchived = true;
-            chatsDirectosDiv.style.display = "none";
-            archivadosDiv.style.display = "block";
-            matchesDiv.style.display = "none";
-            btnArchivadosTab.classList.add("activo");
-            btnMatchesTab.classList.remove("activo");
-            cargarArchivados();
-        });
-    }
-    if (btnMatchesTab) {
-        btnMatchesTab.addEventListener("click", () => {
-            showingArchived = false;
-            chatsDirectosDiv.style.display = "none";
-            archivadosDiv.style.display = "none";
-            matchesDiv.style.display = "block";
-            btnMatchesTab.classList.add("activo");
-            btnArchivadosTab.classList.remove("activo");
-            cargarMatches();
-        });
-    }
-
-    function cargarChatsDirectos() {
-        if (!chatsDirectosDiv) return;
-        fetch("/mis_chats")
-        .then(r => r.json())
-        .then(data => {
-            if (!data.chats) data.chats = [];
-            let noArchivados = data.chats.filter(chat => !isArchived(chat.usuario));
-            if (noArchivados.length === 0) {
-                chatsDirectosDiv.innerHTML = '<div style="padding:12px; color:#888; text-align:center; font-size:12px;">📭 Sin conversaciones activas</div>';
+    async function cargarPerfil() {
+        try {
+            const res = await fetch("/mi_perfil");
+            const data = await res.json();
+            if (data.error) {
+                document.getElementById("cargando").innerHTML = "❌ Error al cargar perfil";
                 return;
             }
-            chatsDirectosDiv.innerHTML = noArchivados.map(chat => `
-                <div class="usuario-item" data-user="${escapeHtml(chat.usuario)}">
-                    <div class="chat-info" onclick="window.location.href='/chat/${encodeURIComponent(chat.usuario)}'">
-                        <div class="nombre">💬 ${escapeHtml(chat.usuario)}</div>
-                        <div class="ultimo-mensaje">${escapeHtml(chat.ultimo_mensaje || 'Nueva conversación')}</div>
-                    </div>
-                    <button class="btn-archivar" data-user="${escapeHtml(chat.usuario)}" title="Archivar">📥</button>
-                </div>
-            `).join("");
-            document.querySelectorAll('.btn-archivar').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    let user = btn.getAttribute('data-user');
-                    archiveChat(user);
-                });
-            });
-        })
-        .catch(err => console.error("Error:", err));
-    }
-
-    function cargarArchivados() {
-        if (!archivadosDiv) return;
-        fetch("/mis_chats")
-        .then(r => r.json())
-        .then(data => {
-            if (!data.chats) data.chats = [];
-            let archivados = data.chats.filter(chat => isArchived(chat.usuario));
-            if (archivados.length === 0) {
-                archivadosDiv.innerHTML = '<div style="padding:12px; color:#888; text-align:center; font-size:12px;">📦 No hay conversaciones archivadas</div>';
-                return;
+            
+            document.getElementById("cargando").style.display = "none";
+            document.getElementById("perfil-form-container").style.display = "block";
+            
+            if (data.fecha_nacimiento) {
+                document.getElementById("fecha_nacimiento").value = data.fecha_nacimiento;
             }
-            archivadosDiv.innerHTML = archivados.map(chat => `
-                <div class="usuario-item" data-user="${escapeHtml(chat.usuario)}">
-                    <div class="chat-info" onclick="window.location.href='/chat/${encodeURIComponent(chat.usuario)}'">
-                        <div class="nombre">📦 ${escapeHtml(chat.usuario)}</div>
-                        <div class="ultimo-mensaje">${escapeHtml(chat.ultimo_mensaje || 'Archivado')}</div>
-                    </div>
-                    <button class="btn-archivar" data-user="${escapeHtml(chat.usuario)}" title="Desarchivar">📤</button>
-                </div>
-            `).join("");
-            document.querySelectorAll('#archivados-list .btn-archivar').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    let user = btn.getAttribute('data-user');
-                    unarchiveChat(user);
-                });
-            });
-        });
-    }
-
-    // ========== MATCHES ==========
-    function cargarMatches() {
-        if (!matchesDiv) return;
-        fetch("/mis_matches")
-        .then(r => r.json())
-        .then(data => {
-            if (!data.matches) data.matches = [];
-            if (data.matches.length === 0) {
-                matchesDiv.innerHTML = '<div style="padding:12px; color:#888; text-align:center; font-size:12px;">💔 Aún no hay matches. Da likes para encontrarlos.</div>';
-                return;
+            if (data.genero) {
+                document.getElementById("genero").value = data.genero;
             }
-            matchesDiv.innerHTML = data.matches.map(user => `
-                <div class="usuario-item" onclick="window.location.href='/chat/${encodeURIComponent(user)}'">
-                    <div class="chat-info">
-                        <div class="nombre">❤️ ${escapeHtml(user)}</div>
-                        <div class="ultimo-mensaje">¡Es un match! Haz clic para chatear</div>
-                    </div>
-                </div>
-            `).join("");
-        });
-    }
-
-    // ========== LIKES ==========
-    function darLike(receptor) {
-        fetch("/dar_like", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ receptor: receptor })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.match) {
-                alert("✨ ¡ES UN MATCH! ✨ Ahora pueden chatear.");
-                cargarMatches();
-                actualizarBotonesLike();
+            if (data.foto_perfil) {
+                document.getElementById("foto-actual").innerHTML = `<img src="${data.foto_perfil}" onerror="this.src='https://via.placeholder.com/100'">`;
             } else {
-                alert("❤️ Like enviado a " + receptor);
-                const btn = document.querySelector(`.btn-like[data-usuario="${receptor}"]`);
-                if (btn) btn.classList.add("liked");
+                document.getElementById("foto-actual").innerHTML = `<img src="https://via.placeholder.com/100?text=Sin+foto">`;
             }
-        })
-        .catch(err => mostrarError("Error al dar like: " + err.message));
-    }
-
-    function actualizarBotonesLike() {
-        fetch("/mis_likes_dados")
-        .then(r => r.json())
-        .then(data => {
-            const likes = data.likes || [];
-            document.querySelectorAll('.btn-like').forEach(btn => {
-                const user = btn.getAttribute('data-usuario');
-                if (likes.includes(user)) {
-                    btn.classList.add("liked");
-                } else {
-                    btn.classList.remove("liked");
-                }
-            });
-        })
-        .catch(err => console.error("Error al cargar likes dados:", err));
-    }
-
-    // ========== FUNCIONES COMUNES ==========
-    function mostrarError(mensaje) {
-        if (debugBox) {
-            debugBox.classList.add("error-activo");
-            debugBox.innerHTML = `❌ ${mensaje}`;
-            setTimeout(() => {
-                debugBox.classList.remove("error-activo");
-                debugBox.innerHTML = "";
-            }, 5000);
+        } catch (err) {
+            document.getElementById("cargando").innerHTML = "❌ Error de red";
         }
     }
-    function escapeHtml(text) {
-        if (!text) return "";
-        return text.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
-    function renderMensaje(m) {
-        if (!m || !m.mensaje) return "";
-        let clase = m.emisor === usuarioActual ? "mio" : "otro";
-        if (typeof m.mensaje === "string" && m.mensaje.includes("[FOTO]")) {
-            let ruta = m.mensaje.replace("[FOTO]", "");
-            // Corregir ruta de imagen
-            if (!ruta.startsWith("/static/") && !ruta.startsWith("static/")) {
-                ruta = "/static/" + ruta;
-            } else if (ruta.startsWith("static/")) {
-                ruta = "/" + ruta;
-            }
-            return `<div class="mensaje ${clase}"><strong>${escapeHtml(m.emisor)}:</strong><br><img src="${ruta}" style="max-width:120px; border-radius:10px;" onerror="this.src='https://via.placeholder.com/120?text=Imagen'"></div>`;
-        }
-        return `<div class="mensaje ${clase}"><strong>${escapeHtml(m.emisor)}:</strong> ${escapeHtml(m.mensaje)}</div>`;
-    }
-
-    // Control de scroll inteligente
-    let debeAutoScroll = true;
-    function cargarMensajes() {
-        if (!chatCon || !chatBox) return;
-        const distanciaAlFondo = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight;
-        const estabaCercaDelFondo = distanciaAlFondo < 100;
+    
+    cargarPerfil();
+    
+    document.getElementById("guardar").addEventListener("click", async () => {
+        const formData = new FormData();
+        const fecha = document.getElementById("fecha_nacimiento").value;
+        const genero = document.getElementById("genero").value;
+        const foto = document.getElementById("foto_perfil").files[0];
         
-        fetch("/mensajes_privados/" + encodeURIComponent(chatCon))
-        .then(r => r.json())
-        .then(data => {
-            if (data.error) { mostrarError(data.error); return; }
-            if (data.mensajes) {
-                const oldScrollHeight = chatBox.scrollHeight;
-                const oldScrollTop = chatBox.scrollTop;
-                chatBox.innerHTML = data.mensajes.map(renderMensaje).join("");
-                
-                if (estabaCercaDelFondo || debeAutoScroll) {
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                    debeAutoScroll = false;
-                } else {
-                    const newScrollHeight = chatBox.scrollHeight;
-                    chatBox.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
-                }
-            }
-        })
-        .catch(err => mostrarError("Error cargando: " + err.message));
-    }
-
-    if (chatBox) {
-        chatBox.addEventListener('scroll', () => {
-            const distanciaAlFondo = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight;
-            if (distanciaAlFondo > 200) {
-                debeAutoScroll = false;
-            } else if (distanciaAlFondo < 50) {
-                debeAutoScroll = true;
-            }
-        });
-    }
-
-    if (btnEnviar) {
-        btnEnviar.addEventListener("click", () => {
-            let mensaje = inputMensaje?.value.trim();
-            if (!mensaje) { mostrarError("Escribe un mensaje"); return; }
-            if (!chatCon) { mostrarError("No hay chat"); return; }
-            debeAutoScroll = true;
-            let formData = new FormData();
-            formData.append("receptor", chatCon);
-            formData.append("mensaje", mensaje);
-            fetch("/mensaje", { method: "POST", body: formData })
-            .then(r => r.json())
-            .then(data => {
-                if (data.ok) {
-                    if (inputMensaje) inputMensaje.value = "";
-                    cargarMensajes();
-                    cargarChatsDirectos();
-                } else {
-                    mostrarError(data.error || "Error");
-                }
-            })
-            .catch(err => mostrarError("Error de red: " + err.message));
-        });
-    }
-
-    if (inputImagen) {
-        inputImagen.addEventListener("change", e => {
-            let file = e.target.files[0];
-            if (!file) return;
-            if (file.size > 5 * 1024 * 1024) { mostrarError("Imagen máx 5MB"); return; }
-            debeAutoScroll = true;
-            let reader = new FileReader();
-            reader.onload = function(ev) {
-                fetch("/enviar_imagen", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ imagen: ev.target.result, receptor: chatCon })
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.ok) {
-                        cargarMensajes();
-                        cargarChatsDirectos();
-                        inputImagen.value = "";
-                        const inputGroup = document.querySelector('.input-group');
-                        if (inputGroup) inputGroup.style.display = 'flex';
-                    } else {
-                        mostrarError(data.error || "Error imagen");
-                    }
-                })
-                .catch(err => mostrarError("Error red: " + err.message));
+        if (fecha) formData.append("fecha_nacimiento", fecha);
+        if (genero) formData.append("genero", genero);
+        if (foto) {
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                formData.append("foto_perfil", ev.target.result);
+                await enviarForm(formData);
             };
-            reader.readAsDataURL(file);
-        });
-    }
-
-    if (inputMensaje) {
-        inputMensaje.addEventListener("keypress", (e) => {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                btnEnviar?.click();
+            reader.readAsDataURL(foto);
+        } else {
+            await enviarForm(formData);
+        }
+    });
+    
+    async function enviarForm(formData) {
+        const btn = document.getElementById("guardar");
+        btn.disabled = true;
+        btn.textContent = "Guardando...";
+        try {
+            const res = await fetch("/actualizar_perfil", { method: "POST", body: formData });
+            const data = await res.json();
+            if (data.ok) {
+                alert("✅ Perfil actualizado correctamente");
+                location.reload();
+            } else {
+                alert("❌ Error: " + (data.error || "desconocido"));
             }
-        });
-        inputMensaje.addEventListener("focus", () => {
-            setTimeout(() => {
-                inputMensaje.scrollIntoView({ behavior: "smooth", block: "center" });
-            }, 300);
-        });
-    }
-
-    document.querySelectorAll('.btn-like').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const usuario = btn.getAttribute('data-usuario');
-            if (usuario) darLike(usuario);
-        });
-    });
-
-    document.querySelectorAll("#lista-usuarios .usuario-item-todos .nombre").forEach(nombreEl => {
-        const parent = nombreEl.closest('.usuario-item-todos');
-        if (parent) {
-            parent.addEventListener('click', (e) => {
-                if (e.target.classList && e.target.classList.contains('btn-like')) return;
-                let user = parent.getAttribute('data-usuario');
-                if (user) window.location.href = "/chat/" + encodeURIComponent(user);
-            });
+        } catch (err) {
+            alert("❌ Error de red");
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Guardar cambios";
         }
-    });
-
-    window.addEventListener('pageshow', (event) => {
-        if (event.persisted) {
-            const inputGroup = document.querySelector('.input-group');
-            if (inputGroup) inputGroup.style.display = 'flex';
-            if (chatCon) cargarMensajes();
-            cargarChatsDirectos();
-            actualizarBotonesLike();
-            cargarMatches();
-        }
-    });
-
-    if (chatCon) {
-        cargarMensajes();
-        setInterval(cargarMensajes, 3000);
     }
-    cargarChatsDirectos();
-    setInterval(cargarChatsDirectos, 5000);
-    actualizarBotonesLike();
-    setInterval(actualizarBotonesLike, 6000);
-    cargarMatches();
-    setInterval(cargarMatches, 6000);
-});
 </script>
 </body>
 </html>
