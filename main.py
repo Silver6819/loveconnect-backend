@@ -1,6 +1,6 @@
 import os
 import traceback
-from datetime import datetime
+from datetime import datetime, date
 from fastapi import FastAPI, Request, Form, Body
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -9,12 +9,14 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 import base64
 import re
+import uuid
 from urllib.parse import unquote
 
 app = FastAPI()
 
 # ========== CONFIGURACIÓN INICIAL ==========
 os.makedirs("static", exist_ok=True)
+os.makedirs("static/perfiles", exist_ok=True)  # para fotos de perfil
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key="supersecreto", https_only=False)
 
@@ -71,7 +73,7 @@ def render(request, template_name, context):
 def mostrar_error(mensaje="Error interno del servidor"):
     return HTMLResponse(f"<h3>{mensaje}</h3><pre>{traceback.format_exc()}</pre>")
 
-# ========== INICIO: CREAR TABLAS ==========
+# ========== INICIO: CREAR TABLAS Y COLUMNAS ==========
 @app.on_event("startup")
 def startup():
     if not engine:
@@ -79,6 +81,7 @@ def startup():
         return
     try:
         with engine.begin() as conn:
+            # Tablas principales
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS mensajes (
                     id SERIAL PRIMARY KEY,
@@ -94,7 +97,6 @@ def startup():
                     nombre TEXT UNIQUE
                 )
             """))
-            # Tabla para likes (match)
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS likes (
                     id SERIAL PRIMARY KEY,
@@ -104,7 +106,15 @@ def startup():
                     UNIQUE(usuario_emisor, usuario_receptor)
                 )
             """))
-        print("✅ Tablas 'mensajes', 'usuarios' y 'likes' verificadas/creadas.")
+            
+            # Añadir columnas a usuarios (si no existen)
+            for col in ["fecha_nacimiento DATE", "foto_perfil TEXT", "genero TEXT", "plan TEXT DEFAULT 'basico'", "premium_hasta TIMESTAMP"]:
+                try:
+                    conn.execute(text(f"ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS {col}"))
+                except Exception as e:
+                    print(f"Nota: columna {col} puede que ya exista - {e}")
+        
+        print("✅ Tablas y columnas verificadas/creadas.")
     except Exception as e:
         debug_error("STARTUP", e)
 
@@ -117,7 +127,6 @@ async def mensajes_privados(request: Request, usuario: str):
     try:
         usuario = unquote(usuario)
         usuario_actual = request.session.get("usuario", "Invitado")
-        debug_log("PRIVADO", f"{usuario_actual} -> {usuario}")
         
         with engine.begin() as conn:
             if usuario == "GLOBAL":
@@ -136,7 +145,6 @@ async def mensajes_privados(request: Request, usuario: str):
             
             mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
         
-        debug_log("PRIVADO", f"Devueltos {len(mensajes)} mensajes")
         return {"mensajes": mensajes}
     except Exception as e:
         debug_error("PRIVADO", e)
@@ -185,7 +193,7 @@ async def enviar_mensaje(
         debug_error("MENSAJE", e)
         return {"ok": False, "error": str(e)}
 
-# ========== NUEVO: CHAT GLOBAL (sin parámetro) ==========
+# ========== CHAT GLOBAL Y PRIVADO ==========
 @app.get("/global", response_class=HTMLResponse)
 async def chat_global(request: Request):
     try:
@@ -197,8 +205,22 @@ async def chat_global(request: Request):
             with engine.begin() as conn:
                 result = conn.execute(text("SELECT emisor, mensaje FROM mensajes WHERE receptor = 'GLOBAL' ORDER BY fecha ASC"))
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
-                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
-                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+                result_users = conn.execute(text("SELECT nombre, foto_perfil, fecha_nacimiento FROM usuarios"))
+                usuarios = []
+                for r in result_users.fetchall():
+                    edad = None
+                    if r[2]:
+                        try:
+                            hoy = date.today()
+                            nac = r[2]
+                            edad = hoy.year - nac.year - ((hoy.month, hoy.day) < (nac.month, nac.day))
+                        except:
+                            pass
+                    usuarios.append({
+                        "nombre": r[0],
+                        "foto_perfil": r[1],
+                        "edad": edad
+                    })
         
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -211,7 +233,6 @@ async def chat_global(request: Request):
         debug_error("GLOBAL", e)
         return mostrar_error()
 
-# ========== CHAT PRIVADO ==========
 @app.get("/chat/{usuario}", response_class=HTMLResponse)
 async def chat_privado(request: Request, usuario: str):
     usuario = unquote(usuario)
@@ -229,8 +250,22 @@ async def chat_privado(request: Request, usuario: str):
                     ORDER BY fecha ASC
                 """), {"yo": usuario_actual, "otro": usuario})
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
-                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
-                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+                result_users = conn.execute(text("SELECT nombre, foto_perfil, fecha_nacimiento FROM usuarios"))
+                usuarios = []
+                for r in result_users.fetchall():
+                    edad = None
+                    if r[2]:
+                        try:
+                            hoy = date.today()
+                            nac = r[2]
+                            edad = hoy.year - nac.year - ((hoy.month, hoy.day) < (nac.month, nac.day))
+                        except:
+                            pass
+                    usuarios.append({
+                        "nombre": r[0],
+                        "foto_perfil": r[1],
+                        "edad": edad
+                    })
         
         return render(request, "index.html", {
             "usuarios": usuarios,
@@ -243,7 +278,62 @@ async def chat_privado(request: Request, usuario: str):
         debug_error("CHAT_PRIVADO", e)
         return mostrar_error()
 
-# ========== ENDPOINTS PARA LIKES Y MATCHES ==========
+# ========== PERFIL DE USUARIO ==========
+@app.get("/mi_perfil")
+async def mi_perfil(request: Request):
+    usuario_actual = request.session.get("usuario", "Invitado")
+    if not engine:
+        return {"error": "DB no conectada"}
+    with engine.begin() as conn:
+        result = conn.execute(text("SELECT nombre, fecha_nacimiento, foto_perfil, genero, plan, premium_hasta FROM usuarios WHERE nombre = :n"), {"n": usuario_actual})
+        user = result.fetchone()
+    if not user:
+        return {"error": "Usuario no encontrado"}
+    return {
+        "nombre": user[0],
+        "fecha_nacimiento": str(user[1]) if user[1] else None,
+        "foto_perfil": user[2],
+        "genero": user[3],
+        "plan": user[4],
+        "premium_hasta": str(user[5]) if user[5] else None
+    }
+
+@app.post("/actualizar_perfil")
+async def actualizar_perfil(request: Request, fecha_nacimiento: str = Form(None), genero: str = Form(None), foto_perfil: str = Form(None)):
+    usuario_actual = request.session.get("usuario", "Invitado")
+    if not engine:
+        return {"ok": False, "error": "DB no conectada"}
+    
+    foto_ruta = None
+    if foto_perfil and foto_perfil.startswith("data:image"):
+        try:
+            formato = foto_perfil.split(";")[0].split("/")[-1]
+            data = foto_perfil.split(",")[1]
+            img_bytes = base64.b64decode(data)
+            nombre_archivo = f"perfil_{usuario_actual}_{uuid.uuid4().hex}.{formato}"
+            ruta = f"static/perfiles/{nombre_archivo}"
+            os.makedirs("static/perfiles", exist_ok=True)
+            with open(ruta, "wb") as f:
+                f.write(img_bytes)
+            foto_ruta = f"/{ruta}"
+        except Exception as e:
+            debug_error("FOTO_PERFIL", e)
+    
+    with engine.begin() as conn:
+        if foto_ruta:
+            conn.execute(text("UPDATE usuarios SET foto_perfil = :foto WHERE nombre = :n"), {"foto": foto_ruta, "n": usuario_actual})
+        if fecha_nacimiento:
+            conn.execute(text("UPDATE usuarios SET fecha_nacimiento = :fecha WHERE nombre = :n"), {"fecha": fecha_nacimiento, "n": usuario_actual})
+        if genero:
+            conn.execute(text("UPDATE usuarios SET genero = :g WHERE nombre = :n"), {"g": genero, "n": usuario_actual})
+    return {"ok": True}
+
+@app.get("/perfil", response_class=HTMLResponse)
+async def perfil_form(request: Request):
+    usuario_actual = request.session.get("usuario", "Invitado")
+    return templates.TemplateResponse("perfil.html", {"request": request, "usuario_actual": usuario_actual})
+
+# ========== LIKES Y MATCHES ==========
 @app.post("/dar_like")
 async def dar_like(request: Request, data: dict = Body(...)):
     if not engine:
@@ -255,13 +345,11 @@ async def dar_like(request: Request, data: dict = Body(...)):
             return {"ok": False, "error": "No puedes darte like a ti mismo"}
         
         with engine.begin() as conn:
-            # Insertar like
             conn.execute(text("""
                 INSERT INTO likes (usuario_emisor, usuario_receptor)
                 VALUES (:e, :r) ON CONFLICT DO NOTHING
             """), {"e": usuario_actual, "r": receptor})
             
-            # Verificar match (el receptor ya me había dado like)
             result = conn.execute(text("""
                 SELECT 1 FROM likes
                 WHERE usuario_emisor = :r AND usuario_receptor = :e
@@ -352,7 +440,7 @@ async def mis_chats(request: Request):
         debug_error("MIS_CHATS", e)
         return {"chats": []}
 
-# ========== IMÁGENES ==========
+# ========== IMÁGENES EN CHAT ==========
 @app.post("/enviar_foto")
 async def enviar_foto(request: Request, data: dict = Body(...)):
     if not engine:
@@ -381,7 +469,6 @@ async def enviar_foto(request: Request, data: dict = Body(...)):
                 VALUES (:e, :r, :m)
             """), {"e": usuario_actual, "r": receptor, "m": f"[FOTO]{ruta}"})
         
-        debug_log("IMAGEN", f"Imagen guardada: {ruta}")
         return {"ok": True}
     except Exception as e:
         debug_error("IMAGEN", e)
@@ -408,8 +495,22 @@ async def home(request: Request):
             with engine.begin() as conn:
                 result = conn.execute(text("SELECT emisor, mensaje FROM mensajes WHERE receptor = 'GLOBAL' ORDER BY fecha ASC"))
                 mensajes = [{"emisor": r[0], "mensaje": r[1]} for r in result.fetchall()]
-                result_users = conn.execute(text("SELECT nombre FROM usuarios"))
-                usuarios = [{"nombre": r[0], "online": True} for r in result_users.fetchall()]
+                result_users = conn.execute(text("SELECT nombre, foto_perfil, fecha_nacimiento FROM usuarios"))
+                usuarios = []
+                for r in result_users.fetchall():
+                    edad = None
+                    if r[2]:
+                        try:
+                            hoy = date.today()
+                            nac = r[2]
+                            edad = hoy.year - nac.year - ((hoy.month, hoy.day) < (nac.month, nac.day))
+                        except:
+                            pass
+                    usuarios.append({
+                        "nombre": r[0],
+                        "foto_perfil": r[1],
+                        "edad": edad
+                    })
         
         return render(request, "index.html", {
             "usuarios": usuarios,
